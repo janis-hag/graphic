@@ -179,22 +179,22 @@ if rank==0:
 				new_info[n]=np.where(np.isnan(new_info[n]),-1,new_info[n])
 			else:
 				psf_sub_filename=target_pattern+"_"+cube_list['cube_filename'][c+n]
-				hdr.set("HIERARCH GC RECENTER",str(__version__)+'.'+(__subversion__), "")
-				hdr.set("HIERARCH GC LMAX",l_max,"")
-				hdr.set('CRPIX1','{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c+n][hdr['NAXIS3']/2,4]), "")
-				hdr.set('CRPIX2','{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c+n][hdr['NAXIS3']/2,5]), "")
+				hdr['HIERARCH GC RECENTER']=(str(__version__)+'.'+(__subversion__), "")
+				hdr['HIERARCH GC LMAX']=(l_max,"")
+				hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c+n][hdr['NAXIS3']/2,4]), "")
+				hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c+n][hdr['NAXIS3']/2,5]), "")
 
-				hdr.add_history("Updated CRPIX1, CRPIX2")
+				hdr['history']= 'Updated CRPIX1, CRPIX2'
 				graphic_lib_320.save_fits(psf_sub_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
 				graphic_lib_320.write_array2rdb(info_dir+os.sep+info_filename,cube_list['info'][c+n],header_keys)
 
 		if collapse:
-			hdr.set("HIERARCH GC RECENTER",str(__version__)+'.'+(__subversion__), "")
-			hdr.set("HIERARCH GC LMAX",l_max,"")
-			hdr.set('CRPIX1','{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c][hdr['NAXIS3']/2,4]), "")
-			hdr.set('CRPIX2','{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c][hdr['NAXIS3']/2,5]), "")
+			hdr['HIERARCH GC RECENTER']=(str(__version__)+'.'+(__subversion__), "")
+			hdr['HIERARCH GC LMAX']=(l_max,"")
+			hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c][hdr['NAXIS3']/2,4]), "")
+			hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c][hdr['NAXIS3']/2,5]), "")
 
-			hdr.add_history("Updated CRPIX1, CRPIX2")
+			hdr['history']= 'Updated CRPIX1, CRPIX2'
 			graphic_lib_320.save_fits(psf_sub_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
 			graphic_lib_320.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
 
