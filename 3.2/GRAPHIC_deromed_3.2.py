@@ -73,7 +73,7 @@ parser.add_argument('-nofit', dest='fit', action='store_const',
 parser.add_argument('-save_stack', dest='save_stack', action='store_const',
 				   const=True, default=False,
 				   help='Save intermediate derotation stacks.')
-parser.add_argument('-bottleneck', dest='bottleneck', action='store_const',
+parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
 				   const=True, default=False,
 				   help='Use bottleneck module instead of numpy for nanmedian.')
 
@@ -93,9 +93,9 @@ interpolate=args.interpolate
 nomask=args.nomask
 interactive=args.interactive
 fit=args.fit
-use_bottleneck=args.use_botteleneck
+use_bottleneck=args.use_bottleneck
 
-if use bottleneck:
+if use_bottleneck:
 	from bottleneck import median as median
 	from bottleneck import nanmedian as nanmedian
 else:
@@ -104,7 +104,7 @@ else:
 
 med_tot=None
 
-header_keys=['frame_number', 'psf_barycenter_x', 'psf_barycenter_y', 'psf_pixel_size', 'psf_fit_center_x', 'psf_fit_center_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
+header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
 
 if rank==0:
@@ -262,7 +262,7 @@ if rank==0:
 		graphic_lib_320.save_fits(step_filename, med_tot, hdr=hdr, backend='pyfits' )
 		print("Step time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0_step)))
 
-	# Put a cross in the center
+	# Put a cross in the centre
 	# print(np.where(cube_list['info'][:][:][7]>0),7)
 	if "GC RMIN" in hdr.keys():
 		fwhm=hdr["GC RMIN"]
@@ -272,7 +272,7 @@ if rank==0:
 		fwhm=median(cube_list['info'][0][np.where(cube_list['info'][0][:,7]>0),7])
 	if nomask:
 		med_nomask=med_tot.copy()
-	med_tot=graphic_lib_320.mask_center(med_tot, fwhm/2., med_tot.shape[0]/2., med_tot.shape[0]/2. )
+	med_tot=graphic_lib_320.mask_centre(med_tot, fwhm/2., med_tot.shape[0]/2., med_tot.shape[0]/2. )
 
 	print("Saving: "+str(finalname))
 	graphic_lib_320.save_fits(finalname, med_tot, hdr=hdr, backend='pyfits' )

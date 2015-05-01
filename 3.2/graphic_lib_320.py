@@ -161,7 +161,7 @@ def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
 	Warning: python inverts x and y
 	Threshold could be given as argument...
 	-im: the image to be analysed
-	-spot_ary: the 2d array of spots [psf_barycenter_x, psf_barycenter_y, psf_pixel_size]
+	-spot_ary: the 2d array of spots [psf_barycentre_x, psf_barycentre_y, psf_pixel_size]
 	"""
 	import sys, numpy
 
@@ -196,21 +196,21 @@ def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
 		# compute total luminosity of the spot
 		else:
 			tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
-			# find the xcenter of mass
-			xcenter=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
-			# find the ycenter of mass
-			ycenter=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			# find the xcentre of mass
+			xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			# find the ycentre of mass
+			ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
 			#check if it is the first spot
-			if spot_ary is None: spot_ary=numpy.array([xcenter,ycenter,new_cluster.size]) # initialise
+			if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
 			elif new_cluster.size>spot_ary[2]:
 				# More than one centroid detected. Keep only the biggest.
-				#spot_ary=numpy.vstack((spot_ary,[xcenter,ycenter,new_cluster.size]))
-				dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcenter,ycenter,new_cluster.size]))
-				spot_ary=numpy.array([xcenter,ycenter,new_cluster.size])
-			if  check_ima[numpy.round(xcenter),numpy.round(ycenter)]==0:
-				check_ima[numpy.round(xcenter),numpy.round(ycenter)]=tot_lum #Add a point on the checking image
+				#spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+				dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcentre,ycentre,new_cluster.size]))
+				spot_ary=numpy.array([xcentre,ycentre,new_cluster.size])
+			if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+				check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
 			else:
-				check_ima[numpy.round(xcenter)+1,numpy.round(ycenter)+1]=tot_lum
+				check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
 				print "Double detection"
 			cl_cnt=cl_cnt+1
 	else:
@@ -234,21 +234,21 @@ def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
 					#spot_ary
 					# compute total luminosity of the spot
 					tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
-					# find the xcenter of mass
-					xcenter=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
-					 # find the ycenter of mass
-					ycenter=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					# find the xcentre of mass
+					xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					 # find the ycentre of mass
+					ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
 					#check if it is the first spot
-					if spot_ary is None: spot_ary=numpy.array([xcenter,ycenter,new_cluster.size]) # initialise
+					if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
 					elif new_cluster.size>spot_ary[2]:
 						# More than one centroid detected. Keep only the biggest.
-						#spot_ary=numpy.vstack((spot_ary,[xcenter,ycenter,new_cluster.size]))
-						dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcenter,ycenter,new_cluster.size]))
-						spot_ary=numpy.array([xcenter,ycenter,new_cluster.size])
-					if  check_ima[numpy.round(xcenter),numpy.round(ycenter)]==0:
-						check_ima[numpy.round(xcenter),numpy.round(ycenter)]=tot_lum #Add a point on the checking image
+						#spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+						dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcentre,ycentre,new_cluster.size]))
+						spot_ary=numpy.array([xcentre,ycentre,new_cluster.size])
+					if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+						check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
 					else:
-						check_ima[numpy.round(xcenter)+1,numpy.round(ycenter)+1]=tot_lum
+						check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
 						print "Double detection"
 					cl_cnt=cl_cnt+1
 			else: continue
@@ -278,7 +278,7 @@ def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
 	Warning: python inverts x and y
 	Threshold could be given as argument...
 	-im: the image to be analysed
-	-spot_ary: the 2d array of spots [psf_barycenter_x, psf_barycenter_y, psf_pixel_size]
+	-spot_ary: the 2d array of spots [psf_barycentre_x, psf_barycentre_y, psf_pixel_size]
 	"""
 	import sys, numpy
 
@@ -314,17 +314,17 @@ def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
 		# compute total luminosity of the spot
 		else:
 			tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
-			# find the xcenter of mass
-			xcenter=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
-			# find the ycenter of mass
-			ycenter=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			# find the xcentre of mass
+			xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			# find the ycentre of mass
+			ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
 			#check if it is the first spot
-			if spot_ary is None: spot_ary=numpy.array([xcenter,ycenter,new_cluster.size]) # initialise
-			else: spot_ary=numpy.vstack((spot_ary,[xcenter,ycenter,new_cluster.size]))
-			if  check_ima[numpy.round(xcenter),numpy.round(ycenter)]==0:
-				check_ima[numpy.round(xcenter),numpy.round(ycenter)]=tot_lum #Add a point on the checking image
+			if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
+			else: spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+			if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+				check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
 			else:
-				check_ima[numpy.round(xcenter)+1,numpy.round(ycenter)+1]=tot_lum
+				check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
 				print "Double detection"
 			cl_cnt=cl_cnt+1
 	else:
@@ -348,17 +348,17 @@ def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
 					#spot_ary
 					# compute total luminosity of the spot
 					tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
-					# find the xcenter of mass
-					xcenter=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
-					 # find the ycenter of mass
-					ycenter=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					# find the xcentre of mass
+					xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					 # find the ycentre of mass
+					ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
 					#check if it is the first spot
-					if spot_ary is None: spot_ary=numpy.array([xcenter,ycenter,new_cluster.size]) # initialise
-					else: spot_ary=numpy.vstack((spot_ary,[xcenter,ycenter,new_cluster.size]))
-					if  check_ima[numpy.round(xcenter),numpy.round(ycenter)]==0:
-						check_ima[numpy.round(xcenter),numpy.round(ycenter)]=tot_lum #Add a point on the checking image
+					if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
+					else: spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+					if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+						check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
 					else:
-						check_ima[numpy.round(xcenter)+1,numpy.round(ycenter)+1]=tot_lum
+						check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
 						print "Double detection"
 					cl_cnt=cl_cnt+1
 			else: continue
@@ -523,11 +523,11 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 		## if info_filename[0][-3:]=='rdb':
 		rdb_info=read_rdb(info_filename[0])
 		if fit:
-			rdb_info['psf_barycenter_x']=rdb_info['psf_fit_center_x']
-			rdb_info['psf_barycenter_y']=rdb_info['psf_fit_center_y']
+			rdb_info['psf_barycentre_x']=rdb_info['psf_fit_centre_x']
+			rdb_info['psf_barycentre_y']=rdb_info['psf_fit_centre_y']
 		else:
-			rdb_info['psf_fit_center_x']=rdb_info['psf_barycenter_x']
-			rdb_info['psf_fit_center_y']=rdb_info['psf_barycenter_y']
+			rdb_info['psf_fit_centre_x']=rdb_info['psf_barycentre_x']
+			rdb_info['psf_fit_centre_y']=rdb_info['psf_barycentre_y']
 		all_info=np.array(rdb_info['frame_number'])
 		for k in keys[1:]:
 			all_info=np.vstack((all_info,np.array(rdb_info[k])))
@@ -892,7 +892,7 @@ def cut_cube(centroname,cube_in, R, d):
 
 	return masked_cube
 
-## def frame_recenter(frame,dx,dy):
+## def frame_recentre(frame,dx,dy):
 	## print("frame.shape: "+str(frame.shape))
 	## frame=ndimage.interpolation.shift(frame, (dx,dy), order=3, mode='constant', cval=numpy.NaN, prefilter=False)
 	## return frame
@@ -1425,7 +1425,7 @@ def iprint(inter, text):
 
 def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True, pad=2):
 	"""
-	Inject fake companions to an image with a primary star centered. The companions are of different magnitudes (DeltaMagVect)
+	Inject fake companions to an image with a primary star centreed. The companions are of different magnitudes (DeltaMagVect)
 	and for each magnitude they are at different radial distances (rhoVect_as) from the primary stars
 
 	input:
@@ -1440,7 +1440,7 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 	Optional
 	--------
 	alpha: angle of rotation to add to the companions in radians
-	x0,y0: translation in pixels of the central star from the center of the image (used if the star is not in the center)
+	x0,y0: translation in pixels of the central star from the centre of the image (used if the star is not in the centre)
 	r_tel_prim: radius of the primary mirror of the telescope (optional, if not specified the radius is the VLT's one)
 	r_tel_sec: radius of the secondary mirror of the telescope that hides a part of the field of view (optional, if not specified
 	  the radius is the VLT's one)
@@ -1517,8 +1517,8 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 		waveFront  = np.zeros((l,l),dtype=complex)
 
 		for j in range(len(rhoVect_as)):#displaying the companions with the good distances from the star
-			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the center
-			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the center
+			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the centre
+			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the centre
 			## phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaX_as*u_asm1+x0*u_pix1))).T*np.exp(-2j*np.pi*(deltaY_as*v_asm1+y0*v_pix1))).T
 			phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaY_as*u_asm1+y0*u_pix1))).T*np.exp(-2j*np.pi*(deltaX_as*v_asm1+x0*v_pix1))).T
 			waveFront += phasor
@@ -1547,7 +1547,7 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 
 def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True, pad=2):
 	"""
-	Inject fake companions to an image with a primary star centered. The companions are of different magnitudes (DeltaMagVect)
+	Inject fake companions to an image with a primary star centreed. The companions are of different magnitudes (DeltaMagVect)
 	and for each magnitude they are at different radial distances (rhoVect_as) from the primary stars
 
 	input:
@@ -1562,7 +1562,7 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 	Optional
 	--------
 	alpha: angle of rotation to add to the companions in radians
-	x0,y0: translation in pixels of the central star from the center of the image (used if the star is not in the center)
+	x0,y0: translation in pixels of the central star from the centre of the image (used if the star is not in the centre)
 	r_tel_prim: radius of the primary mirror of the telescope (optional, if not specified the radius is the VLT's one)
 	r_tel_sec: radius of the secondary mirror of the telescope that hides a part of the field of view (optional, if not specified
 	  the radius is the VLT's one)
@@ -1640,8 +1640,8 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 		waveFront  = np.zeros((l,l),dtype=complex)
 
 		for j in range(len(rhoVect_as)):#displaying the companions with the good distances from the star
-			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the center
-			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the center
+			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the centre
+			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the centre
 			## phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaX_as*u_asm1+x0*u_pix1))).T*np.exp(-2j*np.pi*(deltaY_as*v_asm1+y0*v_pix1))).T
 			phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaY_as*u_asm1+y0*u_pix1))).T*np.exp(-2j*np.pi*(deltaX_as*v_asm1+x0*v_pix1))).T
 			waveFront += phasor
@@ -1669,7 +1669,7 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 
 def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0., x0=None, y0=None, r_tel_prim=8.1, r_tel_sec=1.0, noise=True, pad=2, pix_scale_as_pix=0.018):
 	"""
-	Inject fake companions to an image with a primary star centered. The companions are of different magnitudes (DeltaMagVect)
+	Inject fake companions to an image with a primary star centreed. The companions are of different magnitudes (DeltaMagVect)
 	and for each magnitude they are at different radial distances (rhoVect_as) from the primary stars
 
 	input:
@@ -1684,7 +1684,7 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 	Optional
 	--------
 	alpha: angle of rotation to add to the companions in radians
-	x0,y0: translation in pixels of the central star from the center of the image (used if the star is not in the center)
+	x0,y0: translation in pixels of the central star from the centre of the image (used if the star is not in the centre)
 	r_tel_prim: radius of the primary mirror of the telescope (optional, if not specified the radius is the VLT's one)
 	r_tel_sec: radius of the secondary mirror of the telescope that hides a part of the field of view (optional, if not specified
 	  the radius is the VLT's one)
@@ -1804,8 +1804,8 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 		waveFront  = np.zeros((l,l),dtype=complex)
 
 		for j in range(len(rhoVect_as)):#displaying the companions with the good distances from the star
-			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the center
-			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the center
+			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the centre
+			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the centre
 			## phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaX_as*u_asm1+x0*u_pix1))).T*np.exp(-2j*np.pi*(deltaY_as*v_asm1+y0*v_pix1))).T
 			phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaY_as*u_asm1+y0*u_pix1))).T*np.exp(-2j*np.pi*(deltaX_as*v_asm1+x0*v_pix1))).T
 			waveFront += phasor
@@ -1833,7 +1833,7 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 
 def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True):
 		"""
-		Inject fake companions to an image with a primary star centered. The companions are of different magnitudes (DeltaMagVect)
+		Inject fake companions to an image with a primary star centreed. The companions are of different magnitudes (DeltaMagVect)
 		and for each magnitude they are at different radial distances (rhoVect_as) from the primary stars
 
 		input:
@@ -1848,7 +1848,7 @@ def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha
 		Optional
 		--------
 		alpha: angle of rotation to add to the companions in radians
-		x0,y0: translation in pixels of the central star from the center of the image (used if the star is not in the center)
+		x0,y0: translation in pixels of the central star from the centre of the image (used if the star is not in the centre)
 		r_tel_prim: radius of the primary mirror of the telescope (optional, if not specified the radius is the VLT's one)
 		r_tel_sec: radius of the secondary mirror of the telescope that hides a part of the field of view (optional, if not specified
 		  the radius is the VLT's one)
@@ -1912,8 +1912,8 @@ def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha
 
 
 				for j in range(len(rhoVect_as)):#displaying the companions with the good distances from the star
-						deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the center
-						deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the center
+						deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the centre
+						deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the centre
 						## phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaX_as*u_asm1+x0*u_pix1))).T*np.exp(-2j*np.pi*(deltaY_as*v_asm1+y0*v_pix1))).T
 						phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaY_as*u_asm1+y0*u_pix1))).T*np.exp(-2j*np.pi*(deltaX_as*v_asm1+x0*v_pix1))).T
 						waveFront += phasor
@@ -1934,9 +1934,9 @@ def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha
 		return image
 
 
-def mask_center(frame, R, x0, y0):
+def mask_centre(frame, R, x0, y0):
 	"""
-	Mask out the saturated center of the frame. And draw a cross with frame median value at the center (x0, y0).
+	Mask out the saturated centre of the frame. And draw a cross with frame median value at the centre (x0, y0).
 
 
 	"""

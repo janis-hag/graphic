@@ -12,7 +12,7 @@ smaller cubes with less frames. It is part of the pipeline's quick-look branch.
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
-__version__='3.1'
+__version__='3.2'
 __subversion__='0'
 
 import numpy, scipy, glob,  os, sys, subprocess, string, time

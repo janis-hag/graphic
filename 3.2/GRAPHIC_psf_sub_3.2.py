@@ -117,10 +117,10 @@ else: # Convert seconds to LST hours NO NEED to convert LST already given in sec
 
 l_max=float(args.l_max)/2.
 
-header_keys=['frame_number', 'psf_barycenter_x', 'psf_barycenter_y', 'psf_pixel_size', 'psf_fit_center_x', 'psf_fit_center_y', 'psf_fit_height',
+header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height',
 	'psf_fit_width_x', 'psf_fit_width_y', 'frame_num', 'frame_time', 'paralactic_angle']
 
-def read_recenter(rcn, rcubes, rcube_list, l_max):
+def read_recentre(rcn, rcubes, rcube_list, l_max):
 	hdulist = fits.open(rcube_list['cube_filename'][rcn])
 	rhdr=hdulist[0].header
 	rcubes[rcn]=hdulist[0].data
@@ -129,10 +129,10 @@ def read_recenter(rcn, rcubes, rcube_list, l_max):
 	if "GC RECENTER" in rhdr.keys():
 		graphic_lib_320.iprint(interactive, '\r\r\r Already recentred: '+str(rcube_list['cube_filename'][rcn]))
 		return rcubes, t0_trans
-	# Send the cube to be recentered
+	# Send the cube to be recentreed
 	graphic_lib_320.iprint(interactive, '\r\r\r Recentring '+str(rcube_list['cube_filename'][rcn]))
 
-	comm.bcast("recenter",root=0)
+	comm.bcast("recentre",root=0)
 	comm.bcast(l_max,root=0)
 	comm.bcast(rcube_list['info'][rcn],root=0)
 	graphic_lib_320.send_frames_async(rcubes[rcn])
@@ -150,7 +150,7 @@ def read_recenter(rcn, rcubes, rcube_list, l_max):
 		if data_in == None:
 			continue
 		#info_in=comm.recv(source = n+1)
-		graphic_lib_320.iprint(interactive, '\r\r\r Recentered data from '+str(n+1)+' received									   =>')
+		graphic_lib_320.iprint(interactive, '\r\r\r Recentreed data from '+str(n+1)+' received									   =>')
 
 		## if not rcn in rcubes.keys():
 		if rcubes[rcn]==None:
@@ -163,7 +163,7 @@ def read_recenter(rcn, rcubes, rcube_list, l_max):
 
 	return rcubes, t0_trans
 
-# Define ufunc for quicker recentering
+# Define ufunc for quicker recentreing
 
 t_init=MPI.Wtime()
 
@@ -233,8 +233,8 @@ if rank==0:
 
 	skipped=0
 	## l_max=0
-		# 0: frame_number, 1: psf_barycenter_x, 2: psf_barycenter_y, 3: psf_pixel_size,
-		# 4: psf_fit_center_x, 5: psf_fit_center_y, 6: psf_fit_height, 7: psf_fit_width_x, 8: psf_fit_width_y,
+		# 0: frame_number, 1: psf_barycentre_x, 2: psf_barycentre_y, 3: psf_pixel_size,
+		# 4: psf_fit_centre_x, 5: psf_fit_centre_y, 6: psf_fit_height, 7: psf_fit_width_x, 8: psf_fit_width_y,
 		# 9: frame_number, 10: frame_time, 11: paralactic_angle
 	t0_cube=MPI.Wtime()
 	## if nici: # Convert JD to unix time to get rid of day change issues
@@ -420,10 +420,10 @@ if rank==0:
 							cubes[cn]=bigstack
 							del bigstack, data
 						else: # Send cube for recentring
-							cubes, t0_trans=read_recenter(cn, cubes, cube_list, l_max)
+							cubes, t0_trans=read_recentre(cn, cubes, cube_list, l_max)
 						if args.stat==True:
 							print("\n STAT: Data download took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_lib_320.humanize_time(MPI.Wtime()-t0_trans))
-							print("\n STAT: Recentering took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_lib_320.humanize_time(MPI.Wtime()-tb))
+							print("\n STAT: Recentreing took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_lib_320.humanize_time(MPI.Wtime()-tb))
 
 
 			# Check if the two first cubes are not contiguous.
@@ -472,7 +472,7 @@ if rank==0:
 			if args.stat==True:
 				print("\n STAT: Stack preparation took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_lib_320.humanize_time(MPI.Wtime()-tb))
 
-			#graphic_lib_320.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" recentering stack. Kept "+str(stack.shape[0])+" out of "+str(valid_count)"+ frames.")
+			#graphic_lib_320.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" recentreing stack. Kept "+str(stack.shape[0])+" out of "+str(valid_count)"+ frames.")
 
 
 			if stack == None or sum(len(i) for i in valid.itervalues())==0:
@@ -495,7 +495,7 @@ if rank==0:
 
 
 				temp_info=cube_list['info'][c][f]
-				## # Adjust center value using "psf" frame for shape
+				## # Adjust centre value using "psf" frame for shape
 				temp_info[1]=naxis1/2. #x centroid
 				temp_info[2]=naxis2/2. #y centroid
 				temp_info[4]=naxis1/2. #x stack fit
@@ -540,7 +540,7 @@ if rank==0:
 
 
 				if not c in cubes.keys():
-					cubes, t0_trans=read_recenter(c,cubes, cube_list, l_max)
+					cubes, t0_trans=read_recentre(c,cubes, cube_list, l_max)
 					graphic_lib_320.iprint(interactive, '\n '+str(len(cubes.keys()))+' stored in memory')
 				if final_cube==None: # Check if a cube has already been started
 					final_cube=cubes[c][f][np.newaxis,...]-psf.clip(0)
@@ -585,7 +585,7 @@ if rank==0:
 			graphic_lib_320.save_fits(psf_sub_filename, final_cube, hdr=hdr, backend='pyfits')
 
 			## print(new_info[1][:])
-			## # Adjust center value using "psf" frame for shape
+			## # Adjust centre value using "psf" frame for shape
 			## new_info[1][:]=psf.shape[0]/2. #x centroid
 			## new_info[2][:]=psf.shape[1]/2. #y centroid
 			## new_info[4][:]=psf.shape[0]/2. #x psf fit
@@ -628,10 +628,10 @@ if rank==0:
 #
 # slaves need to:
 # receive stack and frame
-# recenter frames in stack
+# recentre frames in stack
 # calculate median
 # subtract median from frame
-# improvement could be done by somehow keeping recentered frames
+# improvement could be done by somehow keeping recentreed frames
 #
 #######################################################################
 else:
@@ -655,10 +655,10 @@ else:
 			comm.send(psf, dest=0)
 			del psf
 
-		elif todo=="recenter":
+		elif todo=="recentre":
 			# Receive padding dimension
 			l_max=comm.bcast(None,root=0)
-			# Receive info table used for recentering
+			# Receive info table used for recentreing
 			info_stack=comm.bcast(None,root=0)
 			if d >2:
 				print(str(rank)+" received info_stack: "+str(info_stack))
@@ -697,11 +697,11 @@ else:
 				stack_shape=stack.shape
 				del stack
 				for fn in range(bigstack.shape[0]):
-					graphic_lib_320.dprint(d>2, "recentering frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
+					graphic_lib_320.dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
 					if info_stack[s+fn,4]==-1 or info_stack[s+fn,5]==-1 or info_stack[s+fn,6]==-1:
 						bigstack[fn]=np.NaN
 						continue
-					# Shift is given by (image center position)-(star position)
+					# Shift is given by (image centre position)-(star position)
 					if nofft==True: # Use interpolation
 						if 2*l_max<stack_shape[1]:
 							smallstack[fn]=ndimage.interpolation.shift(bigstack[fn], (stack_shape[1]/2.-info_stack[s+fn,4], stack_shape[2]/2.-info_stack[s+fn,5]),
