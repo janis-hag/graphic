@@ -56,7 +56,9 @@ parser.add_argument('-s', dest='stat', action='store_const',
 parser.add_argument('-nici', dest='nici', action='store_const',
 				   const=True, default=False,
 				   help='Switch for GEMINI/NICI data')
-
+parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
+				   const=True, default=False,
+				   help='Use bottleneck module instead of numpy for nanmedian.')
 
 args = parser.parse_args()
 d=args.d
@@ -69,6 +71,14 @@ fit=args.fit
 collapse=args.collapse
 nici=args.nici
 naxis3=args.naxis3
+use_bottleneck=args.use_bottleneck
+
+if use_bottleneck:
+	from bottleneck import median as median
+	from bottleneck import nanmedian as nanmedian
+else:
+	from numpy import nanmedian
+	from numpy import median as median
 
 header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
@@ -181,8 +191,11 @@ if rank==0:
 				psf_sub_filename=target_pattern+"_"+cube_list['cube_filename'][c+n]
 				hdr['HIERARCH GC RECENTER']=(str(__version__)+'.'+(__subversion__), "")
 				hdr['HIERARCH GC LMAX']=(l_max,"")
-				hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c+n][hdr['NAXIS3']/2,4]), "")
-				hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c+n][hdr['NAXIS3']/2,5]), "")
+				## hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c+n][hdr['NAXIS3']/2,4]), "")
+				## hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c+n][hdr['NAXIS3']/2,5]), "")
+				hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+np.float(hdr['CRPIX1'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,4]>0),4])), "")
+				hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+np.float(hdr['CRPIX2'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,5]>0),5])), "")
+
 
 				hdr['history']= 'Updated CRPIX1, CRPIX2'
 				graphic_lib_320.save_fits(psf_sub_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
@@ -191,8 +204,10 @@ if rank==0:
 		if collapse:
 			hdr['HIERARCH GC RECENTER']=(str(__version__)+'.'+(__subversion__), "")
 			hdr['HIERARCH GC LMAX']=(l_max,"")
-			hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c][hdr['NAXIS3']/2,4]), "")
-			hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c][hdr['NAXIS3']/2,5]), "")
+			## hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c][hdr['NAXIS3']/2,4]), "")
+			## hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c][hdr['NAXIS3']/2,5]), "")
+			hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+np.float(hdr['CRPIX1'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,4]>0),4])), "")
+			hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+np.float(hdr['CRPIX2'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,5]>0),5])), "")
 
 			hdr['history']= 'Updated CRPIX1, CRPIX2'
 			graphic_lib_320.save_fits(psf_sub_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
