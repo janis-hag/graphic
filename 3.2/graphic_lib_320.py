@@ -425,8 +425,6 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 	import string
 
 	dirlist=glob.glob(pattern+'*'+extension)
-	## dirlist.sort() # Sort the list alphabetically
-	dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
 
 	if len(dirlist)>0:
 		iprint(interactive, '\r\r\r Found '+str(len(dirlist))+' files.\n')
@@ -434,6 +432,10 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 		## sys.stdout.flush()
 	else:
 		return None
+
+	## dirlist.sort() # Sort the list alphabetically
+	dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
+
 
 	# Check values in dirlist and remove dodgy files.
 	for i in range(len(dirlist)):
