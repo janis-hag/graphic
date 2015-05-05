@@ -40,7 +40,9 @@ parser.add_argument('--pattern', action="store", dest="pattern",  default='*', h
 parser.add_argument('--info_pattern', action="store", dest="info_pattern", required=True, help='Info filename pattern')
 parser.add_argument('--info_dir', action="store", dest="info_dir",  default='cube-info', help='Info directory')
 parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
-parser.add_argument('--naxis3', action="store", dest="naxis3", default=4, type=int, help='The number of frames per cube')
+parser.add_argument('--naxis3', action="store", dest="naxis3", default=4, type=int, help='The number of files to use to generate one cube')
+parser.add_argument('--lmax', action="store", dest="l_max", type=float, default=0,
+					help='Shape of the final image. If not specified it will be calculated to fit all the images.')
 parser.add_argument('-nofft', dest='nofft', action='store_const',
 					const=True, default=False,
 					help='Use interpolation instead of Fourier shift')
@@ -136,7 +138,7 @@ if rank==0:
 		# 0: frame_number, 1: psf_barycentre_x, 2: psf_barycentre_y, 3: psf_pixel_size,
 		# 4: psf_fit_centre_x, 5: psf_fit_centre_y, 6: psf_fit_height, 7: psf_fit_width_x, 8: psf_fit_width_y,
 		# 9: frame_number, 10: frame_time, 11: paralactic_angle
-	l_max=0
+	## l_max=0
 
 	for c in range(0, len(cube_list['cube_filename']), naxis3): # Loop over the cubes
 		t0_cube=MPI.Wtime()
