@@ -2037,6 +2037,7 @@ def parang(dec, ha, geolat):
 	return parang_deg
 
 def print_init():
+	import time
 	print('')
 	print(sys.argv[0]+' started on '+ time.strftime("%c"))
 
