@@ -112,7 +112,8 @@ else:
 t_init=time.time()
 
 ## if rank==0:
-print(sys.argv[0]+' started on '+ time.strftime("%c"))
+graphic_lib_320.print_init()
+
 hdr=None
 
 dirlist=graphic_lib_320.create_dirlist(pattern)

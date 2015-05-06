@@ -17,9 +17,9 @@ janis.hagelberg@unige.ch
 __version__='3.2'
 __subversion__='0'
 
-import scipy, glob, shutil, os, sys, time, fnmatch, tables, argparse, string, time
+import scipy, glob, shutil, os, sys, time, fnmatch, argparse, string, time
 import numpy as np
-import graphic_lib_310
+import graphic_lib_320
 from mpi4py import MPI
 ## from astropy.io import fits as pyfits
 import astropy.io.fits as fits
@@ -82,7 +82,7 @@ fit=args.fit
 nici=args.nici
 ## hdf5=args.hdf5
 
-header_keys=['frame_number', 'psf_barycenter_x', 'psf_barycenter_y', 'psf_pixel_size', 'psf_fit_center_x', 'psf_fit_center_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
+header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
 
 skipped=0
@@ -98,7 +98,7 @@ if args.noinfo:
 if rank==0:
 	print('')
 	print('\n'+sys.argv[0]+' started on '+ time.strftime("%c"))
-	dirlist=graphic_lib_310.create_dirlist(pattern)
+	dirlist=graphic_lib_320.create_dirlist(pattern)
 
 	if dirlist==None or len(dirlist)<1:
 		print("No files found")
@@ -111,11 +111,11 @@ if rank==0:
 	if not args.noinfo:
 		if info_pattern=='all_info':
 			print('Warning, using default value: info_pattern=\"all_info\" wrong info file may be used.')
-		infolist=graphic_lib_310.create_dirlist(info_dir+os.sep+info_pattern,extension='.rdb')
-		cube_list,dirlist=graphic_lib_310.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
+		infolist=graphic_lib_320.create_dirlist(info_dir+os.sep+info_pattern,extension='.rdb')
+		cube_list,dirlist=graphic_lib_320.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
 
 	print('Distributing dirlist to slaves.')
-	start,dirlist=graphic_lib_310.send_dirlist(dirlist)
+	start,dirlist=graphic_lib_320.send_dirlist(dirlist)
 
 	comm.bcast(cube_list, root=0)
 
@@ -154,7 +154,7 @@ if rank==0:
 			print("skylist: "+str(skylist))
 
 	if sky_med_frame==None:
-		graphic_lib_310.dprint(d>1,'Warning: sky_med_frame is empty')
+		graphic_lib_320.dprint(d>1,'Warning: sky_med_frame is empty')
 		sky_med_frame=0
 	comm.bcast(skylist, root=0)
 	comm.bcast(sky_med_frame, root=0)
@@ -192,7 +192,7 @@ for i in range(len(dirlist)):
 	#
 	###################################################################
 
-	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_310.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
+	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
 	## cube,header=pyfits.getdata(dirlist[i], header=True)
 	hdulist = fits.open(dirlist[i])
 	header=hdulist[0].header
@@ -247,7 +247,7 @@ for i in range(len(dirlist)):
 					skymed=bottleneck.nanmedian(1.*sky)
 					if skymed==0:
 						skymed=1
-					graphic_lib_310.dprint(d>1,str(rank)+": skymed="+str(skymed))
+					graphic_lib_320.dprint(d>1,str(rank)+": skymed="+str(skymed))
 					break
 	if found==False:
 		continue
@@ -255,14 +255,14 @@ for i in range(len(dirlist)):
 	if args.normalise:
 		for frame in range(cube.shape[0]):
 			if all_info=='empty' or not all_info[frame,6]==-1:
-				graphic_lib_310.dprint(d>1, 'Normalising factors: skymed='+str(skymed)+' frame_median='+str(bottleneck.nanmedian(1.*cube[frame])))
+				graphic_lib_320.dprint(d>1, 'Normalising factors: skymed='+str(skymed)+' frame_median='+str(bottleneck.nanmedian(1.*cube[frame])))
 				cube[frame]=cube[frame]-(bottleneck.nanmedian(1.*cube[frame])/skymed)*np.where(np.isnan(sky), sky_med_frame, sky)
 			else:
-				graphic_lib_310.dprint(d>0,'Skipping frame '+str(frame))
+				graphic_lib_320.dprint(d>0,'Skipping frame '+str(frame))
 				continue
 	else:
-		graphic_lib_310.dprint(d>1, "Not normalising")
-		graphic_lib_310.dprint(d>2, "len(np.where(np.isnan(sky)[0])):"+str(len(np.where(np.isnan(sky))[0])))
+		graphic_lib_320.dprint(d>1, "Not normalising")
+		graphic_lib_320.dprint(d>2, "len(np.where(np.isnan(sky)[0])):"+str(len(np.where(np.isnan(sky))[0])))
 		## cube[frame]=cube[frame]-np.where(np.isnan(sky), sky_med_frame, sky)
 		cube=cube-np.where(np.isnan(sky), sky_med_frame, sky)
 
@@ -276,11 +276,11 @@ for i in range(len(dirlist)):
 		header['HIERARCH GC SUB_SK_MED']=(skymed,'Median of sub. sky')
 	header['HIERARCH GC SUB_SKY']=( __version__+'.'+__subversion__, '')
 	header['HIERARCH GC SKYREF']=( skyref[-58:], '')
-	## graphic_lib_310.save_fits( targetfile,  target_dir, cube, header )
-	## graphic_lib_310.save_fits(targetfile,cube,hdr=header, backend='pyfits')
-	graphic_lib_310.save_fits(targetfile, cube, hdr=header, backend='pyfits', verify='warn')
+	## graphic_lib_320.save_fits( targetfile,  target_dir, cube, header )
+	## graphic_lib_320.save_fits(targetfile,cube,hdr=header, backend='pyfits')
+	graphic_lib_320.save_fits(targetfile, cube, hdr=header, backend='pyfits', verify='warn')
 
-	## graphic_lib_310.save_fits(targetfile, hdulist, backend='astropy', verify='warn')
+	## graphic_lib_320.save_fits(targetfile, hdulist, backend='astropy', verify='warn')
 
 	hdulist.close()
 
@@ -290,12 +290,12 @@ if rank==0:
 			## log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
 		## else:
 			## log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-		## graphic_lib_310.write_log((MPI.Wtime()-t_init),log_file)
+		## graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file)
 		if 'ESO OBS TARG NAME' in header.keys():
 			log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 		else:
 			log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-		graphic_lib_310.write_log((MPI.Wtime()-t_init),log_file)
+		graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file)
 
-print(str(rank)+": Total time: "+graphic_lib_310.humanize_time((MPI.Wtime()-t0)))
+print(str(rank)+": Total time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)))
 sys.exit(0)

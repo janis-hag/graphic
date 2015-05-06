@@ -14,7 +14,7 @@ __subversion__='0'
 
 ## import numpy, scipy, pyfits, glob, shutil, os, sys, time, fnmatch, tables, argparse, string
 import numpy, scipy, glob, shutil, os, sys, time, fnmatch, argparse, string
-import graphic_lib_300
+import graphic_lib_320
 from mpi4py import MPI
 from scipy import ndimage
 import astropy.io.fits as fits
@@ -73,11 +73,13 @@ skipped=0
 t_init=MPI.Wtime()
 target_pattern="mfs"+str(window_size)
 
-header_keys=['frame_number', 'psf_barycenter_x', 'psf_barycenter_y', 'psf_pixel_size', 'psf_fit_center_x', 'psf_fit_center_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
+header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
 
 if rank==0:
-	dirlist=graphic_lib_300.create_dirlist(pattern,target_dir=target_dir,target_pattern=target_pattern+"_")
+	print('')
+	print(sys.argv[0]+' started on '+ time.strftime("%c"))
+	dirlist=graphic_lib_320.create_dirlist(pattern,target_dir=target_dir,target_pattern=target_pattern+"_")
 	if dirlist==None:
 		print("No files found. Check --pattern option!")
 		for n in range(nprocs-1):
@@ -91,10 +93,10 @@ if rank==0:
 			print("No info files found, check your --info_pattern and --info_dir options.")
 			for n in range(nprocs-1):
 				comm.send(None,dest =n+1)
-		cube_list, dirlist=graphic_lib_300.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
+		cube_list, dirlist=graphic_lib_320.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
 		comm.bcast(cube_list, root=0)
 
-	start,dirlist=graphic_lib_300.send_dirlist(dirlist)
+	start,dirlist=graphic_lib_320.send_dirlist(dirlist)
 
 
 	# Create directory to store reduced data
@@ -124,7 +126,7 @@ for i in range(len(dirlist)):
 	#
 	##################################################################
 
-	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_300.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
+	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
 	## cube,header=pyfits.getdata(dirlist[i], header=True)
 	hdulist = fits.open(dirlist[i],memmap=True)
 	header=hdulist[0].header
@@ -146,11 +148,11 @@ for i in range(len(dirlist)):
 	header["HIERARCH GC MED_FILT"]=( __version__+'.'+__subversion__, "")
 
 	## header.add_history(fnmatch.filter(sky_header.get_history(),"sky.median*" )[0])
-	## graphic_lib_300.save_fits( targetfile,  target_dir, cube, header )
-	## graphic_lib_300.save_fits(targetfile, cube, hdr=header,backend='pyfits')
-	graphic_lib_300.save_fits(targetfile, hdulist, backend='astropy', verify='fix')
+	## graphic_lib_320.save_fits( targetfile,  target_dir, cube, header )
+	## graphic_lib_320.save_fits(targetfile, cube, hdr=header,backend='pyfits')
+	graphic_lib_320.save_fits(targetfile, hdulist, backend='astropy', verify='fix')
 
-print(str(rank)+": Total time: "+graphic_lib_300.humanize_time((MPI.Wtime()-t0)))
+print(str(rank)+": Total time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)))
 
 if rank==0:
 	if 'ESO OBS TARG NAME' in header.keys():
@@ -158,5 +160,5 @@ if rank==0:
 	else:
 		log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
 
-	graphic_lib_300.write_log((MPI.Wtime()-t_init),log_file, comments=None)
+	graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file, comments=None)
 sys.exit(0)

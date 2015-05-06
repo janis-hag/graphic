@@ -15,12 +15,12 @@ __subversion__='0'
 import numpy, scipy, glob, shutil, os, sys, fnmatch, string, time
 import numpy as np
 from scipy import stats
-import graphic_lib_310
+import graphic_lib_320
 from mpi4py import MPI
 import argparse
 sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 import bottleneck
-from graphic_lib_310 import dprint
+from graphic_lib_320 import dprint
 from astropy.io import fits as pyfits
 
 nprocs = MPI.COMM_WORLD.Get_size()
@@ -73,12 +73,12 @@ nici=args.nici
 noquad=args.noquad
 ## hdf5=args.hdf5
 
-header_keys=['frame_number', 'psf_barycenter_x', 'psf_barycenter_y', 'psf_pixel_size', 'psf_fit_center_x', 'psf_fit_center_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
+header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
 
 if rank==0:
-	print('')
-	print(sys.argv[0]+' started on '+ time.strftime("%c"))
+	graphic_lib_320.print_init()
+
 	t_init=MPI.Wtime()
 	dirlist=glob.glob(pattern+'*.fits')
 	dirlist.sort() # Sort the list alphabetically
@@ -91,7 +91,7 @@ if rank==0:
 	infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
 	infolist.sort() # Sort the list alphabetically
 
-	cube_list,dirlist=graphic_lib_310.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
+	cube_list,dirlist=graphic_lib_320.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
 
 	if d>1:
 		print("Dirlist:")
@@ -198,17 +198,17 @@ if rank==0:
 			if nici:
 				# Dithering within cubes can happen for NICI data
 				for f in range(len(cube_in.shape)):
-					cube_in[f]=graphic_lib_310.nanmask_frame_nici(cube_list['info'][ci][f,4], cube_list['info'][ci][f,5], cube_in[f], R, d)
+					cube_in[f]=graphic_lib_320.nanmask_frame_nici(cube_list['info'][ci][f,4], cube_list['info'][ci][f,5], cube_in[f], R, d)
 			else:
 				valid=np.where(cube_list['info'][ci][:,4]>0)
 				if len(valid[0])==0:
 					dprint(d>2, "No valid frame in: "+str(cube_name))
 					continue
-				## cube_in=graphic_lib_310.nanmask_cube(cube_list['info'][ci][int(header_in['NAXIS3'])/2,4], cube_list['info'][ci][int(header_in['NAXIS3'])/2,5], cube_in, R, d)
+				## cube_in=graphic_lib_320.nanmask_cube(cube_list['info'][ci][int(header_in['NAXIS3'])/2,4], cube_list['info'][ci][int(header_in['NAXIS3'])/2,5], cube_in, R, d)
 				else:
-					cube_in=graphic_lib_310.nanmask_cube(np.mean(cube_list['info'][ci][valid,4]), np.mean(cube_list['info'][ci][valid,5]), cube_in, R, d)
+					cube_in=graphic_lib_320.nanmask_cube(np.mean(cube_list['info'][ci][valid,4]), np.mean(cube_list['info'][ci][valid,5]), cube_in, R, d)
 			dprint(d>1, "cube_in.shape: "+str(cube_in.shape))
-			graphic_lib_310.send_chunks(cube_in, d)
+			graphic_lib_320.send_chunks(cube_in, d)
 			del cube_in
 			header.add_history(cube_name)
 
@@ -222,14 +222,14 @@ if rank==0:
 
 		for p in range(nprocs-1):
 			r=comm.recv(source = p+1)
-			graphic_lib_310.dprint(d>0, "Received median reduced chunk from "+str(p+1))
+			graphic_lib_320.dprint(d>0, "Received median reduced chunk from "+str(p+1))
 			if p==0: #initialise
 				sky=r
 			else:
 				sky=np.concatenate((sky,r), axis=0)
 
-		## graphic_lib_310.save_fits(skyfile,  target_dir, sky, header )
-		graphic_lib_310.save_fits(skyfile, sky, hdr=header, target_dir=target_dir,backend='pyfits')
+		## graphic_lib_320.save_fits(skyfile,  target_dir, sky, header )
+		graphic_lib_320.save_fits(skyfile, sky, hdr=header, target_dir=target_dir,backend='pyfits')
 
 	## send over
 	for p in range(nprocs-1):
@@ -241,7 +241,7 @@ if rank==0:
 		log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 	else:
 		log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-	graphic_lib_310.write_log((MPI.Wtime()-t_init),log_file)
+	graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file)
 
 	sys.exit(0)
 

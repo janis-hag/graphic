@@ -168,7 +168,8 @@ def read_recentre(rcn, rcubes, rcube_list, l_max):
 t_init=MPI.Wtime()
 
 if rank==0:
-	print(sys.argv[0]+' started on '+ time.strftime("%c"))
+	graphic_lib_320.print_init()
+
 	if centred:
 		target_pattern=target_pattern+'nc_'
 

@@ -121,9 +121,10 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
 
 t_init=MPI.Wtime()
 
-## if rank==0:
-if True:
-	print(sys.argv[0]+' started on '+ time.strftime("%c"))
+if rank==0:
+## if True:
+	graphic_lib_320.print_init()
+
 	hdr=None
 
 	dirlist=graphic_lib_320.create_dirlist(pattern)
@@ -212,7 +213,8 @@ if True:
 # calculate median
 # subtract median from frame
 # improvement could be done by somehow keeping recentreed frames
-## else:
+else: #Nothing to do...
+	sys.exit(0)
 	#nofft=comm.bcast(None,root=0)
 	## todo=comm.bcast(None,root=0)
 ##

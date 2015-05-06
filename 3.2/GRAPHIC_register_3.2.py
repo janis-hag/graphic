@@ -126,6 +126,7 @@ t_init=MPI.Wtime()
 print(rank, nprocs)
 
 if rank==0:  # Master process
+	graphic_lib_320.print_init()
 	# try:
 	t0=MPI.Wtime()
 	skipped=0

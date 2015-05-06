@@ -15,10 +15,10 @@ __subversion__='0'
 
 import numpy, scipy, glob, shutil, os, sys, string
 import numpy as np
-import graphic_lib_300
+import graphic_lib_320
 from mpi4py import MPI
 import argparse
-from graphic_lib_300 import dprint
+from graphic_lib_320 import dprint
 import astropy.io.fits as fits
 
 #sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
@@ -150,18 +150,20 @@ def clean_bp(badpix, cub_in):
 
 t_init=MPI.Wtime()
 if rank==0:
+	print('')
+	print(sys.argv[0]+' started on '+ time.strftime("%c"))
 	t_init=MPI.Wtime()
 
 	print("Searching cubes...")
-	dirlist=graphic_lib_300.create_dirlist(pattern, target_pattern=target_pattern)
+	dirlist=graphic_lib_320.create_dirlist(pattern, target_pattern=target_pattern)
 	print("Searching reference cubes...")
-	darklist=graphic_lib_300.create_dirlist(dark_dir+os.sep+dark_pattern)
+	darklist=graphic_lib_320.create_dirlist(dark_dir+os.sep+dark_pattern)
 
 	if dirlist==None or darklist==None:
 		MPI.Finalize()
 		sys.exit(1)
 
-	start,dirlist=graphic_lib_300.send_dirlist(dirlist)
+	start,dirlist=graphic_lib_320.send_dirlist(dirlist)
 
 	dark_cube=None
 	for file_name in darklist:
@@ -209,7 +211,7 @@ if not rank==0:
 t0=MPI.Wtime()
 
 for i in range(len(dirlist)):
-	print(str(rank)+': ['+str(start+i)	+'/'+str(len(dirlist)+start-1)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_300.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1)))
+	print(str(rank)+': ['+str(start+i)	+'/'+str(len(dirlist)+start-1)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1)))
 
 	# Read cube header and data
 	hdulist = fits.open(dirlist[i],memmap=True)
@@ -219,15 +221,15 @@ for i in range(len(dirlist)):
 	cube=clean_bp(bad_pix, cube)
 
 	header["HIERARCH GC BAD_PIX"]=(__version__+'.'+__subversion__, "")
-	## graphic_lib_300.save_fits( target_pattern+dirlist[i],  target_dir, cube, header )
-	## graphic_lib_300.save_fits(target_pattern+dirlist[i], cube, header=header,backend='pyfits')
-	graphic_lib_300.save_fits(target_pattern+dirlist[i], hdulist, backend='astropy', verify='fix')
+	## graphic_lib_320.save_fits( target_pattern+dirlist[i],  target_dir, cube, header )
+	## graphic_lib_320.save_fits(target_pattern+dirlist[i], cube, header=header,backend='pyfits')
+	graphic_lib_320.save_fits(target_pattern+dirlist[i], hdulist, backend='astropy', verify='fix')
 
 if 'ESO OBS TARG NAME' in header.keys():
 	log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 else:
 	log_file=log_file+"_"+string.replace(header['OBJECT']+"_"+str(__version__),' ','')+".log"
 
-print(str(rank)+": Total time: "+graphic_lib_300.humanize_time((MPI.Wtime()-t0)))
-graphic_lib_300.write_log((MPI.Wtime()-t_init), log_file, comments)
+print(str(rank)+": Total time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)))
+graphic_lib_320.write_log((MPI.Wtime()-t_init), log_file, comments)
 sys.exit(0)

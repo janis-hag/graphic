@@ -2036,6 +2036,10 @@ def parang(dec, ha, geolat):
 
 	return parang_deg
 
+def print_init():
+	print('')
+	print(sys.argv[0]+' started on '+ time.strftime("%c"))
+
 def nanmask_cube(x0, y0,cube_in, R, d):
 
 	# Cut window in first frame and broadcast

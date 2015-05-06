@@ -110,6 +110,7 @@ header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_
 if rank==0:
 	## sys.stdout = open('GC_derotate'+str(__version__)+"."+str(__subversion__)+".log", 'w')
 	## sys.sterr = open('error_GC_derotate'+str(__version__)+"."+str(__subversion__)+".log", 'w')
+	graphic_lib_320.print_init()
 
 	t_init=MPI.Wtime()
 	skipped=0
