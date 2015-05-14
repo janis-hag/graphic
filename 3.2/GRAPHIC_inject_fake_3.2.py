@@ -80,8 +80,8 @@ header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
 
 if rank==0:
-	print('')
-	print(sys.argv[0]+' started on '+ time.strftime("%c"))
+	graphic_lib_320.print_init()
+
 	dirlist=graphic_lib_320.create_dirlist(pattern,target_pattern=target_pattern+"_")
 	complete_dirlist=dirlist
 	if dirlist==None:

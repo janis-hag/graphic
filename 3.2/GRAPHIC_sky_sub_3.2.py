@@ -22,7 +22,7 @@ import numpy as np
 import graphic_lib_320
 from mpi4py import MPI
 ## from astropy.io import fits as pyfits
-import astropy.io.fits as fits
+import astropy.io.fits as pyfits
 import bottleneck
 
 nprocs = MPI.COMM_WORLD.Get_size()
@@ -96,8 +96,8 @@ if args.noinfo:
 	cube_list=None
 
 if rank==0:
-	print('')
-	print('\n'+sys.argv[0]+' started on '+ time.strftime("%c"))
+	graphic_lib_320.print_init()
+
 	dirlist=graphic_lib_320.create_dirlist(pattern)
 
 	if dirlist==None or len(dirlist)<1:
@@ -139,15 +139,15 @@ if rank==0:
 	else:
 		skylist={}
 		for skyfits in skyls:
-			sky_hdulist = fits.open(skyfits)
-			sky_hdr=sky_hdulist[0].header
+			sky_data, sky_hdr = pyfits.getdata(skyfits, header=True)
+			## sky_hdr=sky_hdulist[0].header
 			#hdr=pyfits.getheader(skyfits)
 			skylist[skyfits]=fnmatch.filter(sky_hdr['history'],"*.fits")
 			if sky_med_frame==None:
-				sky_med_frame=sky_hdulist[0].data
+				sky_med_frame=sky_data
 			else:
-				sky_med_frame=np.dstack((sky_med_frame,sky_hdulist[0].data))
-			sky_hdulist.close()
+				sky_med_frame=np.dstack((sky_med_frame,sky_data))
+			## sky_hdulist.close()
 		if not sky_med_frame==None:
 			sky_med_frame=bottleneck.nanmedian(sky_med_frame, axis=2)
 		if d>2:
@@ -193,10 +193,10 @@ for i in range(len(dirlist)):
 	###################################################################
 
 	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
-	## cube,header=pyfits.getdata(dirlist[i], header=True)
-	hdulist = fits.open(dirlist[i])
-	header=hdulist[0].header
-	cube=hdulist[0].data
+	cube,header=pyfits.getdata(dirlist[i], header=True)
+	## hdulist = fits.open(dirlist[i])
+	## header=hdulist[0].header
+	## cube=hdulist[0].data
 
 	found=False
 
@@ -231,9 +231,9 @@ for i in range(len(dirlist)):
 						continue
 
 
-				## sky,sky_header=pyfits.getdata(skyfile, header=True)
-				sky_hdulist = fits.open(skyfile)
-				sky=sky_hdulist[0].data
+				sky,sky_header=pyfits.getdata(skyfile, header=True)
+				## sky_hdulist = fits.open(skyfile)
+				## sky=sky_hdulist[0].data
 
 				if cube.shape[1]==1024:
 					# Strip overscan
@@ -266,7 +266,7 @@ for i in range(len(dirlist)):
 		## cube[frame]=cube[frame]-np.where(np.isnan(sky), sky_med_frame, sky)
 		cube=cube-np.where(np.isnan(sky), sky_med_frame, sky)
 
-	sky_hdulist.close()
+	## sky_hdulist.close()
 
 	skyref=string.split(skyfile,os.sep)[-1] # Strip directory away.
 	## if len(skyref)>59: # value to long for FITS (limited to 80 chars - 18 for keyword name and 3 for ' = '
@@ -282,7 +282,7 @@ for i in range(len(dirlist)):
 
 	## graphic_lib_320.save_fits(targetfile, hdulist, backend='astropy', verify='warn')
 
-	hdulist.close()
+	## hdulist.close()
 
 if rank==0:
 	if not header==None:

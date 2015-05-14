@@ -163,16 +163,21 @@ if rank==0:
 
 		new_info=None
 		cube,hdr=pyfits.getdata(dirlist[c],header=True)
-		new_cube=np.ones((cube.shape[0]/naxis3, cube.shape[1],cube.shape[2]))
+		cube=cube*1.
+		new_cube=np.ones((cube.shape[0]/naxis3, cube.shape[1],cube.shape[2]))*1.
 
 		sys.stdout.write("\n Processing cube ["+str(c+1)+"/"+str(len(dirlist))+"]: "+str(dirlist[c])+"\n")
 		sys.stdout.flush()
 
-		for i in xrange(new_cube.shape[0],new_cube.shape[0]/naxis3)	:
-			if i+naxis3>new_cube.shape[0]: # Taking all remaining frames
-				new_cube[i]=median(cube[i:],axis=0)
+		## for i in range(0,new_cube.shape[0],new_cube.shape[0]/naxis3)	:
+		for i,j in enumerate(range(0,cube.shape[0],naxis3)):
+			if j+naxis3>cube.shape[0] or i+1==new_cube.shape[0]: # Taking all remaining frames
+				print(j, j+naxis3, new_cube.shape[0], i, cube.shape[0])
+				new_cube[i]=median(cube[j:],axis=0)
+				break
 			else:
-				new_cube[i]=median(cube[i:i+naxis3],axis=0)
+				## print(i, i+naxis3, cube.shape[0])
+				new_cube[i]=median(cube[j:j+naxis3],axis=0)
 
 
 
