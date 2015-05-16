@@ -434,7 +434,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 		return None
 
 	## dirlist.sort() # Sort the list alphabetically
-	dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
+	## dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
 
 
 	# Check values in dirlist and remove dodgy files.
@@ -450,9 +450,15 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 				dirlist[i]=None
 				continue
 
-	# Clean dirlist of discarded values:
-	dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
+	if extension=='.rdb': #sort list chronologically
+		file_date_tuple_list = [(x,os.path.getmtime(x)) for x in dirlist]
+		file_date_tuple_list.sort(key=lambda x: x[1], reverse=True)
+		dirlist=[x[0] for x in file_date_tuple_list]
+	else:
+		dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
 	## dirlist.sort()
+
+	# Clean dirlist of discarded values:
 	skipped=0
 	for i in range(len(dirlist)):
 		if dirlist[0]==None:
@@ -771,6 +777,7 @@ def create_parang_scexao(hdr):
 	### Latitude: +19 49' 32'' N (NAD83)
 	### Longitude: 155 28' 34'' W (NAD83)
 	### Altitude: 4139 m (Elevation axis is at 4163 m)
+ 	### 19 49 31.81425 	155 28 33.66719
 
 	geolong=coordinates.Longitude(angle='155 28 34', unit=u.deg)
 	geolat=coordinates.Latitude(angle='+19 49 32', unit=u.deg)
@@ -786,7 +793,8 @@ def create_parang_scexao(hdr):
 
 	## coord.dec.deg = float(hdr['DEC'])
 
-	lst_long=obs_time.sidereal_time('apparent', model='IAU1994')
+	## lst_long=obs_time.sidereal_time('apparent', model='IAU1994')
+	lst_long=coordinates.Longitude(angle=hdr['LST'],unit=u.hourangle)
 	lst=float(lst_long.to_string(decimal=True, precision=10))*15
 
 	ha_deg=lst-coord.ra.deg
