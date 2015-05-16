@@ -116,7 +116,7 @@ if rank==0:
 	skipped=0
 
 	dirlist=graphic_lib_320.create_dirlist(pattern)
-	if dirlist==None:
+	if dirlist is None:
 		print("No files found. Check --pattern option!")
 		comm.bcast("over",root=0)
 		sys.exit(1)
@@ -124,7 +124,7 @@ if rank==0:
 	infolist=graphic_lib_320.create_dirlist(info_dir+os.sep+info_pattern, extension='.rdb')
 	## infolist=glob.glob(info_dir+os.sep+info_pattern+'*.'+info_type)
 	## infolist.sort() # Sort the list alphabetically
-	if infolist==None:
+	if infolist is None:
 		print("No info files found, check your --info_pattern and --info_dir options.")
 		sys.exit(1)
 
@@ -230,9 +230,9 @@ if rank==0:
 		# Recover data from slaves
 		for n in range(nprocs-1):
 			data_in=comm.recv(source = n+1)
-			if data_in==None:
+			if data_in is None:
 				continue
-			elif stack==None:
+			elif stack is None:
 				stack=data_in
 			else:
 				if d > 0:
@@ -251,11 +251,11 @@ if rank==0:
 			r=comm.recv(source = p+1)
 			if d>0:
 				print("Received median reduced chunk from "+str(p+1))
-			if med==None: #initialise
+			if med is None: #initialise
 				med=r
 			else:
 				med=np.concatenate((med,r), axis=0)
-		if med_tot==None:
+		if med_tot is None:
 			med_tot=med
 		else:
 			med_tot=np.concatenate((med_tot,med), axis=1)
@@ -303,7 +303,7 @@ if not rank==0:
 			dirlist=comm.recv(source=0)
 
 			dprint(d>1, "start: "+str(start)+", end: "+str(end))
-			if dirlist==None: # Nothing todo, send back None and restart loop.
+			if dirlist is None: # Nothing todo, send back None and restart loop.
 				comm.send(None, dest=0)
 				todo=comm.bcast(None,root=0)
 				continue
@@ -357,7 +357,7 @@ if not rank==0:
 				if d>2:
 					graphic_lib_320.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdulist_s[0].header , backend='pyfits' )
 
-				if full_stack==None:
+				if full_stack is None:
 					full_stack=rs_cube.copy()
 				else:
 					full_stack=np.concatenate((full_stack,rs_cube),axis=0)
