@@ -335,7 +335,7 @@ if not rank==0:
 						s_cube=s_cube[1:]
 					## elif not naxis1==0:
 					else:
-						print(fn, cn,
+						print(fn, cn,s_cube.shape)
 						rs_cube[fn]=graphic_lib_320.fft_3shear_rotate_pad(
 							s_cube[0],p0-cube_list['info'][cn][fn,11],
 							pad=2,x1=cube_list['info'][cn][fn,4],
