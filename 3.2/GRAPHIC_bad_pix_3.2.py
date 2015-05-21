@@ -174,7 +174,7 @@ if rank==0:
 	print("Searching reference cubes...")
 	darklist=graphic_lib_320.create_dirlist(dark_dir+os.sep+dark_pattern)
 
-	if dirlist==None or darklist==None:
+	if dirlist is None or darklist is None:
 		print('Missing files, leaving...')
 		MPI.Finalize()
 		sys.exit(1)
@@ -187,7 +187,7 @@ if rank==0:
 		## dark_hdulist = fits.open(file_name)
 		## data=dark_hdulist[0].data
 		data=pyfits.getdata(file_name, header=False)
-		if dark_cube==None:
+		if dark_cube is None:
 			dark_cube=data #[np.newaxis,...]
 			## print(dark_cube.shape)
 		elif len(data.shape)==3: # CUBE
@@ -217,7 +217,7 @@ if rank==0:
 
 if not rank==0:
 	dirlist=comm.recv(source = 0)
-	if dirlist==None:
+	if dirlist is None:
 		print('Received None dirlist. Leaving...')
 		bad_pix=comm.bcast(None, root=0)
 		sys.exit(1)

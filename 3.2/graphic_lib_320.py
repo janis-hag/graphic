@@ -11,7 +11,7 @@ import numpy, os, shutil, sys, glob, math
 import numpy as np
 ## from scipy.signal import correlate2d
 from mpi4py import MPI
-from gaussfit_310 import fitgaussian
+from gaussfit_320 import fitgaussian
 from scipy import ndimage, fftpack
 #import astropy.io.fits as pyfits
 from astropy.io import fits
@@ -577,7 +577,7 @@ def create_parang_list(hdr):
 	frame_number, frame_time, paralactic_angle
 	"""
 
-	from numpy import sin, cos, tan, arctan, pi
+	from numpy import sin, cos, tan, arctan2, pi
 
 	r2d = 180/pi
 	d2r = pi/180
@@ -610,7 +610,7 @@ def create_parang_list(hdr):
 		f1 = cos(geolat_rad) * sin(d2r*ha_deg)
 		f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
 
-		parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan(f1/f2)]))
+		parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan2(f1,f2)]))
 
 	return parang_array
 
@@ -623,7 +623,7 @@ def create_parang_list_ada(hdr):
 	frame_number, frame_time, paralactic_angle
 	"""
 
-	from numpy import sin, cos, tan, arctan, pi
+	from numpy import sin, cos, tan, arctan2, pi
 	import dateutil.parser
 
 	r2d = 180/pi
@@ -671,7 +671,7 @@ def create_parang_list_ada(hdr):
 			f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
 
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,r2d*arctan(f1/f2)+ROT_PT_OFF]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,r2d*arctan2(f1,f2)+ROT_PT_OFF]))
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
@@ -764,14 +764,14 @@ def create_parang_scexao(hdr):
 	frame_number, frame_time, paralactic_angle
 	"""
 
-	from numpy import sin, cos, tan, arctan, pi
+	from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
 	import dateutil.parser
 	from astropy import units as u
 	from astropy import coordinates
 	from astropy.time import Time
 
-	r2d = 180/pi
-	d2r = pi/180
+	## r2d = 180/pi
+	## d2r = pi/180
 
 	### Subaru telescope coordinates
 	### Latitude: +19 49' 32'' N (NAD83)
@@ -800,24 +800,19 @@ def create_parang_scexao(hdr):
 	ha_deg=lst-coord.ra.deg
 
 	# VLT TCS formula
-	f1 = cos(geo_coord.latitude.rad) * sin(d2r*ha_deg)
-	f2 = sin(geo_coord.latitude.rad) * cos(coord.dec.rad) - cos(geo_coord.latitude.rad) * sin(coord.dec.rad) * cos(d2r*ha_deg)
+	f1 = cos(geo_coord.latitude.rad) * sin(deg2rad(ha_deg))
+	f2 = sin(geo_coord.latitude.rad) * cos(coord.dec.rad) - cos(geo_coord.latitude.rad) * sin(coord.dec.rad) * cos(deg2rad(ha_deg))
 
 	## mjdstart=float(hdr['MJD-OBS'])
 
 	if 'P_TRMODE' in hdr.keys() and hdr['P_TRMODE']=='ADI':
-		parang_array=numpy.array([obs_time.mjd,r2d*arctan(f1/f2)])
-		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+		## parang_array=numpy.array([obs_time.mjd,r2d*arctan(f1/f2)])
+		pa=-rad2deg(arctan2(-f1,f2))
+		if coord.dec.deg > geo_coord.latitude.deg:
+			pa = ((pa + 360) % 360)+180
 
-		## for i in range(1,hdr['NAXIS3']):
-			## ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-coord.ra.deg
-##
-			## # VLT TCS formula
-			## f1 = cos(geo_coord.latitude.rad) * sin(d2r*ha_deg)
-			## f2 = sin(geo_coord.latitude.rad) * cos(d2r*coord.dec.deg) - cos(geo_coord.latitude.rad) * sin(d2r*coord.dec.deg) * cos(d2r*ha_deg)
-##
-			## ### parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
-			## parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,r2d*arctan(f1/f2)+ROT_PT_OFF]))
+		parang_array=numpy.array([obs_time.mjd,pa ])
+
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
@@ -825,10 +820,6 @@ def create_parang_scexao(hdr):
 			print('Data does not seem to be taken in pupil tracking.')
 
 		parang_array=numpy.array([mjdstart,0])
-		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
-##
-		## for i in range(1,hdr['NAXIS3']):
-			## parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,0]))
 
 	return parang_array
 
@@ -1070,8 +1061,8 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 			((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
 			((pad+1)/2.)*in_frame.shape[1]] =in_frame[:,-1]/2.
 	elif x1>0:
-		print(x1,px1)
-		print(pad_frame.shape)
+		## print(x1,px1)
+		## print(pad_frame.shape)
 		pad_frame[px1,py1:py2]=pad_frame[px1,py1:py2]/2.
 		pad_frame[px2-1,py1:py2]=pad_frame[px2-1,py1:py2]/2.
 		pad_frame[px1:px2,py1]=pad_frame[px1:px2,py1]/2.
@@ -2247,6 +2238,8 @@ def save_fits(filename, img, **keywords):
 
 	if 'hdr' in keywords.keys():
 		hdr=keywords['hdr']
+	elif 'header' in keywords.keys():
+		hdr=keywords['header']
 	else:
 		hdr=None
 
@@ -2267,6 +2260,10 @@ def save_fits(filename, img, **keywords):
 	else:
 		verify='silentfix'
 
+	for k in keywords.keys():
+		if k not in ['hdr','header','backup_dir','target_dir','verify', 'backend']:
+			print('graphic_lib_320.save_fits(), ignoring unknown keyword: '+k)
+
 	if not os.path.isdir(target_dir): # Check if target dir exists
 			os.mkdir(target_dir)
 
@@ -2282,7 +2279,7 @@ def save_fits(filename, img, **keywords):
 		## import pyfits
 		from astropy.io import fits as pyfits
 
-		if 'hdr' in keywords.keys():
+		if not hdr is None:
 			pyfits.writeto(target_dir + os.sep +filename, img, header=hdr, output_verify=verify)
 		else:
 			pyfits.writeto(target_dir + os.sep +filename, img, output_verify=verify)

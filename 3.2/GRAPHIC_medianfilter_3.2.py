@@ -17,7 +17,7 @@ import numpy, scipy, glob, shutil, os, sys, time, fnmatch, argparse, string
 import graphic_lib_320
 from mpi4py import MPI
 from scipy import ndimage
-import astropy.io.fits as fits
+import astropy.io.fits as pyfits
 
 nprocs = MPI.COMM_WORLD.Get_size()
 rank   = MPI.COMM_WORLD.Get_rank()
@@ -127,10 +127,10 @@ for i in range(len(dirlist)):
 	##################################################################
 
 	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
-	## cube,header=pyfits.getdata(dirlist[i], header=True)
-	hdulist = fits.open(dirlist[i],memmap=True)
-	header=hdulist[0].header
-	cube=hdulist[0].data
+	cube,header=pyfits.getdata(dirlist[i], header=True)
+	## hdulist = fits.open(dirlist[i],memmap=True)
+	## header=hdulist[0].header
+	## cube=hdulist[0].data
 
 	if args.no_info:
 		all_info=cube_list['info'][cube_list['cube_filename'].index(dirlist[i])]
@@ -149,8 +149,8 @@ for i in range(len(dirlist)):
 
 	## header.add_history(fnmatch.filter(sky_header.get_history(),"sky.median*" )[0])
 	## graphic_lib_320.save_fits( targetfile,  target_dir, cube, header )
-	## graphic_lib_320.save_fits(targetfile, cube, hdr=header,backend='pyfits')
-	graphic_lib_320.save_fits(targetfile, hdulist, backend='astropy', verify='fix')
+	graphic_lib_320.save_fits(targetfile, cube, hdr=header,backend='pyfits')
+	## graphic_lib_320.save_fits(targetfile, hdulist, backend='astropy', verify='fix')
 
 print(str(rank)+": Total time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)))
 
