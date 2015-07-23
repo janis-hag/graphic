@@ -187,7 +187,7 @@ if rank==0:  # Master process
 				print(str(fctable_filename)+' does not contain Angle_deg in keys: '+str(fctable.keys()))
 			for i in xrange(len(fctable['Angle_deg'])):
 				jdate = graphic_lib_320.datetime2jd(dateutil.parser.parse(fctable['Time-UT'][i]))
-				if parang_list==None:
+				if parang_list is None:
 					parang_list=numpy.array([i,jdate,fctable['Angle_deg'][i]])
 					## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 				else:
@@ -229,9 +229,9 @@ if rank==0:  # Master process
 			for n in range(nprocs-1):
 				data_in=None
 				data_in=comm.recv(source = n+1)
-				if data_in==None:
+				if data_in is None:
 					continue
-				elif cent_list == None:
+				elif cent_list  is None:
 					cent_list=data_in.copy()
 				else:
 					cent_list=np.vstack((cent_list,data_in))
@@ -240,7 +240,7 @@ if rank==0:  # Master process
 		if not os.path.isdir(positions_dir): # Check if positions dir exists
 			os.mkdir(positions_dir)
 
-		if cent_list==None:
+		if cent_list is None:
 			print("No centroids list generated for "+str(dirlist[i]))
 			continue
 
@@ -262,7 +262,7 @@ if rank==0:  # Master process
 		if not no_psf and 'ESO INS OPTI6 ID' in cube_header.keys() and cube_header['ESO INS OPTI6 ID']=='L_prime':
 			cent_list[0]=-1
 
-		if comments==None and not 'ESO ADA PUPILPOS' in cube_header.keys():
+		if comments is None and not 'ESO ADA PUPILPOS' in cube_header.keys():
 			comments="Warning! No ESO ADA PUPILPOS keyword found. Is it ADI? Using 89.44\n"
 
 		## if hdf5:
@@ -344,7 +344,7 @@ else: # Slave processes
 	y0_i=0
 
 	while not data_in=="over":
-		if not data_in==None:
+		if not data_in is None:
 			for frame in range(data_in.shape[0]):
 				sys.stdout.write('\r\r\r [Rank '+str(rank)+', cube '+str(cube_count)+']  Frame '+str(frame+startframe)+' of '+str(startframe+data_in.shape[0]))
 				sys.stdout.flush()
@@ -436,7 +436,7 @@ else: # Slave processes
 
 
 				# if rank==1:
-				if centre==None:
+				if centre is None:
 					centre=cluster_array_ref
 				else:
 					centre=np.vstack((centre,cluster_array_ref))

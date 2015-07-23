@@ -9,7 +9,7 @@ import astropy.io.fits as pyfits
 import numpy as np
 ## import glob
 ## import bottleneck
-import graphic_lib_320
+import graphic_nompi_lib_320
 ## import sys
 ## import os
 import argparse
@@ -24,7 +24,7 @@ args = parser.parse_args()
 pattern=args.pattern
 ## flat_file=args.flat_file
 
-dirlist=graphic_lib_320.create_dirlist(pattern)
+dirlist=graphic_nompi_lib_320.create_dirlist(pattern)
 
 cube,hdr=pyfits.getdata(dirlist[0], header=True)
 

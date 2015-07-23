@@ -16,11 +16,11 @@ __subversion__='0'
 
 import scipy, glob,  os, sys, subprocess, string, time
 import numpy as np
-import graphic_lib_320
+import graphic_nompi_lib_320
 from scipy import ndimage
 ## from mpi4py import MPI
 import argparse
-## from graphic_lib_320 import dprint
+## from graphic_nompi_lib_320 import dprint
 import astropy.io.fits as pyfits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
@@ -81,42 +81,14 @@ else:
 	target_pattern="tp"
 
 
-## def read_recenter_cube(rcn, cube, rcube_list, l_max):
-	## t0_trans=MPI.Wtime()
-	## # Send the cube to be recentered
-	## comm.bcast("recenter",root=0)
-	## comm.bcast(l_max,root=0)
-	## comm.bcast(rcube_list['info'][rcn],root=0)
-	## graphic_lib_320.send_frames_async(cube)
-	## cube=None
-	## if args.stat==True:
-		## print("\n STAT: Data upload took: "+humanize_time(MPI.Wtime()-t0_trans))
-		## t0_trans=MPI.Wtime()
-##
-	## # Recover data from slaves
-	## for n in range(nprocs-1):
-		## data_in=comm.recv(source = n+1)
-		## if data_in == None:
-			## continue
-		## sys.stdout.write('\r\r\r Recentered data from '+str(n+1)+' received									   =>')
-		## sys.stdout.flush()
-##
-		## if cube==None:
-			## cube=data_in
-		## else:
-			## cube=np.concatenate((cube,data_in))
-##
-	## return cube, t0_trans
-
-## t_init=MPI.Wtime()
 t_init=time.time()
 
 ## if rank==0:
-graphic_lib_320.print_init()
+graphic_nompi_lib_320.print_init()
 
 hdr=None
 
-dirlist=graphic_lib_320.create_dirlist(pattern)
+dirlist=graphic_nompi_lib_320.create_dirlist(pattern)
 
 ## infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
 ## infolist.sort() # Sort the list alphabetically
@@ -175,24 +147,15 @@ for j in range(int(np.ceil(len(dirlist)/naxis3))):
 		### frame_num       frame_time      paralactic_angle
 
 		## jdate=float(header['MJD'])+2400000.5
-		if parang_list==None:
-			parang_list=np.array(np.hstack((n,graphic_lib_320.create_parang_scexao(header))))
+		if parang_list is None:
+			parang_list=np.array(np.hstack((n,graphic_nompi_lib_320.create_parang_scexao(header))))
 			## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 		else:
-			parang_list=np.vstack((parang_list,np.hstack((n,graphic_lib_320.create_parang_scexao(header)))))
+			parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib_320.create_parang_scexao(header)))))
 
 		# Trimming the frame
 		cube[n]=frame[frame.shape[0]/2-naxis2/2:frame.shape[0]/2+naxis2/2,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2]
 
-		## cube, t0_trans=read_recenter_cube(c+n, cube, cube_list, l_max)
-		## if collapse:
-			## if new_cube==None:
-				## new_cube=np.ones((naxis3,cube.shape[1],cube.shape[2]))
-				## new_info=np.NaN*np.ones((naxis3,len(cube_list['info'][c+n][0])))
-			## new_cube[n]=bottleneck.nanmedian(cube, axis=0)
-			## new_info[n]=bottleneck.nanmedian(np.where(cube_list['info'][c+n]==-1,np.NaN,cube_list['info'][c+n]), axis=0)
-			## new_info[n]=np.where(np.isnan(new_info[n]),-1,new_info[n])
-		## else:
 
 	cent_list=np.ones((n3,9))
 	cent_list[:,0]=np.arange(n3) # Frame number
@@ -206,31 +169,23 @@ for j in range(int(np.ceil(len(dirlist)/naxis3))):
 	hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX2']+naxis2/2.)
 
 	hdr['history']='Updated CRPIX1, CRPIX2'
-	graphic_lib_320.save_fits(trimpack_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
+	graphic_nompi_lib_320.save_fits(trimpack_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
 	if not os.path.isdir(info_dir): # Check if info dir exists
 		os.mkdir(info_dir)
-	graphic_lib_320.write_array2rdb(info_dir+os.sep+info_filename,cent_list,header_keys)
+	graphic_nompi_lib_320.write_array2rdb(info_dir+os.sep+info_filename,cent_list,header_keys)
 
-	## if collapse:
-		## hdr['HIERARCH GC RECENTER']=str(__version__)+'.'+str(__subversion__)
-		## hdr['CRPIX1']='{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c+n][hdr['NAXIS3']/2,4])
-		## hdr['CRPIX2']='{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c+n][hdr['NAXIS3']/2,5])
-##
-		## hdr["Updated CRPIX1, CRPIX2"]
-		## graphic_lib_320.save_fits(trimpack_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
-		## graphic_lib_320.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
 
 	sys.stdout.write("\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n"
-					 .format(name=trimpack_filename, human_time=graphic_lib_320.humanize_time(time.time()-t0_cube) ,
+					 .format(name=trimpack_filename, human_time=graphic_nompi_lib_320.humanize_time(time.time()-t0_cube) ,
 							 rate=os.path.getsize(trimpack_filename)/(1048576*(time.time()-t0_cube))))
-	sys.stdout.write("Remaining time: "+graphic_lib_320.humanize_time((time.time()-t_init)*(len(dirlist)-c)/(c-skipped+1))+"\n")
+	sys.stdout.write("Remaining time: "+graphic_nompi_lib_320.humanize_time((time.time()-t_init)*(len(dirlist)-c)/(c-skipped+1))+"\n")
 	sys.stdout.flush()
 
 	del cube
 
 
 ## print("\n Program finished, killing all the slaves...")
-print("Total time: "+graphic_lib_320.humanize_time((time.time()-t_init)))
+print("Total time: "+graphic_nompi_lib_320.humanize_time((time.time()-t_init)))
 ## comm.bcast("over", root=0)
 ## if skipped==len(dirlist):
 	## sys.exit(0)
@@ -240,95 +195,6 @@ if not hdr==None:
 		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 	else:
 		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
-	graphic_lib_320.write_log((time.time()-t_init),log_file)
+	graphic_nompi_lib_320.write_log((time.time()-t_init),log_file,  comments=None, mpi=False)
 sys.exit(0)
 
-#################################################################################
-#
-# SLAVES
-#
-# slaves need to:
-# receive stack and frame
-# recenter frames in stack
-# calculate median
-# subtract median from frame
-# improvement could be done by somehow keeping recentered frames
-## else:
-	## #nofft=comm.bcast(None,root=0)
-	## todo=comm.bcast(None,root=0)
-##
-##
-	## while not todo=="over":
-		## if todo=="median":
-##
-			## # Receive number of first column
-			## start_col=comm.recv(source=0)
-			## # Receive stack to median
-			## stack=comm.recv(source=0)
-			## if d>5:
-				## print("")
-				## print(str(rank)+" stack.shape: "+str(stack.shape))
-			## # Mask out the NaNs
-			## psf=bottleneck.nanmedian(stack, axis=0)
-			## del stack
-			## comm.send(psf, dest=0)
-			## del psf
-##
-		## elif todo=="recenter":
-			## # Receive padding dimension
-			## l_max=comm.bcast(None,root=0)
-			## # Receive info table used for recentering
-			## info_stack=comm.bcast(None,root=0)
-			## if d >2:
-				## print(str(rank)+" received info_stack: "+str(info_stack))
-##
-			## # Receive number of first frame in cube
-			## s=comm.recv(source=0)
-			## if d >2:
-				## print(str(rank)+" received first frame number: "+str(s))
-##
-			## # Receive cube
-			## stack=comm.recv(source=0)
-			## if d >2:
-				## if stack==None:
-					## print(str(rank)+" received stack: "+str(stack))
-				## else:
-					## print(str(rank)+" received stack, shape="+str(stack.shape))
-##
-##
-			## if not stack==None:
-				## bigstack=np.zeros((stack.shape[0],l_max*2,l_max*2))
-				## bigstack[:,
-				## l_max-stack.shape[1]/2:l_max+stack.shape[1]/2,
-					## l_max-stack.shape[2]/2:l_max+stack.shape[2]/2]=stack
-				## for fn in range(bigstack.shape[0]):
-					## graphic_lib_310.dprint(d>2, "recentering frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
-					## if info_stack[s+fn,4]==-1 or info_stack[s+fn,5]==-1:
-						## bigstack[fn]=np.NaN
-						## continue
-					## # Shift is given by (image center position)-(star position)
-					## if nofft==True: # Use interpolation
-						## bigstack[fn]=ndimage.interpolation.shift(bigstack[fn], (stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5]), order=3, mode='constant', cval=np.NaN, prefilter=False)
-					## else: # Shift in Fourier space
-						## bigstack[fn,np.ceil(l_max - info_stack[s+fn,4]):np.ceil(l_max - info_stack[s+fn,4]+stack.shape[1]),np.ceil(l_max - info_stack[s+fn,5])]=stack[fn,:,0]/2.
-						## bigstack[fn,np.ceil(l_max - info_stack[s+fn,4]):np.ceil(l_max - info_stack[s+fn,4]+stack.shape[1]),np.floor(l_max - info_stack[s+fn,5]+stack.shape[2])]=stack[fn,:,-1]/2.
-						## bigstack[fn,np.ceil(l_max - info_stack[s+fn,4]),np.ceil(l_max - info_stack[s+fn,5]):np.ceil(l_max - info_stack[s+fn,5]+stack.shape[2])]=stack[fn,0,:]/2.
-						## bigstack[fn,np.floor(l_max - info_stack[s+fn,4]+stack.shape[1]),np.ceil(l_max - info_stack[s+fn,5]):np.ceil(l_max - info_stack[s+fn,5]+stack.shape[2])]=stack[fn,-1,:]/2.
-						## bigstack[fn]=graphic_lib_310.fft_shift(bigstack[fn], stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5])
-					## bigstack[fn,:np.ceil(l_max - info_stack[s+fn,4]),:]=np.NaN
-					## bigstack[fn,np.floor(l_max - info_stack[s+fn,4]+stack.shape[1]):,:]=np.NaN
-					## bigstack[fn,:,:np.ceil(l_max - info_stack[s+fn,5])]=np.NaN
-					## bigstack[fn,:,np.floor(l_max - info_stack[s+fn,5]+stack.shape[2]):]=np.NaN
-				## graphic_lib_310.dprint(d>2, "Sending back bigstack, shape="+str(bigstack.shape))
-				## comm.send(bigstack, dest = 0)
-				## del bigstack
-			## else:
-				## comm.send(None, dest = 0 )
-##
-			## del stack
-##
-		## else:
-			## print(str(rank)+": received "+str(todo)+". Leaving....")
-			## comm.send(None, dest = 0 )
-##
-		## todo=comm.bcast(None,root=0)

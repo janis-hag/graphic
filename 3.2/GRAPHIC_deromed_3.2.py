@@ -335,7 +335,6 @@ if not rank==0:
 						s_cube=s_cube[1:]
 					## elif not naxis1==0:
 					else:
-						print(fn, cn,s_cube.shape)
 						rs_cube[fn]=graphic_lib_320.fft_3shear_rotate_pad(
 							s_cube[0],p0-cube_list['info'][cn][fn,11],
 							pad=2,x1=cube_list['info'][cn][fn,4],
@@ -361,7 +360,13 @@ if not rank==0:
 				if full_stack is None:
 					full_stack=rs_cube.copy()
 				else:
-					full_stack=np.concatenate((full_stack,rs_cube),axis=0)
+					if full_stack.shape[1]==rs_cube.shape[1] and full_stack.shape[2]==rs_cube.shape[2]:
+						full_stack=np.concatenate((full_stack,rs_cube),axis=0)
+					else:
+						print('Shape mismatch!')
+						print(dirlist[i])
+						print('full_stack.shape: '+str(full_stack.shape))
+						print('rs_cube.shape: '+str(rs_cube.shape))
 
 			## comm.send(rs_cube,dest=0)
 			comm.send(full_stack,dest=0)

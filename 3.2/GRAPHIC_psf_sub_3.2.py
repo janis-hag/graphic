@@ -147,13 +147,13 @@ def read_recentre(rcn, rcubes, rcube_list, l_max):
 	# Recover data from slaves
 	for n in range(nprocs-1):
 		data_in=comm.recv(source = n+1)
-		if data_in == None:
+		if data_in is None:
 			continue
 		#info_in=comm.recv(source = n+1)
 		graphic_lib_320.iprint(interactive, '\r\r\r Recentreed data from '+str(n+1)+' received									   =>')
 
 		## if not rcn in rcubes.keys():
-		if rcubes[rcn]==None:
+		if rcubes[rcn] is None:
 			rcubes[rcn]=data_in
 			#rcube_list['info'][rcn]=info_in
 		else:
@@ -198,7 +198,7 @@ if rank==0:
 	dirlist.sort()
 	skipped=0
 	for i in range(len(dirlist)):
-		if dirlist[0]==None:
+		if dirlist[0] is None:
 			dirlist.pop(0)
 			skipped=skipped+1
 		else: break
@@ -224,7 +224,7 @@ if rank==0:
 	# Clean dirlist of discarded values:
 	dirlist.sort() # Put all the None at the beginning
 	for i in range(len(dirlist)):
-		if dirlist[0]==None:
+		if dirlist[0] is None:
 			dirlist.pop(0)
 			skipped=skipped+1
 		else: break
@@ -331,7 +331,7 @@ if rank==0:
 			valid_cubes=0
 			valid={}
 
-			if not max_in_mem==None and len(cubes.keys())>max_in_mem:
+			if not max_in_mem is None and len(cubes.keys())>max_in_mem:
 				print('Too many cubes loaded in memory, temporarly adapting ctmax, removing '+str(cube_timespan))
 				time_treshold=time_treshold+cube_timespan
 			elif time_treshold>0:
@@ -457,7 +457,7 @@ if rank==0:
 							## mask[i]=False
 					## stack=np.concatenate((stack,cubes[cn][valid[mask]]))
 
-				## if stack==None:
+				## if stack is None:
 					## graphic_lib_320.dprint(d>19, "stack: "+str(stack)+", cube_list['info'][cn]: "+str(cube_list['info'][cn]))
 					## # Create frame stack
 					## stack=cubes[cn][valid[mask]] #(not cube_list['info'][cn][:,2]<0))]
@@ -476,7 +476,7 @@ if rank==0:
 			#graphic_lib_320.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" recentreing stack. Kept "+str(stack.shape[0])+" out of "+str(valid_count)"+ frames.")
 
 
-			if stack == None or sum(len(i) for i in valid.itervalues())==0:
+			if stack is None or sum(len(i) for i in valid.itervalues())==0:
 				empty_frame=empty_frame+1
 				graphic_lib_320.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" .... no frames found to generate PSF. Valid_cubes="+str(valid_cubes)+" si="+str(si))
 			else:
@@ -495,24 +495,11 @@ if rank==0:
 					graphic_lib_320.iprint(interactive, "\n STAT: Data upload took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_lib_320.humanize_time(MPI.Wtime()-t0_trans)+"\n")
 
 
-				temp_info=cube_list['info'][c][f]
-				## # Adjust centre value using "psf" frame for shape
-				temp_info[1]=naxis1/2. #x centroid
-				temp_info[2]=naxis2/2. #y centroid
-				temp_info[4]=naxis1/2. #x stack fit
-				temp_info[5]=naxis2	/2.	#y pas fit
-
-
 				stack=None
 				chunk=None
 				psf=None
 				t0_trans=MPI.Wtime()
 
-				if new_info==None:
-					## new_info=cube_list['info'][c][f]
-					new_info=temp_info
-				else:
-					new_info=np.vstack((new_info,temp_info))
 
 				## gather results and save
 				for n in range(nprocs-1):
@@ -526,7 +513,7 @@ if rank==0:
 					graphic_lib_320.iprint(interactive, '\r\r\r Median processed data from '+str(n+1)+' received									 =>')
 
 
-					if psf==None: #initialise
+					if psf is None: #initialise
 						psf=chunk
 					else:
 						psf=np.concatenate((psf,chunk), axis=0)
@@ -543,21 +530,36 @@ if rank==0:
 				if not c in cubes.keys():
 					cubes, t0_trans=read_recentre(c,cubes, cube_list, l_max)
 					graphic_lib_320.iprint(interactive, '\n '+str(len(cubes.keys()))+' stored in memory')
-				if final_cube==None: # Check if a cube has already been started
+				if final_cube is None: # Check if a cube has already been started
 					final_cube=cubes[c][f][np.newaxis,...]-psf.clip(0)
 				else:
 					final_cube=np.concatenate((final_cube,cubes[c][f][np.newaxis,...]-psf.clip(0)), axis=0)
 
+
+				temp_info=cube_list['info'][c][f]
+				## # Adjust centre value using "psf" frame for shape
+				temp_info[1]=psf.shape[0]/2. #x centroid
+				temp_info[2]=psf.shape[1]/2. #y centroid
+				temp_info[4]=psf.shape[0]/2. #x psf fit
+				temp_info[5]=psf.shape[1]/2.	#y psf fit
+
+				if new_info is None:
+					## new_info=cube_list['info'][c][f]
+					new_info=temp_info
+				else:
+					new_info=np.vstack((new_info,temp_info))
+
+
 				if args.stat==True:
 					print("\n STAT: Frame processing took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_lib_320.humanize_time(MPI.Wtime()-t0_frame))
-				graphic_lib_320.dprint(d==-31 and not new_info==None, str(f)+" new_info "+str(len(new_info)))
-				graphic_lib_320.dprint(d==-31 and not final_cube==None, "final_cube.shape: "+str(final_cube.shape))
-				graphic_lib_320.dprint(d==-31 and final_cube==None, "final_cube: "+str(final_cube))
+				graphic_lib_320.dprint(d==-31 and not new_info is None, str(f)+" new_info "+str(len(new_info)))
+				graphic_lib_320.dprint(d==-31 and not final_cube is None, "final_cube.shape: "+str(final_cube.shape))
+				graphic_lib_320.dprint(d==-31 and final_cube is None, "final_cube: "+str(final_cube))
 
 		if empty_frame==hdr['NAXIS3']:# cubes[c].shape[0]-1:  #All frames are empty.
 			final_cube=None
 
-		if final_cube==None:
+		if final_cube is None:
 			graphic_lib_320.iprint(interactive, "\n No cube generated for "+str(cube_list['cube_filename'][c])+"! You should consider relaxing n_fwhm, rmin, or tmax conditions.")
 
 			open(psf_sub_filename+'.EMPTY', 'a').close()
@@ -672,13 +674,13 @@ else:
 			# Receive cube
 			stack=comm.recv(source=0)
 			if d >2:
-				if stack==None:
+				if stack is None:
 					print(str(rank)+" received stack: "+str(stack))
 				else:
 					print(str(rank)+" received stack, shape="+str(stack.shape))
 
 
-			if not (stack==None or len(stack.shape)<3):
+			if not (stack is None or len(stack.shape)<3):
 				if 2*l_max<stack.shape[1]:
 					bigstack=np.zeros((stack.shape[0],stack.shape[1]*2,stack.shape[2]*2))
 					smallstack=np.zeros((stack.shape[0],l_max*2,l_max*2))

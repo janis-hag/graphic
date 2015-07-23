@@ -74,6 +74,7 @@ collapse=args.collapse
 nici=args.nici
 naxis3=args.naxis3
 use_bottleneck=args.use_bottleneck
+l_max=args.l_max
 
 if use_bottleneck:
 	from bottleneck import median as median
@@ -107,12 +108,12 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
 	# Recover data from slaves
 	for n in range(nprocs-1):
 		data_in=comm.recv(source = n+1)
-		if data_in == None:
+		if data_in is None:
 			continue
 		sys.stdout.write('\r\r\r Recentreed data from '+str(n+1)+' received									   =>')
 		sys.stdout.flush()
 
-		if cube==None:
+		if cube is None:
 			cube=data_in
 		else:
 			cube=np.concatenate((cube,data_in))
@@ -183,7 +184,7 @@ if rank==0:
 				l_max=2*int(hdr['NAXIS1'])
 			cube, t0_trans=read_recentre_cube(c+n, cube, cube_list, l_max)
 			if collapse:
-				if new_cube==None:
+				if new_cube is None:
 					new_cube=np.ones((naxis3,cube.shape[1],cube.shape[2]))
 					new_info=np.NaN*np.ones((naxis3,len(cube_list['info'][c+n][0])))
 				new_cube[n]=bottleneck.nanmedian(cube, axis=0)
@@ -230,7 +231,7 @@ if rank==0:
 	if skipped==len(cube_list['cube_filename']):
 		sys.exit(0)
 
-	if not hdr==None:
+	if not hdr is None:
 		if 'ESO OBS TARG NAME' in hdr.keys():
 			log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 		else:
@@ -285,13 +286,13 @@ else:
 			# Receive cube
 			stack=comm.recv(source=0)
 			if d >2:
-				if stack==None:
+				if stack is None:
 					print(str(rank)+" received stack: "+str(stack))
 				else:
 					print(str(rank)+" received stack, shape="+str(stack.shape))
 
 
-			if not stack==None:
+			if not stack is None:
 				bigstack=np.zeros((stack.shape[0],l_max*2,l_max*2))
 				bigstack[:,
 				l_max-stack.shape[1]/2:l_max+stack.shape[1]/2,
