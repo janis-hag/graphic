@@ -19,7 +19,9 @@ from mpi4py import MPI
 from string import split
 import argparse
 import numpy as np
-import graphic_lib_320
+## import graphic_lib_320
+import graphic_mpi_lib_320
+import graphic_nompi_lib_320
 from astropy.io import fits as pyfits
 
 nprocs = MPI.COMM_WORLD.Get_size()
@@ -63,7 +65,7 @@ t_init=MPI.Wtime()
 
 if rank==0:  # Master process
 	print(sys.argv[0]+' started on '+ time.strftime("%c"))
-	dirlist=graphic_lib_320.create_dirlist(source_dir+os.sep+pattern,target_dir=target_dir, target_pattern=file_prefix)
+	dirlist=graphic_mpi_lib_320.create_dirlist(source_dir+os.sep+pattern,target_dir=target_dir, target_pattern=file_prefix)
 
 	if dirlist==None:
 		print("No files found")
@@ -98,7 +100,7 @@ skipped=0
 for i in range(len(dirlist)):
 	targetfile=file_prefix+split(dirlist[i], os.sep)[-1]
 
-	print(str(rank)+': ['+str(i+1)+"/"+str(len(dirlist))+"] "+dirlist[i]+" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
+	print(str(rank)+': ['+str(i+1)+"/"+str(len(dirlist))+"] "+dirlist[i]+" Remaining time: "+graphic_nompi_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
 	cube,header=pyfits.getdata(dirlist[i], header=True)
 
 	cube_shape=cube.shape
@@ -123,12 +125,12 @@ for i in range(len(dirlist)):
 
 	#header.add_history('Overscan ['+str(overscan_limit)+','+str(cube_shape[1])+'] removed.')
 	header["HIERARCH GC RM_OVERSCAN"]=(__version__+'.'+__subversion__, "")
-	graphic_lib_320.save_fits(targetfile, cube, hdr=header, backend='pyfits' )
+	graphic_nompi_lib_320.save_fits(targetfile, cube, hdr=header, backend='pyfits' )
 
 if 'ESO OBS TARG NAME' in header.keys():
 	log_file=log_file+"_"+header['ESO OBS TARG NAME']+"_"+str(__version__)+".log"
 else:
 	log_file=log_file+"_"+str(__version__)+".log"
 
-graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file)
+graphic_nompi_lib_320.write_log((MPI.Wtime()-t_init),log_file)
 sys.exit(0)
