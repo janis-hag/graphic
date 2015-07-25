@@ -65,7 +65,7 @@ t_init=MPI.Wtime()
 
 if rank==0:  # Master process
 	print(sys.argv[0]+' started on '+ time.strftime("%c"))
-	dirlist=graphic_mpi_lib_320.create_dirlist(source_dir+os.sep+pattern,target_dir=target_dir, target_pattern=file_prefix)
+	dirlist=graphic_nompi_lib_320.create_dirlist(source_dir+os.sep+pattern,target_dir=target_dir, target_pattern=file_prefix)
 
 	if dirlist==None:
 		print("No files found")
