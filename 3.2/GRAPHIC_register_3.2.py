@@ -27,7 +27,8 @@ from mpi4py import MPI
 #from gaussfit import fitgaussian, i_fitmoffat, moments
 import gaussfit_310
 from scipy import stats
-import graphic_lib_320
+import graphic_nompi_lib_320
+import graphic_mpi_lib_320
 import numpy as np
 from astropy.io import fits as pyfits
 import bottleneck
@@ -126,7 +127,7 @@ t_init=MPI.Wtime()
 print(rank, nprocs)
 
 if rank==0:  # Master process
-	graphic_lib_320.print_init()
+	graphic_nompi_lib_320.print_init()
 	# try:
 	t0=MPI.Wtime()
 	skipped=0
@@ -181,12 +182,12 @@ if rank==0:  # Master process
 		######
 		if spherepipe:
 			fctable_filename = fnmatch.filter(fctable_list,'*'+dirlist[i][-40:-10]+'*')[0]
-			fctable=graphic_lib_320.read_rdb(fctable_filename)
+			fctable=graphic_nompi_lib_320.read_rdb(fctable_filename)
 			parang_list=None
 			if not 'Angle_deg' in fctable.keys():
 				print(str(fctable_filename)+' does not contain Angle_deg in keys: '+str(fctable.keys()))
 			for i in xrange(len(fctable['Angle_deg'])):
-				jdate = graphic_lib_320.datetime2jd(dateutil.parser.parse(fctable['Time-UT'][i]))
+				jdate = graphic_nompi_lib_320.datetime2jd(dateutil.parser.parse(fctable['Time-UT'][i]))
 				if parang_list is None:
 					parang_list=numpy.array([i,jdate,fctable['Angle_deg'][i]])
 					## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
@@ -194,12 +195,12 @@ if rank==0:  # Master process
 					parang_list=numpy.vstack((parang_list,[i,jdate,fctable['Angle_deg'][i]]))
 		elif scexao:
 			fctable_filename= fnmatch.filter(fctable_list,'*'+string.split(dirlist[i],'_')[-1][:-5]+'.rdb')[0]
-			fctable=graphic_lib_320.read_rdb(fctable_filename)
+			fctable=graphic_nompi_lib_320.read_rdb(fctable_filename)
 			parang_list=np.array([fctable['frame_num'][:],fctable['frame_time'][:],fctable['paralactic_angle'][:]])
 			parang_list=(np.rollaxis(parang_list,1))
 		else:
 			# Creates a 2D array [frame_number, frame_time, paralactic_angle]
-			parang_list=graphic_lib_320.create_parang_list_ada(cube_header)
+			parang_list=graphic_nompi_lib_320.create_parang_list_ada(cube_header)
 
 		print('Parang list generated')
 
@@ -215,11 +216,11 @@ if rank==0:  # Master process
 			sat=-1
 			if nosat:
 				# Get saturation level
-				sat=graphic_lib_320.get_saturation(cube_header)
+				sat=graphic_nompi_lib_320.get_saturation(cube_header)
 			comm.bcast(sat, root=0)
 			## print('saturation broadcasted: '+str(sat))
 			# send_frames...
-			graphic_lib_320.send_frames(cube)
+			graphic_mpi_lib_320.send_frames(cube)
 			del cube
 			# Prepare the centroid array:
 			# [frame_number, psf_barycentre_x, psf_barycentre_y, psf_pixel_size, psf_fit_centre_x, psf_fit_centre_y, psf_fit_height, psf_fit_width_x, psf_fit_width_y]
@@ -272,7 +273,7 @@ if rank==0:  # Master process
 			## hdfarray = f.createArray(f.root, 'centroids', cent_list, "List of centroids for cube "+str(dirlist[i]))
 			## f.close()
 		## else:
-		graphic_lib_320.write_array2rdb(positions_dir+os.sep+filename,cent_list,header_keys)
+		graphic_nompi_lib_320.write_array2rdb(positions_dir+os.sep+filename,cent_list,header_keys)
 
 		if d>2:
 			print("saved cent_list "+str(cent_list.shape)+" :" +str(cent_list))
@@ -287,16 +288,16 @@ if rank==0:  # Master process
 
 		t_cube=MPI.Wtime()-t_cube
 		# print(" ETA: "+humanize_time(t_cube*(len(dirlist)-i-1)))
-		print(" Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i-1)/(i+1-skipped)))
+		print(" Remaining time: "+graphic_nompi_lib_320.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i-1)/(i+1-skipped)))
 
 	if len(dirlist)==skipped: # Nothing to be done.
 		MPI.Finalize()
 		sys.exit(0)
 
 	print("")
-	print(" Total time: "+graphic_lib_320.humanize_time(MPI.Wtime()-t0))
+	print(" Total time: "+graphic_nompi_lib_320.humanize_time(MPI.Wtime()-t0))
 	if not len(dirlist)-skipped==0:
-		print(" Average time per cube: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" = "+str((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" seconds.")
+		print(" Average time per cube: "+graphic_nompi_lib_320.humanize_time((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" = "+str((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" seconds.")
 
 
 	if 'ESO OBS TARG NAME' in cube_header.keys():
@@ -304,7 +305,7 @@ if rank==0:  # Master process
 	else:
 		log_file=log_file+"_"+str(__version__)+".log"
 
-	graphic_lib_320.write_log((MPI.Wtime()-t_init), log_file, comments)
+	graphic_nompi_lib_320.write_log((MPI.Wtime()-t_init), log_file, comments)
 	# Stop slave processes
 	comm.bcast("over", root=0)
 	for n in range(nprocs-1):
@@ -355,14 +356,14 @@ else: # Slave processes
 					sigma = data_in[frame].std()
 					median = bottleneck.median(data_in[frame])
 					threshold = sigma*thres_coefficient
-					graphic_lib_320.dprint(d>1,"Sigma: "+str(sigma)+", median: "+str(median)+", threshold: "+str(threshold))
+					graphic_mpi_lib_320.dprint(d>1,"Sigma: "+str(sigma)+", median: "+str(median)+", threshold: "+str(threshold))
 					data_in[frame] = data_in[frame]-median
 					data_in[frame] = np.where(data_in[frame]>sigma*max_deviation, median, data_in[frame])
 				else:
 					threshold=thres_coefficient
 
 				# Starting rough centre search and quality check
-				cluster_array_ref, ref_ima, count = graphic_lib_320.cluster_search(data_in[frame], threshold, min_size, max_size, x0_i , y0_i,d=d)
+				cluster_array_ref, ref_ima, count = graphic_nompi_lib_320.cluster_search(data_in[frame], threshold, min_size, max_size, x0_i , y0_i,d=d)
 				if d>3:
 					print("cluster_search, on frame["+str(frame)+"]: "+str(cluster_array_ref))
 				if not count == 1: # Check if one and only one star has been found
