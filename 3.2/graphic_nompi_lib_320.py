@@ -2471,24 +2471,25 @@ def write_log(runtime, log_file, comments=None, mpi=True):
 	from subprocess import Popen, PIPE
 	import sys
 
-	if mpi==False:
-		rank=0
+	## if mpi==False:
+		## rank=0
+##
+	## if rank==0:
 
-	if rank==0:
-		p=Popen(["ps","-o", "cmd=","-p",str(os.getpid())], stdout=PIPE)
-		out, err = p.communicate()
-		f = open(log_file, 'aw')
-		f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
-		if mpi:
-			f.write('mpirun -n '+str(nprocs)+' '+str(out))
-		if not comments==None:
-			if isinstance(comments,list):
-				for c in comments:
-					f.write(c+'\n')
-			elif isinstance(comments,str):
-				f.write(comments)
-			else:
-				print('Unknown '+type(comments)+': '+str(comments))
-		f.write(string.join(sys.argv)+'\n')
-		f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
-		f.close()
+	p=Popen(["ps","-o", "cmd=","-p",str(os.getpid())], stdout=PIPE)
+	out, err = p.communicate()
+	f = open(log_file, 'aw')
+	f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
+	if mpi:
+		f.write('mpirun -n '+str(nprocs)+' '+str(out))
+	if not comments==None:
+		if isinstance(comments,list):
+			for c in comments:
+				f.write(c+'\n')
+		elif isinstance(comments,str):
+			f.write(comments)
+		else:
+			print('Unknown '+type(comments)+': '+str(comments))
+	f.write(string.join(sys.argv)+'\n')
+	f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
+	f.close()
