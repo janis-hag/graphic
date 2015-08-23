@@ -62,6 +62,267 @@ def bcast_window_coord(x0=None,y0=None,xs=None,xe=None,ys=None,ye=None,ref_windo
 
 ##	 return parang_deg
 
+def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
+	"""Search pixel above threshold by running along the image.
+
+	Warning: python inverts x and y
+	Threshold could be given as argument...
+	-im: the image to be analysed
+	-spot_ary: the 2d array of spots [psf_barycentre_x, psf_barycentre_y, psf_pixel_size]
+	"""
+	import sys, numpy
+
+	ima=image.copy()
+	from sys import setrecursionlimit
+	setrecursionlimit(25000)
+
+	check_ima=numpy.zeros_like(1.*ima) #Create an image for checking
+	cl_cnt=0	#cluster counter
+	spot_ary=None
+	thres=thres_coef # using thres_coef directly as threshold value because mean is nearly equal 0
+	smallest=0
+	biggest=ima.size
+
+	if ima[x_i , y_i] > thres: #check if above thresh
+		xpix_cnt = x_i
+		ypix_cnt = y_i
+		new_cluster=numpy.array([]) # create a new empty cluster array
+		new_cluster=cluster_build(xpix_cnt,ypix_cnt,ima,new_cluster,thres)
+		#remove cluster from img to prevent double detection, by
+		#check the size of the spot
+		if new_cluster.size < min:
+			if smallest<new_cluster.size:
+				smallest=new_cluster.size
+			pass
+		elif new_cluster.size > max:
+			if biggest>new_cluster.size:
+			   biggest=new_cluster.size
+			pass
+		# find the centroid of the cluster and add the position to
+		# spot_ary
+		# compute total luminosity of the spot
+		else:
+			tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
+			# find the xcentre of mass
+			xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			# find the ycentre of mass
+			ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			#check if it is the first spot
+			if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
+			elif new_cluster.size>spot_ary[2]:
+				# More than one centroid detected. Keep only the biggest.
+				#spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+				dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcentre,ycentre,new_cluster.size]))
+				spot_ary=numpy.array([xcentre,ycentre,new_cluster.size])
+			if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+				check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+			else:
+				check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+				print "Double detection"
+			cl_cnt=cl_cnt+1
+	else:
+		for ypix_cnt in range(ima.shape[1]):
+			for xpix_cnt in range(ima.shape[0]):
+				if ima[xpix_cnt , ypix_cnt] > thres: #check if above thresh
+					new_cluster=numpy.array([]) # create a new empty cluster array
+					new_cluster=cluster_build(xpix_cnt,ypix_cnt,ima,new_cluster,thres)
+					#remove cluster from img to prevent double detection, by
+					#check the size of the spot
+					if new_cluster.size < min:
+						if smallest<new_cluster.size:
+							smallest=new_cluster.size
+						continue
+					if new_cluster.size > max:
+						if biggest>new_cluster.size:
+							biggest=new_cluster.size
+						continue
+						#do some thing.....
+					#find the centroid of the cluster and add the position to
+					#spot_ary
+					# compute total luminosity of the spot
+					tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
+					# find the xcentre of mass
+					xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					 # find the ycentre of mass
+					ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					#check if it is the first spot
+					if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
+					elif new_cluster.size>spot_ary[2]:
+						# More than one centroid detected. Keep only the biggest.
+						#spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+						dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcentre,ycentre,new_cluster.size]))
+						spot_ary=numpy.array([xcentre,ycentre,new_cluster.size])
+					if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+						check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+					else:
+						check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+						print "Double detection"
+					cl_cnt=cl_cnt+1
+			else: continue
+	if cl_cnt==0:
+		print(" No centroids found. Clusters closest to size limits: "+str(smallest)+" < [ "+str(min)+" : "+str(max)+" ] < "+str(biggest)+" \n")
+		## if not smallest==0:
+		##	 sys.stdout.write("Biggest candidate below limit size: "+str(smallest)+".\n")
+		## if not biggest==ima.size:
+		##	  sys.stdout.write("Smallest candidate above size: "+str(biggest)+".\n")
+		# sys.stdout.write("\n")
+		sys.stdout.flush()
+	elif cl_cnt>1:
+		print(" Multiple centroids found. Clusters closest to size limits: "+str(smallest)+" < [ "+str(min)+" : "+str(max)+" ] < "+str(biggest)+" \n")
+		## dprint(d>0,str(spot_ary))
+		## if not smallest==0:
+		##	 sys.stdout.write("Biggest candidate below limit size: "+str(smallest)+".\n")
+		## if not biggest==ima.size:
+		##	  sys.stdout.write("Smallest candidate above size: "+str(biggest)+".\n")
+		# sys.stdout.write("\n")
+		sys.stdout.flush()
+
+	return spot_ary, ima, cl_cnt
+
+def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
+	"""Search pixel above threshold by running along the image.
+
+	Warning: python inverts x and y
+	Threshold could be given as argument...
+	-im: the image to be analysed
+	-spot_ary: the 2d array of spots [psf_barycentre_x, psf_barycentre_y, psf_pixel_size]
+	"""
+	import sys, numpy
+
+	ima=image.copy()
+	from sys import setrecursionlimit
+	setrecursionlimit(25000)
+
+	check_ima=numpy.zeros_like(1.*ima) #Create an image for checking
+	cl_cnt=0	#cluster counter
+	spot_ary=None
+	thres=thres_coef # using thres_coef directly as threshold value because mean is nearly equal 0
+	smallest=0
+	biggest=ima.size
+
+	if ima[x_i , y_i] > thres: #check if above thresh
+		xpix_cnt = x_i
+		ypix_cnt = y_i
+		new_cluster=numpy.array([]) # create a new empty cluster array
+		new_cluster=cluster_build(xpix_cnt,ypix_cnt,ima,new_cluster,thres)
+		#remove cluster from img to prevent double detection, by
+		#check the size of the spot
+		if new_cluster.size < min:
+			if smallest<new_cluster.size:
+				smallest=new_cluster.size
+			pass
+		elif new_cluster.size > max:
+			if biggest>new_cluster.size:
+			   biggest=new_cluster.size
+			pass
+		# do some thing.....
+		# find the centroid of the cluster and add the position to
+		# spot_ary
+		# compute total luminosity of the spot
+		else:
+			tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
+			# find the xcentre of mass
+			xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			# find the ycentre of mass
+			ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+			#check if it is the first spot
+			if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
+			else: spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+			if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+				check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+			else:
+				check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+				print "Double detection"
+			cl_cnt=cl_cnt+1
+	else:
+		for ypix_cnt in range(ima.shape[1]):
+			for xpix_cnt in range(ima.shape[0]):
+				if ima[xpix_cnt , ypix_cnt] > thres: #check if above thresh
+					new_cluster=numpy.array([]) # create a new empty cluster array
+					new_cluster=cluster_build(xpix_cnt,ypix_cnt,ima,new_cluster,thres)
+					#remove cluster from img to prevent double detection, by
+					#check the size of the spot
+					if new_cluster.size < min:
+						if smallest<new_cluster.size:
+							smallest=new_cluster.size
+						continue
+					if new_cluster.size > max:
+						if biggest>new_cluster.size:
+							biggest=new_cluster.size
+						continue
+						#do some thing.....
+					#find the centroid of the cluster and add the position to
+					#spot_ary
+					# compute total luminosity of the spot
+					tot_lum=numpy.sum(numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))
+					# find the xcentre of mass
+					xcentre=numpy.sum(new_cluster[i,0]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					 # find the ycentre of mass
+					ycentre=numpy.sum(new_cluster[i,1]*numpy.abs(ima[new_cluster[i,0],new_cluster[i,1]]) for i in range(new_cluster.shape[0]))/tot_lum
+					#check if it is the first spot
+					if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
+					else: spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
+					if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
+						check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+					else:
+						check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+						print "Double detection"
+					cl_cnt=cl_cnt+1
+			else: continue
+	if cl_cnt==0:
+		sys.stdout.write(" No centroids found. Clusters closest to size limits: "+str(smallest)+" < [ "+str(min)+" : "+str(max)+" ] < "+str(biggest)+" \n")
+		## if not smallest==0:
+		##	 sys.stdout.write("Biggest candidate below limit size: "+str(smallest)+".\n")
+		## if not biggest==ima.size:
+		##	  sys.stdout.write("Smallest candidate above size: "+str(biggest)+".\n")
+		# sys.stdout.write("\n")
+		sys.stdout.flush()
+	elif cl_cnt>1:
+		sys.stdout.write(" Multiple centroids found. Clusters closest to size limits: "+str(smallest)+" < [ "+str(min)+" : "+str(max)+" ] < "+str(biggest)+" \n")
+		sys.stdout.write(str(spot_ary))
+		## if not smallest==0:
+		##	 sys.stdout.write("Biggest candidate below limit size: "+str(smallest)+".\n")
+		## if not biggest==ima.size:
+		##	  sys.stdout.write("Smallest candidate above size: "+str(biggest)+".\n")
+		# sys.stdout.write("\n")
+		sys.stdout.flush()
+
+	return spot_ary, ima, cl_cnt
+
+def cluster_build(xpos,ypos,image,cl_ary,thr):
+	"""Build a cluster at xpos, ypos, sourced in image.
+
+	Build a cluster by adding all pixel in ima above threshold in contact
+	with the starting pixel at (xpos,ypos). The cluster number is given by
+	cl_num.
+	Arguments:
+	-xpos, ypos: x and y position of the starting pixel in the image
+	-ima: the array containing the image
+	-cl_ary: the array of cluster this cluster should be added to
+	should rather be the cluster array
+	-thr: threshold
+	"""
+	from sys import setrecursionlimit
+	## setrecursionlimit(50000)
+	setrecursionlimit(25000)
+
+	if image[xpos,ypos] > thr:
+		#negate the pixel value to prevent double detection and infinite loops
+		image[xpos,ypos]=-image[xpos,ypos]
+		if cl_ary.size > 0: # see if cl_ary has already been filled
+			cl_ary=numpy.vstack((cl_ary,[xpos,ypos]))
+		else: cl_ary=numpy.array([xpos,ypos]) #initiate the array
+		#print cl_ary.shape
+		#check if contiguous pixel still in the image, then search in this pixel
+		if xpos-1 in range(image.shape[0]):
+			cl_ary=cluster_build(xpos-1,ypos,image,cl_ary,thr) # left
+		if xpos+1 in range(image.shape[0]):
+			cl_ary=cluster_build(xpos+1,ypos,image,cl_ary,thr) # right
+		if ypos-1 in range(image.shape[1]):
+			cl_ary=cluster_build(xpos,ypos-1,image,cl_ary,thr) # up
+		if ypos+1 in range(image.shape[1]):
+			cl_ary=cluster_build(xpos,ypos+1,image,cl_ary,thr) # down
+	return cl_ary
 
 def dprint(D, text):
 	"""

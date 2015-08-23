@@ -25,10 +25,11 @@ import numpy, scipy, glob, shutil, os, sys,argparse, time, fnmatch, string
 from mpi4py import MPI
 #from gaussfit_nosat import fitgaussian_nosat
 #from gaussfit import fitgaussian, i_fitmoffat, moments
-import gaussfit_310
+import gaussfit_320
 from scipy import stats
 import graphic_nompi_lib_320
 import graphic_mpi_lib_320
+from graphic_mpi_lib_320 import dprint
 import numpy as np
 from astropy.io import fits as pyfits
 import bottleneck
@@ -305,7 +306,7 @@ if rank==0:  # Master process
 	else:
 		log_file=log_file+"_"+str(__version__)+".log"
 
-	graphic_nompi_lib_320.write_log((MPI.Wtime()-t_init), log_file, comments)
+	graphic_nompi_lib_320.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
 	# Stop slave processes
 	comm.bcast("over", root=0)
 	for n in range(nprocs-1):
@@ -363,9 +364,8 @@ else: # Slave processes
 					threshold=thres_coefficient
 
 				# Starting rough centre search and quality check
-				cluster_array_ref, ref_ima, count = graphic_nompi_lib_320.cluster_search(data_in[frame], threshold, min_size, max_size, x0_i , y0_i,d=d)
-				if d>3:
-					print("cluster_search, on frame["+str(frame)+"]: "+str(cluster_array_ref))
+				cluster_array_ref, ref_ima, count = graphic_mpi_lib_320.cluster_search(data_in[frame], threshold, min_size, max_size, x0_i , y0_i,d=d)
+				dprint(d>3,"cluster_search, on frame["+str(frame)+"]: "+str(cluster_array_ref))
 				if not count == 1: # Check if one and only one star has been found
 					cluster_array_ref=np.array([-1 , -1, -1, -1 , -1 , -1, -1 , -1])
 				elif nofit: # Skip psf fitting procedure, and copy values
@@ -409,11 +409,11 @@ else: # Slave processes
 					try:
 					## if True:
 						if moffat:
-							g_param=gaussfit_310.i_fitmoffat(centre_win)
+							g_param=gaussfit_320.i_fitmoffat(centre_win)
 						## elif nosat:
 							## g_param=gaussfit_247.fitgaussian_nosat(centre_win,sat)
 						else:
-							g_param=gaussfit_310.fitgaussian(centre_win)
+							g_param=gaussfit_320.fitgaussian(centre_win)
 					except:
 						print("\n Something went wrong with the PSF fitting!")
 						g_param=np.array([-1 , -1, -1, -1 , -1 ])
