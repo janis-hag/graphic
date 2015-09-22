@@ -31,7 +31,6 @@ comm = MPI.COMM_WORLD
 
 target_dir = "."
 target_pattern ="cl_"
-coefficient= 1
 
 parser = argparse.ArgumentParser(description='Puts bad pixels to median value, based on darks.')
 parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
@@ -212,7 +211,7 @@ if rank==0:
 	elif len(dark_cube.shape)==2:
 		dark=dark_cube
 	del dark_cube
-	bad_pix,comments = gen_badpix(dark, coefficient, comments)
+	bad_pix,comments = gen_badpix(dark, coef, comments)
 	comm.bcast(bad_pix, root=0)
 
 if not rank==0:
