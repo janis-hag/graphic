@@ -1,8 +1,9 @@
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
-This program is part of the Parallel Angular Differential Imaging Pipeline (PADIP).
-These are function common to different programs of the pipeline.
+This program is part of GRAPHIC: "The Geneva Reduction and Analysis Pipeline for
+High-contrast Imaging of planetary Companions".
+
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
