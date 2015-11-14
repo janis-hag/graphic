@@ -341,8 +341,8 @@ def create_parang_list_ada(hdr):
 		sys.stdout.flush()
 
 	ROT_PT_OFF=179.44-ADA_PUPILPOS # from NACO manual v90 p.85
-
 	dit=float(hdr['ESO DET DIT'])
+
 	if 'ESO DET DITDELAY' in hdr.keys():
 		dit_delay=float(hdr['ESO DET DITDELAY'])
 	else:
@@ -365,7 +365,7 @@ def create_parang_list_ada(hdr):
 			pa = ((pa + 360) % 360)
 
 		pa = pa + 180
-		parang_array=numpy.array([0,mjdstart,-r2d*arctan2(-f1,f2)+ROT_PT_OFF])
+		parang_array=numpy.array([0,mjdstart,pa+ROT_PT_OFF])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
 		for i in range(1,hdr['NAXIS3']):
@@ -384,7 +384,7 @@ def create_parang_list_ada(hdr):
 			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa+ROT_PT_OFF]))
 	else:
 		if 'ARCFILE' in hdr.keys():
-			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
+			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
 
@@ -526,11 +526,90 @@ def create_parang_scexao(hdr):
 
 	else:
 		if 'ARCFILE' in hdr.keys():
-			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
+			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
 
 		parang_array=numpy.array([mjdstart,0])
+
+	return parang_array
+
+
+def create_parang_list_sphere(hdr):
+	"""
+	Reads the header and creates an array giving the paralactic angle for each frame,
+	taking into account the inital derotator position.
+
+	The columns of the output array contains:
+	frame_number, frame_time, paralactic_angle
+	"""
+
+	from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
+	import dateutil.parser
+
+	SPHERE=False
+
+	r2d = 180/pi
+	d2r = pi/180
+
+	ra_deg = float(hdr['RA'])
+	dec_deg = float(hdr['DEC'])
+
+	geolat_deg=float(hdr['ESO TEL GEOLAT'])
+	geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
+
+	dit=hdr['ESO DET SEQ1 REALDIT']
+
+	if 'ESO DET DITDELAY' in hdr.keys():
+		dit_delay=float(hdr['ESO DET DITDELAY'])
+	else:
+		## sys.stdout.write('\n Warning! No HIERARCH ESO DET DITDELAY keyword found, using 0. Is it ADI?\n')
+		## sys.stdout.flush()
+		dit_delay=0
+
+	ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
+
+	# VLT TCS formula
+	f1 = cos(geolat_rad) * sin(d2r*ha_deg)
+	f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
+
+	mjdstart=float(hdr['MJD-OBS'])
+
+	if 'ESO INS4 COMB ROT' in hdr.keys() and hdr['ESO INS4 COMB ROT']=='PUPIL':
+
+		pa = -r2d*arctan2(-f1,f2)
+		if dec_deg > geolat_deg:
+			pa = ((pa + 360) % 360)
+
+		pa = pa + 180
+		parang_array=numpy.array([0,mjdstart,pa])
+		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+
+		for i in range(1,hdr['NAXIS3']):
+			ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-ra_deg
+
+			# VLT TCS formula
+			f1 = cos(geolat_rad) * sin(d2r*ha_deg)
+			f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
+
+			pa = -r2d*arctan2(-f1,f2)
+			if dec_deg > geolat_deg:
+				pa = ((pa + 360) % 360)
+
+			pa = pa + 180
+			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
+	else:
+		if 'ARCFILE' in hdr.keys():
+			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
+		else:
+			print('Data does not seem to be taken in pupil tracking.')
+
+		parang_array=numpy.array([0,mjdstart,0])
+		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+
+		for i in range(1,hdr['NAXIS3']):
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,0]))
 
 	return parang_array
 
@@ -1991,13 +2070,13 @@ def save_fits(filename, img, **keywords):
 
 
 def sdi(im1_3d,im2_3d,lambda1,lambda2,additional):
-    """
-    take im as an image and rescale it (make it bigger) by a factor lambda1/lambda2
-    input: im=the image to rescale, lambda1= the wavelength of the first filter, lambda2= the wavelength of the second filter,
-    mask_apodisation= apodisation matrix for the fourier transform so we don't add high frequency when we come back to the image plan
-    output: im2= image with more pixels (2*nbr_pix) but with the same proportions than im,
-    im3= image rescaled and with the same number of pixels than im
-    """
+	"""
+	take im as an image and rescale it (make it bigger) by a factor lambda1/lambda2
+	input: im=the image to rescale, lambda1= the wavelength of the first filter, lambda2= the wavelength of the second filter,
+	mask_apodisation= apodisation matrix for the fourier transform so we don't add high frequency when we come back to the image plan
+	output: im2= image with more pixels (2*nbr_pix) but with the same proportions than im,
+	im3= image rescaled and with the same number of pixels than im
+	"""
 
 	## import numpy as np
 	## import scipy
@@ -2009,93 +2088,93 @@ def sdi(im1_3d,im2_3d,lambda1,lambda2,additional):
 
 	THREAD_NUM=1
 
-    ## print "scaling the cube..."
-    mask_nan=np.where(np.isnan(im1_3d),np.nan,1.)
+	## print "scaling the cube..."
+	mask_nan=np.where(np.isnan(im1_3d),np.nan,1.)
 
-    im1_3d=np.nan_to_num(im1_3d).astype(float)
+	im1_3d=np.nan_to_num(im1_3d).astype(float)
 
-    l=256 #2xl is the size of the inner part of the image taken to calculate the flux ratio between the to filters
-    nbr_pix=int(l*lambda1/lambda2-l)
-    flux_factor1=np.mean(im2_3d[:,np.shape(im2_3d)[1]/2.-l-nbr_pix:np.shape(im2_3d)[1]/2.+l+nbr_pix,np.shape(im2_3d)[2]/2.-l-nbr_pix:np.shape(im2_3d)[2]/2.+l+nbr_pix])/np.mean(im1_3d[:,np.shape(im1_3d)[1]/2.-l:np.shape(im1_3d)[1]/2.+l,np.shape(im1_3d)[2]/2.-l:np.shape(im1_3d)[2]/2.+l])
-    im1_3d=im1_3d*flux_factor1
+	l=256 #2xl is the size of the inner part of the image taken to calculate the flux ratio between the to filters
+	nbr_pix=int(l*lambda1/lambda2-l)
+	flux_factor1=np.mean(im2_3d[:,np.shape(im2_3d)[1]/2.-l-nbr_pix:np.shape(im2_3d)[1]/2.+l+nbr_pix,np.shape(im2_3d)[2]/2.-l-nbr_pix:np.shape(im2_3d)[2]/2.+l+nbr_pix])/np.mean(im1_3d[:,np.shape(im1_3d)[1]/2.-l:np.shape(im1_3d)[1]/2.+l,np.shape(im1_3d)[2]/2.-l:np.shape(im1_3d)[2]/2.+l])
+	im1_3d=im1_3d*flux_factor1
 
-    t01 = time.time()
+	t01 = time.time()
 
-    shape=np.shape(im1_3d)
+	shape=np.shape(im1_3d)
 
-    ## print "0 padding in the image plan to make the images in a power of 2 shape"
-    if (pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.!=0:
-        nbr_pix=round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(lambda1/lambda2)))/(lambda1/lambda2))
-        mat=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1],nbr_pix)))
-        mat2=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1]+2*nbr_pix,nbr_pix)))
-        im1_3d=np.append(mat,im1_3d,axis=2)
-        im1_3d=np.append(im1_3d,mat,axis=2)
-        im1_3d=np.transpose(np.append(np.transpose(im1_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
-        im1_3d=np.transpose(np.append(mat2,np.transpose(im1_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
-    shape_bis=np.shape(im1_3d)
+	## print "0 padding in the image plan to make the images in a power of 2 shape"
+	if (pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.!=0:
+		nbr_pix=round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(lambda1/lambda2)))/(lambda1/lambda2))
+		mat=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1],nbr_pix)))
+		mat2=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1]+2*nbr_pix,nbr_pix)))
+		im1_3d=np.append(mat,im1_3d,axis=2)
+		im1_3d=np.append(im1_3d,mat,axis=2)
+		im1_3d=np.transpose(np.append(np.transpose(im1_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
+		im1_3d=np.transpose(np.append(mat2,np.transpose(im1_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
+	shape_bis=np.shape(im1_3d)
 
-    ## print "preparing the fourier transform"
-    t0 = time.time()
+	## print "preparing the fourier transform"
+	t0 = time.time()
 
-    #with fftw
-    pyfftw.interfaces.cache.enable()
-    pyfftw.interfaces.cache.set_keepalive_time(30)
-    test = pyfftw.n_byte_align_empty((shape_bis[1],shape_bis[2]), 16, 'complex128')
-    test = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(test, planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
-    ## print "time of the process:  ",time.time()-t0
-    ## print "fourier transforming the cube"
-    t0 = time.time()
-    fft_3d=pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
-    for i in range(shape_bis[0]):
-        fft_3d[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(im1_3d[i,:,:], planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
+	#with fftw
+	pyfftw.interfaces.cache.enable()
+	pyfftw.interfaces.cache.set_keepalive_time(30)
+	test = pyfftw.n_byte_align_empty((shape_bis[1],shape_bis[2]), 16, 'complex128')
+	test = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(test, planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
+	## print "time of the process:  ",time.time()-t0
+	## print "fourier transforming the cube"
+	t0 = time.time()
+	fft_3d=pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
+	for i in range(shape_bis[0]):
+		fft_3d[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(im1_3d[i,:,:], planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
 
-    #with scipy.fftpack
-    #fft_3d=fftpack.fftshift(fftpack.fft2(im1_3d))
-    ## print "time of the process:  ",time.time()-t0
+	#with scipy.fftpack
+	#fft_3d=fftpack.fftshift(fftpack.fft2(im1_3d))
+	## print "time of the process:  ",time.time()-t0
 
-    #print "apodising the cube "
-    #mask_apodisation=apodisation(np.shape(fft_3d)[1],np.shape(fft_3d)[1]/10.)
-    #fft_3d=fft_3d*mask_apodisation # apodisation des haute frequence en cas d image avec mauvais pixels ou haute frequences
+	#print "apodising the cube "
+	#mask_apodisation=apodisation(np.shape(fft_3d)[1],np.shape(fft_3d)[1]/10.)
+	#fft_3d=fft_3d*mask_apodisation # apodisation des haute frequence en cas d image avec mauvais pixels ou haute frequences
 
-    ## print "0 padding in fourier space to rescale images"
-    nbr_pix=int((int((lambda1/lambda2)*np.shape(im1_3d)[1])-np.shape(im1_3d)[1])/2.)
-    mat=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix)))
-    mat2=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1]+2*nbr_pix,nbr_pix)))
-    fft_3d=np.append(mat,fft_3d,axis=2)
-    fft_3d=np.append(fft_3d,mat,axis=2)
-    fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
-    fft_3d=np.transpose(np.append(mat2,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
+	## print "0 padding in fourier space to rescale images"
+	nbr_pix=int((int((lambda1/lambda2)*np.shape(im1_3d)[1])-np.shape(im1_3d)[1])/2.)
+	mat=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix)))
+	mat2=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1]+2*nbr_pix,nbr_pix)))
+	fft_3d=np.append(mat,fft_3d,axis=2)
+	fft_3d=np.append(fft_3d,mat,axis=2)
+	fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
+	fft_3d=np.transpose(np.append(mat2,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
 
-    ## print "preparing the inverse fourier transform"
-    t0 = time.time()
+	## print "preparing the inverse fourier transform"
+	t0 = time.time()
 
-    #with fftw
-    test = pyfftw.n_byte_align_empty((np.shape(fft_3d)[1],np.shape(fft_3d)[2]), 16, 'complex128')
-    test = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(test, planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
-    ## print "time of the process:  ",time.time()-t0
-    ## print "inverse fourier transforming the cube"
-    t0 = time.time()
-    im1_3d_rescale=pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
-    for i in range(np.shape(fft_3d)[0]):
-        im1_3d_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_3d[i,:,:]), planner_effort='FFTW_MEASURE', threads=THREAD_NUM)
-    im1_3d_rescale=np.real(im1_3d_rescale)
+	#with fftw
+	test = pyfftw.n_byte_align_empty((np.shape(fft_3d)[1],np.shape(fft_3d)[2]), 16, 'complex128')
+	test = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(test, planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
+	## print "time of the process:  ",time.time()-t0
+	## print "inverse fourier transforming the cube"
+	t0 = time.time()
+	im1_3d_rescale=pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
+	for i in range(np.shape(fft_3d)[0]):
+		im1_3d_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_3d[i,:,:]), planner_effort='FFTW_MEASURE', threads=THREAD_NUM)
+	im1_3d_rescale=np.real(im1_3d_rescale)
 
-    #with scipy.fftpack
-    #im1_3d_rescale=np.real(fftpack.ifft2(fftpack.ifftshift(fft_3d)))
-    ## print "time of the process:  ",time.time()-t0
-    flux_factor=(np.shape(fft_3d)[1]*np.shape(fft_3d)[2])/(float(shape_bis[1]*shape_bis[2]))
-    im1_3d_rescale=im1_3d_rescale*flux_factor
+	#with scipy.fftpack
+	#im1_3d_rescale=np.real(fftpack.ifft2(fftpack.ifftshift(fft_3d)))
+	## print "time of the process:  ",time.time()-t0
+	flux_factor=(np.shape(fft_3d)[1]*np.shape(fft_3d)[2])/(float(shape_bis[1]*shape_bis[2]))
+	im1_3d_rescale=im1_3d_rescale*flux_factor
 
-    im1_3d_rescale_cut=im1_3d_rescale[:,np.shape(im1_3d_rescale)[1]/2.-shape[1]/2.:np.shape(im1_3d_rescale)[1]/2.+shape[1]/2.,np.shape(im1_3d_rescale)[2]/2.-shape[2]/2.:np.shape(im1_3d_rescale)[2]/2.+shape[2]/2.]
-    im1_3d_rescale_cut=im1_3d_rescale_cut*mask_nan
+	im1_3d_rescale_cut=im1_3d_rescale[:,np.shape(im1_3d_rescale)[1]/2.-shape[1]/2.:np.shape(im1_3d_rescale)[1]/2.+shape[1]/2.,np.shape(im1_3d_rescale)[2]/2.-shape[2]/2.:np.shape(im1_3d_rescale)[2]/2.+shape[2]/2.]
+	im1_3d_rescale_cut=im1_3d_rescale_cut*mask_nan
 
-    im_3d_subtracted=im1_3d_rescale_cut-im2_3d
-    ## print "end of scaling"
-    ## print "total time of the rescaling:  ",time.time()-t01
-    if additional==True:
-        return im_3d_subtracted,im1_3d_rescale_cut
-    else:
-        return im_3d_subtracted
+	im_3d_subtracted=im1_3d_rescale_cut-im2_3d
+	## print "end of scaling"
+	## print "total time of the rescaling:  ",time.time()-t01
+	if additional==True:
+		return im_3d_subtracted,im1_3d_rescale_cut
+	else:
+		return im_3d_subtracted
 
 def shift_diff(shift, rw, shift_im ,x_start, x_end, y_start, y_end,R):
 	"""
