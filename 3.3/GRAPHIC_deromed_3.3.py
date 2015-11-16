@@ -156,7 +156,7 @@ if rank==0:
 		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 		if 'ESO INS OPTI6 ID' in hdr.keys(): # VLT/NACO
 			fil=fil+str(hdr['ESO INS OPTI6 ID'])
-		elif 'ESO INS COMB IFLT' in hd.keys(): #VLT/SPHERE
+		elif 'ESO INS COMB IFLT' in hdr.keys(): #VLT/SPHERE
 			fil=fil+str(hdr['ESO INS COMB IFLT'])
 		finalname='final_image_'+string.upper(string.replace(hdr['ESO OBS TARG NAME'],' ',''))+'_'+fil+'_'+dirlist[0]
 	elif 'OBJECT' in hdr.keys(): # Gemini/NICI
