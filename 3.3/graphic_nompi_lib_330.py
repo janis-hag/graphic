@@ -202,22 +202,22 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 
 		if len(info_filename)==0:
 			if nici:
-				print("\n"+str(rank)+": No centroids list found for "+dirlist[i][-19:-5])
+				print("\n No centroids list found for "+dirlist[i][-19:-5])
 			elif sphere:
-				print("\n"+str(rank)+": No centroids list found for "+dirlist[i][-40:-11])
+				print("\n No centroids list found for "+dirlist[i][-40:-11])
 			elif scexao:
-				print("\n"+str(rank)+": No centroids list found for "+string.split(dirlist[i],'_')[-1][:-5])
+				print("\n No centroids list found for "+string.split(dirlist[i],'_')[-1][:-5])
 			else:
-				print("\n"+str(rank)+": No centroids list found for "+dirlist[i][-28:-5])
+				print("\n No centroids list found for "+dirlist[i][-28:-5])
 			skip=skip+1
 			dirlist[i]=None
 			continue
 		elif not len(info_filename)==1:
 			## print("")
-			print("\n"+str(rank)+": More than one centroids list found for "+dirlist[i])
-			print(str(rank)+": Using first occurence: "+info_filename[0])
+			print("\n More than one centroids list found for "+dirlist[i])
+			print("Using first occurence: "+info_filename[0])
 		if not os.access(info_filename[0], os.F_OK | os.R_OK): # Check if file exists
-			print("\n"+str(rank)+': Error, cannot access: '+info_filename[0])
+			print('\n Error, cannot access: '+info_filename[0])
 			## sys.stdout(str(rank)+'\n Error, cannot access: '+centroname[0])
 			## sys.stdout.flush()
 			skip=skip+1
