@@ -119,8 +119,6 @@ if not rank==0:
 	dirlist_left=comm.bcast(None, root=0)
 
 
-
-
 t0=MPI.Wtime()
 
 
