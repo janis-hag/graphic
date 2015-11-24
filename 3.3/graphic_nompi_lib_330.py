@@ -1,7 +1,8 @@
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
-This program is part of the Parallel Angular Differential Imaging Pipeline (PADIP).
+This program is part of GRAPHIC: "The Geneva Reduction and Analysis Pipeline for
+High-contrast Imaging of planetary Companions".
 These are function common to different programs of the pipeline.
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
@@ -10,7 +11,7 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 import numpy, os, shutil, sys, glob, math
 import numpy as np
 ## from scipy.signal import correlate2d
-from gaussfit_320 import fitgaussian
+from gaussfit_330 import fitgaussian
 from scipy import ndimage, fftpack
 #import astropy.io.fits as pyfits
 from astropy.io import fits
@@ -2043,7 +2044,7 @@ def save_fits(filename, img, **keywords):
 
 	for k in keywords.keys():
 		if k not in ['hdr','header','backup_dir','target_dir','verify', 'backend']:
-			print('graphic_lib_320.save_fits(), ignoring unknown keyword: '+k)
+			print('graphic_lib_330.save_fits(), ignoring unknown keyword: '+k)
 
 	if not os.path.isdir(target_dir): # Check if target dir exists
 			os.mkdir(target_dir)

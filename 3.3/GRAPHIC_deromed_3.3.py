@@ -20,9 +20,10 @@ import scipy, glob,  os, sys, subprocess, string
 from mpi4py import MPI
 from scipy import ndimage
 import argparse
-import graphic_lib_320
+import graphic_nompi_lib_330 as graphic_lib_nompi
+import graphic_mpi_lib_330 as graphic_lib_mpi
 import numpy as np
-from graphic_lib_320 import dprint
+from graphic_mpi_lib_330 import dprint
 import astropy.io.fits as fits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
@@ -76,6 +77,9 @@ parser.add_argument('-save_stack', dest='save_stack', action='store_const',
 parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
 				   const=True, default=False,
 				   help='Use bottleneck module instead of numpy for nanmedian.')
+parser.add_argument('-mean', dest='use_mean', action='store_const',
+				   const=True, default=False,
+				   help='Use mean instead of median when combining frames.')
 
 args = parser.parse_args()
 d=args.d
@@ -94,13 +98,27 @@ nomask=args.nomask
 interactive=args.interactive
 fit=args.fit
 use_bottleneck=args.use_bottleneck
+use_mean=args.use_mean
 
 if use_bottleneck:
 	from bottleneck import median as median
-	from bottleneck import nanmedian as nanmedian
+	if use_mean:
+		from bottleneck import nanmean as nancombine
+	else:
+		from bottleneck import nanmedian as nancombine
+	
 else:
-	from numpy import nanmedian
 	from numpy import median as median
+	if use_mean:
+		from numpy import nanmean as nancombine
+	else:
+		from numpy import nancombine
+
+# This ensures that the printed messages show the frame combination method that was used
+if use_mean:
+	combine_text="mean"
+else:
+	combine_text="median"
 
 med_tot=None
 
@@ -110,25 +128,25 @@ header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_
 if rank==0:
 	## sys.stdout = open('GC_derotate'+str(__version__)+"."+str(__subversion__)+".log", 'w')
 	## sys.sterr = open('error_GC_derotate'+str(__version__)+"."+str(__subversion__)+".log", 'w')
-	graphic_lib_320.print_init()
+	graphic_nompi_lib.print_init()
 
 	t_init=MPI.Wtime()
 	skipped=0
 
-	dirlist=graphic_lib_320.create_dirlist(pattern)
+	dirlist=graphic_nompi_lib.create_dirlist(pattern)
 	if dirlist is None:
 		print("No files found. Check --pattern option!")
 		comm.bcast("over",root=0)
 		sys.exit(1)
 
-	infolist=graphic_lib_320.create_dirlist(info_dir+os.sep+info_pattern, extension='.rdb')
+	infolist=graphic_nompi_lib.create_dirlist(info_dir+os.sep+info_pattern, extension='.rdb')
 	## infolist=glob.glob(info_dir+os.sep+info_pattern+'*.'+info_type)
 	## infolist.sort() # Sort the list alphabetically
 	if infolist is None:
 		print("No info files found, check your --info_pattern and --info_dir options.")
 		sys.exit(1)
 
-	cube_list, dirlist=graphic_lib_320.create_megatable(dirlist,infolist,keys=header_keys,nici=nici, sphere=sphere, scexao=scexao, fit=fit)
+	cube_list, dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici, sphere=sphere, scexao=scexao, fit=fit)
 
 	comm.bcast(cube_list,root=0)
 
@@ -227,7 +245,7 @@ if rank==0:
 		comm.bcast("derotate",root=0)
 		comm.bcast(start, root=0)
 		comm.bcast(end, root=0)
-		graphic_lib_320.send_dirlist_slaves(dirlist)
+		graphic_mpi_lib.send_dirlist_slaves(dirlist)
 		#stack the result
 		#send stack chunks to slaves
 		# Recover data from slaves
@@ -243,17 +261,17 @@ if rank==0:
 					print("stack.shape: "+str(stack.shape))
 				stack=np.concatenate((stack, data_in),axis=0)
 		if args.save_stack:
-			graphic_lib_320.save_fits("derot_stack_"+step_filename, stack, hdr=hdr , backend='pyfits' )
+			graphic_nompi_lib.save_fits("derot_stack_"+step_filename, stack, hdr=hdr , backend='pyfits' )
 
-		print(' Step ['+str(step+1)+'/'+str(steps)+'] of median calculation')
+		print(' Step ['+str(step+1)+'/'+str(steps)+'] of '+combine_text+' calculation')
 		comm.bcast("median", root=0)
-		graphic_lib_320.send_chunks(stack,d)
+		graphic_mpi_lib.send_chunks(stack,d)
 		#gather and concat the result
 		med=None
 		for p in range(nprocs-1):
 			r=comm.recv(source = p+1)
 			if d>0:
-				print("Received median reduced chunk from "+str(p+1))
+				print("Received "+combine_text+" reduced chunk from "+str(p+1))
 			if med is None: #initialise
 				med=r
 			else:
@@ -263,8 +281,8 @@ if rank==0:
 		else:
 			med_tot=np.concatenate((med_tot,med), axis=1)
 		print("Saving: "+step_filename)
-		graphic_lib_320.save_fits(step_filename, med_tot, hdr=hdr, backend='pyfits' )
-		print("Step time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t0_step)))
+		graphic_nompi_lib.save_fits(step_filename, med_tot, hdr=hdr, backend='pyfits' )
+		print("Step time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0_step)))
 
 	# Put a cross in the centre
 	# print(np.where(cube_list['info'][:][:][7]>0),7)
@@ -276,18 +294,18 @@ if rank==0:
 		fwhm=median(cube_list['info'][0][np.where(cube_list['info'][0][:,7]>0),7])
 	if nomask:
 		med_nomask=med_tot.copy()
-	med_tot=graphic_lib_320.mask_centre(med_tot, fwhm/2., med_tot.shape[0]/2., med_tot.shape[0]/2. )
+	med_tot=graphic_nompi_lib.mask_centre(med_tot, fwhm/2., med_tot.shape[0]/2., med_tot.shape[0]/2. )
 
 	print("Saving: "+str(finalname))
-	graphic_lib_320.save_fits(finalname, med_tot, hdr=hdr, backend='pyfits' )
+	graphic_nompi_lib.save_fits(finalname, med_tot, hdr=hdr, backend='pyfits' )
 	if nomask:
-		graphic_lib_320.save_fits('nomask_'+finalname, med_nomask, hdr=hdr, backend='pyfits' )
+		graphic_nompi_lib.save_fits('nomask_'+finalname, med_nomask, hdr=hdr, backend='pyfits' )
 	comm.bcast("over",root=0)
 	MPI.Finalize()
-	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_lib_320.humanize_time((MPI.Wtime()-t_init)))
+	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 
 	## log_file=log_file+"_"+hdr['HIERARCH ESO OBS TARG NAME']+"_"+str(__version__)+".log"
-	graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file)
+	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 	sys.exit(0)
 
 if not rank==0:
@@ -318,19 +336,19 @@ if not rank==0:
 			## rs_cube=None
 			full_stack=None
 			for i in range(len(dirlist)):
-				## graphic_lib_320.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i]))
-				graphic_lib_320.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i])+'\n')
+				## graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i]))
+				graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i])+'\n')
 
 				hdulist_s = fits.open(dirlist[i],memmap=True)
 				s_cube=hdulist_s[0].data
 				rs_cube=np.ones((s_cube.shape[0],s_cube.shape[1],end-start))*np.NaN
 				cn=cube_list['cube_filename'].index(dirlist[i])
 				## if s_cube.shape[0]==1:
-					## graphic_lib_320.dprint(d>1, 'Skipping corrupt frame. cube '+str(cn)+', frame '+str(fn))
+					## dprint(d>1, 'Skipping corrupt frame. cube '+str(cn)+', frame '+str(fn))
 					## continue
 				for fn in range(s_cube.shape[0]):
 					if cube_list['info'][cn][fn,5]==-1: # Invalid frame, skip
-						graphic_lib_320.dprint(d>1, 'Skipping invalid frame, no PSf found: cube '+str(cn)+', frame '+str(fn))
+						dprint(d>1, 'Skipping invalid frame, no PSf found: cube '+str(cn)+', frame '+str(fn))
 						s_cube=s_cube[1:]
 						continue
 					elif interpolate:
@@ -338,7 +356,7 @@ if not rank==0:
 						s_cube=s_cube[1:]
 					## elif not naxis1==0:
 					else:
-						rs_cube[fn]=graphic_lib_320.fft_3shear_rotate_pad(
+						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(
 							s_cube[0],p0-cube_list['info'][cn][fn,11],
 							pad=2,x1=cube_list['info'][cn][fn,4],
 							y1=cube_list['info'][cn][fn,5])[:,start:end]
@@ -348,9 +366,9 @@ if not rank==0:
 						## if rank==2:
 							## print("")
 							## print("s_cube[0] "+str(bottleneck.nanmax(s_cube[0])))
-						## rs_cube[fn]=graphic_lib_320.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], x1=-1, pad=2)[:,start:end]
-						rs_cube[fn]=graphic_lib_320.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)[:,start:end]
-						## temp=graphic_lib_320.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)
+						## rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], x1=-1, pad=2)[:,start:end]
+						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)[:,start:end]
+						## temp=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)
 						## if rank==2:
 							## print("temp "+str(bottleneck.nanmax(temp)))
 						## rs_cube[fn]=temp[:,start:end]
@@ -358,7 +376,7 @@ if not rank==0:
 							## print("rs_cube[fn] "+str(bottleneck.nanmax(rs_cube[fn])))
 						s_cube=s_cube[1:]
 				if d>2:
-					graphic_lib_320.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdulist_s[0].header , backend='pyfits' )
+					graphic_nompi_lib.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdulist_s[0].header , backend='pyfits' )
 
 				if full_stack is None:
 					full_stack=rs_cube.copy()
@@ -376,11 +394,11 @@ if not rank==0:
 			todo=comm.bcast(None,root=0)
 
 		elif todo=="median":
-			graphic_lib_320.iprint(interactive, "\r\r\r Process "+str(rank)+" of "+str(nprocs-1)+" calculating median.")
+			graphic_nompi_lib.iprint(interactive, "\r\r\r Process "+str(rank)+" of "+str(nprocs-1)+" calculating "+combine_text+".")
 
 			start_col=comm.recv(source=0)
 			my_cube=comm.recv(source=0)
-			my_cube=nanmedian(my_cube,axis=0)
+			my_cube=nancombine(my_cube,axis=0)
 			comm.send(my_cube, dest = 0)
 			del my_cube
 			todo=comm.bcast(None,root=0)
