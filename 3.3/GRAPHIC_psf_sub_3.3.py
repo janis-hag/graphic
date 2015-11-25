@@ -485,7 +485,7 @@ if rank==0:
 				empty_frame=empty_frame+1
 				graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" .... no frames found to generate PSF. Valid_cubes="+str(valid_cubes)+" si="+str(si))
 			else:
-				graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" calculating median. Kept "+str(si)+" out of "+str(sum(len(i) for i in valid.itervalues()))+" valid frames.")
+				graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" calculating "+combine+". Kept "+str(si)+" out of "+str(sum(len(i) for i in valid.itervalues()))+" valid frames.")
 
 
 				tb=MPI.Wtime()
