@@ -12,16 +12,17 @@ smaller cubes with less frames. It is part of the pipeline's quick-look branch.
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
-__version__='3.2'
+__version__='3.3'
 __subversion__='0'
 
 import numpy, scipy, glob,  os, sys, subprocess, string, time
 import numpy as np
-import graphic_lib_320
+import graphic_nompi_lib_330 as graphic_nompi_lib
+import graphic_mpi_lib_330 as graphic_mpi_lib
 from scipy import ndimage
 from mpi4py import MPI
 import argparse
-from graphic_lib_320 import dprint
+from graphic_mpi_lib_330 import dprint
 import astropy.io.fits as pyfits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
@@ -99,7 +100,7 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
 	comm.bcast("recentre",root=0)
 	comm.bcast(l_max,root=0)
 	comm.bcast(rcube_list['info'][rcn],root=0)
-	graphic_lib_320.send_frames_async(cube)
+	graphic_mpi_lib.send_frames_async(cube)
 	cube=None
 	if args.stat==True:
 		print("\n STAT: Data upload took: "+humanize_time(MPI.Wtime()-t0_trans))
@@ -126,13 +127,13 @@ if rank==0:
 	print(sys.argv[0]+' started on '+ time.strftime("%c"))
 	hdr=None
 
-	dirlist=graphic_lib_320.create_dirlist(pattern)
+	dirlist=graphic_nompi_lib.create_dirlist(pattern)
 
 	infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
 	infolist.sort() # Sort the list alphabetically
 
 
-	cube_list,dirlist=graphic_lib_320.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
+	cube_list,dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
 
 	skipped=0
 
@@ -175,10 +176,10 @@ if rank==0:
 			if l_max==0:
 				for i in range(len(cube_list['info'])):
 					if not cube_list['info'][i][len(cube_list['info'][i])/2,4]==-1:
-						l=graphic_lib_320.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], int(hdr['NAXIS1']), cube_list['info'][i][:,11]-p0)
+						l=graphic_nompi_lib.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], int(hdr['NAXIS1']), cube_list['info'][i][:,11]-p0)
 						if l>l_max: l_max=l
 
-				graphic_lib_320.dprint(d>1, 'l_max: '+str(l_max))
+				dprint(d>1, 'l_max: '+str(l_max))
 				l_max=np.floor(l_max)
 			if l_max==0:
 				l_max=2*int(hdr['NAXIS1'])
@@ -201,8 +202,8 @@ if rank==0:
 
 
 				hdr['history']= 'Updated CRPIX1, CRPIX2'
-				graphic_lib_320.save_fits(psf_sub_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
-				graphic_lib_320.write_array2rdb(info_dir+os.sep+info_filename,cube_list['info'][c+n],header_keys)
+				graphic_nompi_lib.save_fits(psf_sub_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
+				graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,cube_list['info'][c+n],header_keys)
 
 		if collapse:
 			hdr['HIERARCH GC RECENTER']=(str(__version__)+'.'+(__subversion__), "")
@@ -213,20 +214,20 @@ if rank==0:
 			hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+np.float(hdr['CRPIX2'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,5]>0),5])), "")
 
 			hdr['history']= 'Updated CRPIX1, CRPIX2'
-			graphic_lib_320.save_fits(psf_sub_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
-			graphic_lib_320.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
+			graphic_nompi_lib.save_fits(psf_sub_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
+			graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
 
 		sys.stdout.write("\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n"
-						 .format(name=psf_sub_filename, human_time=graphic_lib_320.humanize_time(MPI.Wtime()-t0_cube) ,
+						 .format(name=psf_sub_filename, human_time=graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_cube) ,
 								 rate=os.path.getsize(psf_sub_filename)/(1048576*(MPI.Wtime()-t0_cube))))
-		sys.stdout.write("Remaining time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t_init)*(len(cube_list['cube_filename'])-c)/(c-skipped+1))+"\n")
+		sys.stdout.write("Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)*(len(cube_list['cube_filename'])-c)/(c-skipped+1))+"\n")
 		sys.stdout.flush()
 
 		del cube
 
 
 	print("\n Program finished, killing all the slaves...")
-	print("Total time: "+graphic_lib_320.humanize_time((MPI.Wtime()-t_init)))
+	print("Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 	comm.bcast("over", root=0)
 	if skipped==len(cube_list['cube_filename']):
 		sys.exit(0)
@@ -236,7 +237,7 @@ if rank==0:
 			log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 		else:
 			log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
-		graphic_lib_320.write_log((MPI.Wtime()-t_init),log_file)
+		graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 	sys.exit(0)
 
 #################################################################################
@@ -298,7 +299,7 @@ else:
 				l_max-stack.shape[1]/2:l_max+stack.shape[1]/2,
 					l_max-stack.shape[2]/2:l_max+stack.shape[2]/2]=stack
 				for fn in range(bigstack.shape[0]):
-					graphic_lib_320.dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
+					dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
 					if info_stack[s+fn,4]==-1 or info_stack[s+fn,5]==-1:
 						bigstack[fn]=np.NaN
 						continue
@@ -325,7 +326,7 @@ else:
 					if bottom_edge >0:
 						bigstack[fn,:,:bottom_edge]=np.NaN
 					bigstack[fn,:,top_edge:]=np.NaN
-				graphic_lib_320.dprint(d>2, "Sending back bigstack, shape="+str(bigstack.shape))
+				dprint(d>2, "Sending back bigstack, shape="+str(bigstack.shape))
 				comm.send(bigstack, dest = 0)
 				del bigstack
 			else:

@@ -19,8 +19,8 @@ import numpy as np
 from scipy import ndimage
 from mpi4py import MPI
 import argparse
-import graphic_nompi_lib_330
-import graphic_mpi_lib_330
+import graphic_nompi_lib_330 as graphic_nompi_lib
+import graphic_mpi_lib_330 as graphic_mpi_lib
 import random
 import astropy.io.fits as fits
 
@@ -132,21 +132,21 @@ def read_recentre(rcn, rcubes, rcube_list, l_max):
 
 	t0_trans=MPI.Wtime()
 	if "GC RECENTER" in rhdr.keys():
-		graphic_nompi_lib_330.iprint(interactive, '\r\r\r Already recentred: '+str(rcube_list['cube_filename'][rcn]))
+		graphic_nompi_lib.iprint(interactive, '\r\r\r Already recentred: '+str(rcube_list['cube_filename'][rcn]))
 		return rcubes, t0_trans
 	# Send the cube to be recentreed
-	graphic_nompi_lib_330.iprint(interactive, '\r\r\r Recentring '+str(rcube_list['cube_filename'][rcn]))
+	graphic_nompi_lib.iprint(interactive, '\r\r\r Recentring '+str(rcube_list['cube_filename'][rcn]))
 
 	comm.bcast("recentre",root=0)
 	comm.bcast(l_max,root=0)
 	comm.bcast(rcube_list['info'][rcn],root=0)
-	graphic_mpi_lib_330.send_frames_async(rcubes[rcn])
+	graphic_mpi_lib.send_frames_async(rcubes[rcn])
 	## rcubes.pop(rcn)
 	rcubes[rcn]=None
 	#rcube_list['info'][rcn]=None
 
 	if args.stat==True:
-		print("\n STAT: Data upload took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-t0_trans))
+		print("\n STAT: Data upload took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_trans))
 		t0_trans=MPI.Wtime()
 
 	# Recover data from slaves
@@ -155,7 +155,7 @@ def read_recentre(rcn, rcubes, rcube_list, l_max):
 		if data_in is None:
 			continue
 		#info_in=comm.recv(source = n+1)
-		graphic_nompi_lib_330.iprint(interactive, '\r\r\r Recentreed data from '+str(n+1)+' received									   =>')
+		graphic_nompi_lib.iprint(interactive, '\r\r\r Recentreed data from '+str(n+1)+' received									   =>')
 
 		## if not rcn in rcubes.keys():
 		if rcubes[rcn] is None:
@@ -173,7 +173,7 @@ def read_recentre(rcn, rcubes, rcube_list, l_max):
 t_init=MPI.Wtime()
 
 if rank==0:
-	graphic_nompi_lib_330.print_init()
+	graphic_nompi_lib.print_init()
 
 	if centred:
 		target_pattern=target_pattern+'nc_'
@@ -214,7 +214,7 @@ if rank==0:
 	infolist.sort() # Sort the list alphabetically
 	print("Found "+str(len(infolist))+" info files.")
 
-	cube_list, dirlist, skipped=graphic_nompi_lib_330.create_megatable(dirlist, infolist, skipped, keys=header_keys, nici=nici, sphere=sphere, scexao=scexao, fit=fit)
+	cube_list, dirlist, skipped=graphic_nompi_lib.create_megatable(dirlist, infolist, skipped, keys=header_keys, nici=nici, sphere=sphere, scexao=scexao, fit=fit)
 	if dirlist==[]:
 		for n in range(nprocs-1):
 			comm.send("over",dest =n+1)
@@ -252,9 +252,9 @@ if rank==0:
 			## print(cube_list['info'][i][len(cube_list['info'][i])/2,4])
 			if not cube_list['info'][i][len(cube_list['info'][i])/2,4]==-1:
 				hdulist = fits.open(cube_list['cube_filename'][i])
-				l=graphic_nompi_lib_330.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], hdulist[0].header['NAXIS1'], cube_list['info'][i][:,11])
+				l=graphic_nompi_lib.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], hdulist[0].header['NAXIS1'], cube_list['info'][i][:,11])
 				if l>l_max: l_max=l
-		graphic_mpi_lib_330.dprint(d>1, 'l_max: '+str(l_max))
+		graphic_mpi_lib.dprint(d>1, 'l_max: '+str(l_max))
 		l_max=np.floor(l_max)
 
 	time_treshold=0
@@ -288,7 +288,7 @@ if rank==0:
 			skipped=skipped+1
 			continue
 
-		graphic_nompi_lib_330.iprint(interactive, "Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+"\n")
+		graphic_nompi_lib.iprint(interactive, "Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+"\n")
 
 
 		# Initialise new cube to contain the psf subtracted frames
@@ -318,7 +318,7 @@ if rank==0:
 		for f in range(len(cube_list['info'][c])): # Loop over the frames in the cube
 			t0_frame=MPI.Wtime()
 
-			graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c])))
+			graphic_nompi_lib.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c])))
 
 			# Create stack to hold frames for PSF generation
 			stack=np.ones((fmax,l_max*2,l_max*2))*np.NaN
@@ -326,7 +326,7 @@ if rank==0:
 
 			# Skip bad frames
 			if cube_list['info'][c][f][6]==-1:
-				graphic_mpi_lib_330.dprint(d>1, "Skipping bad frame (c,f): "+str(c)+","+str(f)+", info: "+str(cube_list['info'][c][f]))
+				graphic_mpi_lib.dprint(d>1, "Skipping bad frame (c,f): "+str(c)+","+str(f)+", info: "+str(cube_list['info'][c][f]))
 				continue
 
 			p0=float(cube_list['info'][c][f][11])
@@ -348,7 +348,7 @@ if rank==0:
 					if np.min(np.abs(cube_list['info'][cn][:,10]-t0))>ctmax:
 					# pop this cube from list, since it's not needed anymore
 						cubes.pop(cn)
-						graphic_nompi_lib_330.iprint(interactive, "\n Removing cube "+str(cn)+" from stored cubes.")
+						graphic_nompi_lib.iprint(interactive, "\n Removing cube "+str(cn)+" from stored cubes.")
 
 
 			if args.stat==True:
@@ -363,24 +363,24 @@ if rank==0:
 				# Alternate between cubes before and after ref-cube, prevent cn from becoming negative (cube-wrap)
 				cn=int(c+((-1)**(n+c))*np.ceil((n+1)/2.))
 				if cn<0:
-					graphic_mpi_lib_330.dprint(d>3,"Wrapping (c,n,cn): "+str(c)+","+str(n)+","+str(cn))
-					graphic_mpi_lib_330.dprint(d>1, "TooEarly")
+					graphic_mpi_lib.dprint(d>3,"Wrapping (c,n,cn): "+str(c)+","+str(n)+","+str(cn))
+					graphic_mpi_lib.dprint(d>1, "TooEarly")
 					TooEarly=True
 					continue
 				elif cn+1>len(cube_list['cube_filename']):
-					graphic_mpi_lib_330.dprint(d>3,"Wrapping (c,n,cn): "+str(c)+","+str(n)+","+str(cn))
-					graphic_mpi_lib_330.dprint(d>1, "TooLate")
+					graphic_mpi_lib.dprint(d>3,"Wrapping (c,n,cn): "+str(c)+","+str(n)+","+str(cn))
+					graphic_mpi_lib.dprint(d>1, "TooLate")
 					TooLate=True
 					continue
 
 				if np.min(cube_list['info'][cn][1:,10])>t0+ctmax-time_treshold:
 					# Need to use [1:,10] as older cube-info had the first date in LST
 					TooLate=True
-					graphic_mpi_lib_330.dprint(d>1, "TooLate: np.min(cube_list['info'][cn][1:,10])"+str(np.min(cube_list['info'][cn][1:,10]))+">"+str(t0)+'+'+str(ctmax)+'='+str(t0+ctmax)+'=t0+ctmax')
+					graphic_mpi_lib.dprint(d>1, "TooLate: np.min(cube_list['info'][cn][1:,10])"+str(np.min(cube_list['info'][cn][1:,10]))+">"+str(t0)+'+'+str(ctmax)+'='+str(t0+ctmax)+'=t0+ctmax')
 				elif np.max(cube_list['info'][cn][1:,10])<t0-ctmax+time_treshold:
 					# Need to use [1:,10] as older cube-info had the first date in LST
 					TooEarly=True
-					graphic_mpi_lib_330.dprint(d>1, "TooEarly: np.max(cube_list['info'][cn][1:,10])"+str(np.max(cube_list['info'][cn][1:,10]))+"<"+str(t0)+'-'+str(ctmax)+'='+str(t0-ctmax)+'=t0-ctmax')
+					graphic_mpi_lib.dprint(d>1, "TooEarly: np.max(cube_list['info'][cn][1:,10])"+str(np.max(cube_list['info'][cn][1:,10]))+"<"+str(t0)+'-'+str(ctmax)+'='+str(t0-ctmax)+'=t0-ctmax')
 
 				if TooEarly and TooLate:
 					# No need to look further, remaing cubes are too far in time
@@ -397,8 +397,8 @@ if rank==0:
 						print("angle>alpha: "+str(np.where(np.abs(cube_list['info'][cn][:,11]-p0)>alpha)))
 						print("time<ctmax: "+str(np.where(np.abs(cube_list['info'][cn][:,10]-t0)<ctmax)))
 
-				graphic_mpi_lib_330.dprint(d>2, "cube_list['info'][cn]"+str(cube_list['info'][cn]))
-				graphic_mpi_lib_330.dprint(d>3,cube_list['info'][cn][:,11])
+				graphic_mpi_lib.dprint(d>2, "cube_list['info'][cn]"+str(cube_list['info'][cn]))
+				graphic_mpi_lib.dprint(d>3,cube_list['info'][cn][:,11])
 
 				if d==-123:
 					print(cube_list['cube_filename'][cn])
@@ -409,7 +409,7 @@ if rank==0:
 				## valid_rotation[(n+1,cn)]=np.where(np.abs(cube_list['info'][cn][:,11]-p0)>alpha)[0]
 				## valid_time[(n+1,cn)]=np.where(np.abs(cube_list['info'][cn][:,10]-t0)<ctmax)[0]
 				## valid_frames[(n+1,cn)]=np.where(np.not_equal(cube_list['info'][cn][:,6],-1))[0]
-				graphic_mpi_lib_330.dprint(d>0, "Valid: "+str(cube_list['cube_filename'][cn])+', '+str(valid)+', '+str(len(valid)))
+				graphic_mpi_lib.dprint(d>0, "Valid: "+str(cube_list['cube_filename'][cn])+', '+str(valid)+', '+str(len(valid)))
 				if len(valid[(n+1,cn)])==0: # Remove empty list
 					valid.pop((n+1,cn))
 				else:
@@ -421,15 +421,24 @@ if rank==0:
 							data=fits.getdata(cube_list['cube_filename'][cn])
 							bigstack=np.ones((data.shape[0],l_max*2,l_max*2))*np.NaN
 							print(l_max,bigstack.shape, data.shape)
-							bigstack[:,	l_max-data.shape[1]/2:l_max+data.shape[1]/2,
-								l_max-data.shape[2]/2:l_max+data.shape[2]/2]=data
+							# ACC: be careful with the array indices when putting one arbitrary sized array into another arbitrary sized array
+							mindim=np.min([l_max*2,data.shape[1]]) # This ensures that l_max < data.shape[1] and l_max > data.shape[1] both work.
+							xstack_min=np.max([0.,l_max-mindim/2])
+							xstack_max=np.min([l_max*2,l_max+mindim/2])
+							ystack_min=np.max([0.,l_max-mindim/2])
+							ystack_max=np.min([l_max*2,l_max+mindim/2])
+							xdata_min=np.max([0.,data.shape[1]/2-mindim/2])
+							xdata_max=np.min([data.shape[1],data.shape[1]/2]+mindim/2)
+							ydata_min=np.max([0.,data.shape[2]/2-mindim/2])
+							ydata_max=np.min([data.shape[2],data.shape[2]/2]+mindim/2)
+							bigstack[:,xstack_min:xstack_max,ystack_min:ystack_max]=data[:,xdata_min:xdata_max,ydata_min:ydata_max]
 							cubes[cn]=bigstack
 							del bigstack, data
 						else: # Send cube for recentring
 							cubes, t0_trans=read_recentre(cn, cubes, cube_list, l_max)
 						if args.stat==True:
-							print("\n STAT: Data download took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-t0_trans))
-							print("\n STAT: Recentreing took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-tb))
+							print("\n STAT: Data download took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_trans))
+							print("\n STAT: Recentreing took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-tb))
 
 
 			# Check if the two first cubes are not contiguous.
@@ -463,7 +472,7 @@ if rank==0:
 					## stack=np.concatenate((stack,cubes[cn][valid[mask]]))
 
 				## if stack is None:
-					## graphic_mpi_lib_330.dprint(d>19, "stack: "+str(stack)+", cube_list['info'][cn]: "+str(cube_list['info'][cn]))
+					## graphic_mpi_lib.dprint(d>19, "stack: "+str(stack)+", cube_list['info'][cn]: "+str(cube_list['info'][cn]))
 					## # Create frame stack
 					## stack=cubes[cn][valid[mask]] #(not cube_list['info'][cn][:,2]<0))]
 					## cube_count=cube_count+1
@@ -476,28 +485,30 @@ if rank==0:
 					## cube_count=cube_count+1
 
 			if args.stat==True:
-				print("\n STAT: Stack preparation took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-tb))
+				print("\n STAT: Stack preparation took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-tb))
 
-			#graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" recentreing stack. Kept "+str(stack.shape[0])+" out of "+str(valid_count)"+ frames.")
+			#graphic_nompi_lib.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" recentreing stack. Kept "+str(stack.shape[0])+" out of "+str(valid_count)"+ frames.")
 
 
 			if stack is None or sum(len(i) for i in valid.itervalues())==0:
 				empty_frame=empty_frame+1
-				graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" .... no frames found to generate PSF. Valid_cubes="+str(valid_cubes)+" si="+str(si))
+				graphic_nompi_lib.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" .... no frames found to generate PSF. Valid_cubes="+str(valid_cubes)+" si="+str(si))
 			else:
-				graphic_nompi_lib_330.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" calculating "+combine+". Kept "+str(si)+" out of "+str(sum(len(i) for i in valid.itervalues()))+" valid frames.")
+				graphic_nompi_lib.iprint(interactive, "\r\r\r Processing cube ["+str(c+1)+"/"+str(len(cube_list['cube_filename']))+"]: "+str(cube_list['cube_filename'][c])+", frame "+str(f+1)+"/"+str(len(cube_list['info'][c]))+" calculating "+combine+". Kept "+str(si)+" out of "+str(sum(len(i) for i in valid.itervalues()))+" valid frames.")
+
+
 
 
 				tb=MPI.Wtime()
 				t0_trans=MPI.Wtime()
 				if d>0:
-					graphic_nompi_lib_330.save_fits('temp_psf_stack.fits',stack,hdr=hdr, backend='pyfits')
+					graphic_nompi_lib.save_fits('temp_psf_stack.fits',stack,hdr=hdr, backend='pyfits')
 
 				# Send chunks to get median (cut along x axis)
 				comm.bcast(combine,root=0)
-				graphic_mpi_lib_330.send_chunks(stack,d)
+				graphic_mpi_lib.send_chunks(stack,d)
 				if args.stat==True:
-					graphic_nompi_lib_330.iprint(interactive, "\n STAT: Data upload took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-t0_trans)+"\n")
+					graphic_nompi_lib.iprint(interactive, "\n STAT: Data upload took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_trans)+"\n")
 
 
 				stack=None
@@ -515,7 +526,7 @@ if rank==0:
 						print("Error, received: "+str(chunk))
 						continue
 
-					graphic_nompi_lib_330.iprint(interactive, '\r\r\r '+combine+' processed data from '+str(n+1)+' received									 =>')
+					graphic_nompi_lib.iprint(interactive, '\r\r\r '+combine+' processed data from '+str(n+1)+' received									 =>')
 
 
 					if psf is None: #initialise
@@ -524,17 +535,17 @@ if rank==0:
 						psf=np.concatenate((psf,chunk), axis=0)
 
 				if args.stat==True:
-					graphic_nompi_lib_330.iprint(interactive, "\n STAT: Data download took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-t0_trans))
-					graphic_nompi_lib_330.iprint(interactive, "\n STAT: '+combine+' calculation took: "+str(MPI.Wtime()-tb)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-tb))
+					graphic_nompi_lib.iprint(interactive, "\n STAT: Data download took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_trans))
+					graphic_nompi_lib.iprint(interactive, "\n STAT: '+combine+' calculation took: "+str(MPI.Wtime()-tb)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-tb))
 
 
 				if d > 2:
-					graphic_nompi_lib_330.iprint(interactive, "\n DEBUG: cubes.keys: "+str(cubes.keys()))
+					graphic_nompi_lib.iprint(interactive, "\n DEBUG: cubes.keys: "+str(cubes.keys()))
 
 
 				if not c in cubes.keys():
 					cubes, t0_trans=read_recentre(c,cubes, cube_list, l_max)
-					graphic_nompi_lib_330.iprint(interactive, '\n '+str(len(cubes.keys()))+' stored in memory')
+					graphic_nompi_lib.iprint(interactive, '\n '+str(len(cubes.keys()))+' stored in memory')
 				if final_cube is None: # Check if a cube has already been started
 					final_cube=cubes[c][f][np.newaxis,...]-psf.clip(0)
 				else:
@@ -556,20 +567,20 @@ if rank==0:
 
 
 				if args.stat==True:
-					print("\n STAT: Frame processing took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib_330.humanize_time(MPI.Wtime()-t0_frame))
-				graphic_mpi_lib_330.dprint(d==-31 and not new_info is None, str(f)+" new_info "+str(len(new_info)))
-				graphic_mpi_lib_330.dprint(d==-31 and not final_cube is None, "final_cube.shape: "+str(final_cube.shape))
-				graphic_mpi_lib_330.dprint(d==-31 and final_cube is None, "final_cube: "+str(final_cube))
+					print("\n STAT: Frame processing took: "+str(MPI.Wtime()-t0_trans)+" s = "+graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_frame))
+				graphic_mpi_lib.dprint(d==-31 and not new_info is None, str(f)+" new_info "+str(len(new_info)))
+				graphic_mpi_lib.dprint(d==-31 and not final_cube is None, "final_cube.shape: "+str(final_cube.shape))
+				graphic_mpi_lib.dprint(d==-31 and final_cube is None, "final_cube: "+str(final_cube))
 
 		if empty_frame==hdr['NAXIS3']:# cubes[c].shape[0]-1:  #All frames are empty.
 			final_cube=None
 
 		if final_cube is None:
-			graphic_nompi_lib_330.iprint(interactive, "\n No cube generated for "+str(cube_list['cube_filename'][c])+"! You should consider relaxing n_fwhm, rmin, or tmax conditions.")
+			graphic_nompi_lib.iprint(interactive, "\n No cube generated for "+str(cube_list['cube_filename'][c])+"! You should consider relaxing n_fwhm, rmin, or tmax conditions.")
 
 			open(psf_sub_filename+'.EMPTY', 'a').close()
 		elif not len(final_cube.shape)==3:
-			graphic_nompi_lib_330.iprint(interactive, "\n No cube generated for "+str(cube_list['cube_filename'][c])+"! You should consider relaxing n_fwhm, rmin, or tmax conditions.")
+			graphic_nompi_lib.iprint(interactive, "\n No cube generated for "+str(cube_list['cube_filename'][c])+"! You should consider relaxing n_fwhm, rmin, or tmax conditions.")
 
 			open(psf_sub_filename+'.EMPTY', 'a').close()
 		else:
@@ -590,8 +601,8 @@ if rank==0:
 				hdr["CRPIX2"]=('{0:14.7G}'.format(final_cube.shape[2]/2.+float(hdr['CRPIX2'])-cube_list['info'][c][hdr['NAXIS3']/2,5]), "")
 
 			hdr['history']="Updated CRPIX1, CRPIX2"
-			## graphic_mpi_lib_330.save_fits(psf_sub_filename, final_cube, hdr=hdr, backend='pyfits')
-			graphic_nompi_lib_330.save_fits(psf_sub_filename, final_cube, hdr=hdr, backend='pyfits')
+			## graphic_mpi_lib.save_fits(psf_sub_filename, final_cube, hdr=hdr, backend='pyfits')
+			graphic_nompi_lib.save_fits(psf_sub_filename, final_cube, hdr=hdr, backend='pyfits')
 
 			## print(new_info[1][:])
 			## # Adjust centre value using "psf" frame for shape
@@ -600,19 +611,19 @@ if rank==0:
 			## new_info[4][:]=psf.shape[0]/2. #x psf fit
 			## new_info[5][:]=psf.shape[1]/2.	#y pas fit
 
-			graphic_nompi_lib_330.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
+			graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
 
-			graphic_nompi_lib_330.iprint(interactive, "\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n {cubes_in_mem} loaded in memory \n"
-							 .format(name=psf_sub_filename, human_time=graphic_nompi_lib_330.humanize_time(MPI.Wtime()-t0_cube) ,
+			graphic_nompi_lib.iprint(interactive, "\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n {cubes_in_mem} loaded in memory \n"
+							 .format(name=psf_sub_filename, human_time=graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_cube) ,
 									 rate=os.path.getsize(psf_sub_filename)/(1048576*(MPI.Wtime()-t0_cube)),
 									 cubes_in_mem=len(cubes.keys())))
-			graphic_nompi_lib_330.iprint(interactive, "Remaining time: "+graphic_nompi_lib_330.humanize_time((MPI.Wtime()-t_init)*(len(cube_list['cube_filename'])-c)/(c-skipped+1))+"\n")
+			graphic_nompi_lib.iprint(interactive, "Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)*(len(cube_list['cube_filename'])-c)/(c-skipped+1))+"\n")
 
 		del final_cube
 
 
 	print("\n Program finished, killing all the slaves...")
-	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib_330.humanize_time((MPI.Wtime()-t_init)))
+	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 	comm.bcast("over", root=0)
 	if 'ESO OBS TARG NAME' in hdr.keys():
 		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
@@ -620,7 +631,7 @@ if rank==0:
 		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
 	else:
 		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
-	graphic_nompi_lib_330.write_log((MPI.Wtime()-t_init),log_file)
+	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 	if nici:
 		print('--pattern '+string.split(psf_sub_filename, '_S')[0]+' --info_pattern '+string.split(info_filename,'_S')[0])
 	elif sphere:
@@ -721,7 +732,7 @@ else:
 				stack_shape=stack.shape
 				del stack
 				for fn in range(bigstack.shape[0]):
-					graphic_mpi_lib_330.dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
+					graphic_mpi_lib.dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
 					if info_stack[s+fn,4]==-1 or info_stack[s+fn,5]==-1 or info_stack[s+fn,6]==-1:
 						bigstack[fn]=np.NaN
 						continue
@@ -735,10 +746,10 @@ else:
 							bigstack[fn]=ndimage.interpolation.shift(bigstack[fn], (stack_shape[1]/2.-info_stack[s+fn,4], stack_shape[2]/2.-info_stack[s+fn,5]), order=3, mode='constant', cval=np.NaN, prefilter=False)
 					else: # Shift in Fourier space
 						if 2*l_max<stack_shape[1]:
-							smallstack[fn]=graphic_nompi_lib_330.fft_shift(bigstack[fn], stack_shape[1]/2.-info_stack[s+fn,4], stack_shape[2]/2.-info_stack[s+fn,5])[
+							smallstack[fn]=graphic_nompi_lib.fft_shift(bigstack[fn], stack_shape[1]/2.-info_stack[s+fn,4], stack_shape[2]/2.-info_stack[s+fn,5])[
 								bigstack.shape[1]/2-l_max:l_max+bigstack.shape[1]/2,bigstack.shape[2]/2-l_max:l_max+bigstack.shape[2]/2]
 						else:
-							bigstack[fn]=graphic_nompi_lib_330.fft_shift(bigstack[fn], stack_shape[1]/2.-info_stack[s+fn,4], stack_shape[2]/2.-info_stack[s+fn,5])
+							bigstack[fn]=graphic_nompi_lib.fft_shift(bigstack[fn], stack_shape[1]/2.-info_stack[s+fn,4], stack_shape[2]/2.-info_stack[s+fn,5])
 					## if l_max<stack_shape[1]:
 						## bigstack=smallstack
 						## if bigstack.shape[1]>np.ceil(l_max - info_stack[s+fn,4]-0.5):
@@ -757,7 +768,7 @@ else:
 				if 2*l_max<stack_shape[1]:
 					bigstack=smallstack.copy()
 					del smallstack
-				graphic_mpi_lib_330.dprint(d>2, "Sending back bigstack, shape="+str(bigstack.shape))
+				graphic_mpi_lib.dprint(d>2, "Sending back bigstack, shape="+str(bigstack.shape))
 				comm.send(bigstack, dest = 0)
 				del bigstack
 

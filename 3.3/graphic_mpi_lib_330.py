@@ -12,7 +12,7 @@ import numpy, os, shutil, sys, glob, math
 import numpy as np
 ## from scipy.signal import correlate2d
 from mpi4py import MPI
-from gaussfit_320 import fitgaussian
+from gaussfit_330 import fitgaussian
 from scipy import ndimage, fftpack
 #import astropy.io.fits as pyfits
 from astropy.io import fits
@@ -718,8 +718,6 @@ def send_masked_chunks(cub_in,d):
 				print("Chunk "+str(n)+" sent, shape: "+str(cub_in[:,start:end,:].shape))
 
 	del cub_in
-
-
 
 
 
