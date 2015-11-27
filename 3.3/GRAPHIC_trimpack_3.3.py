@@ -195,6 +195,6 @@ if not hdr==None:
 		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 	else:
 		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
-	graphic_nompi_lib.write_log((time.time()-t_init),log_file,  comments=None, mpi=False)
+	graphic_nompi_lib.write_log((time.time()-t_init),log_file,  comments=None)
 sys.exit(0)
 

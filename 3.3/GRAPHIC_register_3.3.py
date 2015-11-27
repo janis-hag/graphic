@@ -27,9 +27,9 @@ from mpi4py import MPI
 #from gaussfit import fitgaussian, i_fitmoffat, moments
 import gaussfit_330 as gaussfit
 from scipy import stats
-import graphic_nompi_lib as graphic_nompi_lib
-import graphic_mpi_lib as graphic_mpi_lib
-from graphic_mpi_lib import dprint
+import graphic_nompi_lib_330 as graphic_nompi_lib
+import graphic_mpi_lib_330 as graphic_mpi_lib
+from graphic_mpi_lib_330 import dprint
 import numpy as np
 from astropy.io import fits as pyfits
 import bottleneck
