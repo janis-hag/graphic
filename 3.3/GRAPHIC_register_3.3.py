@@ -44,7 +44,7 @@ comm = MPI.COMM_WORLD
 parser = argparse.ArgumentParser(description='GRAPHIC:\n The Geneva Reduction and Analysis Pipeline for High-contrast Imaging of planetary Companions.\n\n\
 This program creates a list containing information on each frame: frame quality, gaussian fitted position of star, parallactic angle.')
 parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
-parser.add_argument('--pattern', action="store", dest="pattern", help='Filename pattern')
+parser.add_argument('--pattern', action="store", dest="pattern", type=str, required=True, help='Filename pattern')
 parser.add_argument('--win', action="store", dest="win", type=float, help='Gaussian fit window size')
 parser.add_argument('--rmin', action="store", dest="rmin", type=float, default=5, help='The minimal radius in pixels to consider')
 parser.add_argument('--rmax', action="store", dest="rmax", type=float, default=300, help='The Maximal spot size')

@@ -20,8 +20,8 @@ import scipy, glob,  os, sys, subprocess, string
 from mpi4py import MPI
 from scipy import ndimage
 import argparse
-import graphic_nompi_lib_330 as graphic_lib_nompi
-import graphic_mpi_lib_330 as graphic_lib_mpi
+import graphic_nompi_lib_330 as graphic_nompi_lib
+import graphic_mpi_lib_330 as graphic_mpi_lib
 import numpy as np
 from graphic_mpi_lib_330 import dprint
 import astropy.io.fits as fits
@@ -106,13 +106,13 @@ if use_bottleneck:
 		from bottleneck import nanmean as nancombine
 	else:
 		from bottleneck import nanmedian as nancombine
-	
+
 else:
 	from numpy import median as median
 	if use_mean:
 		from numpy import nanmean as nancombine
 	else:
-		from numpy import nancombine
+		from numpy import nanmedian as nancombine
 
 # This ensures that the printed messages show the frame combination method that was used
 if use_mean:
