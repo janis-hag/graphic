@@ -272,9 +272,9 @@ if rank==0:
 				psf_sub_filename=target_pattern+str(fwhm)+'_'+str(n_fwhm)+"_"+str(rmin)+"_"+str(tmax)+"_"+cube_list['cube_filename'][c]
 		else:
 			if disk:
-				psf_sub_filename=target_pattern+str(np.ceil(2*l_max))+'_disk_'+str(fwhm)+'_'+str(n_fwhm)+"_"+str(dfwhm)+"_"+str(rmin)+"_"+str(tmax)+"_"+cube_list['cube_filename'][c]
+				psf_sub_filename=target_pattern+'_disk_'+str(fwhm)+'_'+str(n_fwhm)+"_"+str(dfwhm)+"_"+str(rmin)+"_"+str(tmax)+"_"+str(np.ceil(2*l_max))+'_'+cube_list['cube_filename'][c]
 			else:
-				psf_sub_filename=target_pattern+str(np.ceil(2*l_max))+'_'+str(fwhm)+'_'+str(n_fwhm)+"_"+str(rmin)+"_"+str(tmax)+"_"+cube_list['cube_filename'][c]
+				psf_sub_filename=target_pattern+str(fwhm)+'_'+str(n_fwhm)+"_"+str(rmin)+"_"+str(tmax)+"_"+str(np.ceil(2*l_max))+'_'+cube_list['cube_filename'][c]
 
 
 		# Check if already processed

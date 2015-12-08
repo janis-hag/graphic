@@ -47,6 +47,7 @@ parser.add_argument('--info_pattern', action="store", dest="info_pattern",  defa
 parser.add_argument('--info_dir', action="store", dest="info_dir",  default='cube-info', help='Info directory')
 parser.add_argument('--info_type', action="store", dest="info_type",  default='rdb', help='Info directory')
 parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
+parser.add_argument('--pa_offset', action="store", dest="pa_offset",  default=0.0, help='Offset to apply to the parallactic angle.')
 parser.add_argument('-nomask', dest='nomask', action='store_const',
 				   const=False, default=True,
 				   help='Produce only one image with masked out centre.')
@@ -89,6 +90,7 @@ naxis1=args.naxis1
 info_pattern=args.info_pattern
 info_dir=args.info_dir
 log_file=args.log_file
+pa_offset=args.pa_offset
 info_type=args.info_type
 nici=args.nici
 sphere=args.sphere
@@ -151,13 +153,16 @@ if rank==0:
 	comm.bcast(cube_list,root=0)
 
 	# Search for the first valid angle to align all the frames to
+	p0=-1
 	for cube_number in xrange(len(cube_list['info'])):
 		for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
-			p0=float(cube_list['info'][cube_number][frame_number][11])
-			if not p0==-1:
-				break
-		if not p0==-1:
-			break
+			cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
+			if p0==-1:
+				p0=float(cube_list['info'][cube_number][frame_number][11])
+			## if not p0==-1:
+				## break
+		## if not p0==-1:
+			## break
 
 
 	comm.bcast(p0,root=0)
