@@ -153,19 +153,15 @@ if rank==0:
 	comm.bcast(cube_list,root=0)
 
 	# Search for the first valid angle to align all the frames to
-	p0=-1
-	for cube_number in xrange(len(cube_list['info'])):
-		for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
-			cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
-			if p0==-1:
-				p0=float(cube_list['info'][cube_number][frame_number][11])
-			## if not p0==-1:
-				## break
-		## if not p0==-1:
-			## break
+	## p0=-1
+	## for cube_number in xrange(len(cube_list['info'])):
+		## for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
+			## cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
+			## if p0==-1:
+				## p0=float(cube_list['info'][cube_number][frame_number][11])
 
 
-	comm.bcast(p0,root=0)
+	## comm.bcast(p0,root=0)
 
 	hdulist = fits.open(dirlist[0])
 	hdr=hdulist[0].header
@@ -317,7 +313,7 @@ if not rank==0:
 	cube_list=comm.bcast(None,root=0)
 	if cube_list=="over":
 		sys.exit(1)
-	p0=comm.bcast(None,root=0)
+	## p0=comm.bcast(None,root=0)
 	cub_shape=comm.bcast(None,root=0)
 	naxis1=comm.bcast(None,root=0)
 	todo=comm.bcast(None,root=0)
@@ -357,12 +353,17 @@ if not rank==0:
 						s_cube=s_cube[1:]
 						continue
 					elif interpolate:
-						rs_cube[fn]=ndimage.interpolation.rotate(s_cube[0], p0-cube_list['info'][cn][fn,11],reshape=False, order=3, mode='constant', cval=np.NaN, prefilter=False)[:,start:end]
+						rs_cube[fn]=ndimage.interpolation.rotate(s_cube[0], cube_list['info'][cn][fn,11],reshape=False, order=3, mode='constant', cval=np.NaN, prefilter=False)[:,start:end]
+						## rs_cube[fn]=ndimage.interpolation.rotate(s_cube[0], p0-cube_list['info'][cn][fn,11],reshape=False, order=3, mode='constant', cval=np.NaN, prefilter=False)[:,start:end]
 						s_cube=s_cube[1:]
 					## elif not naxis1==0:
 					else:
+						## rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(
+							## s_cube[0],p0-cube_list['info'][cn][fn,11],
+							## pad=2,x1=cube_list['info'][cn][fn,4],
+							## y1=cube_list['info'][cn][fn,5])[:,start:end]
 						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(
-							s_cube[0],p0-cube_list['info'][cn][fn,11],
+							s_cube[0],cube_list['info'][cn][fn,11],
 							pad=2,x1=cube_list['info'][cn][fn,4],
 							y1=cube_list['info'][cn][fn,5])[:,start:end]
 						s_cube=s_cube[1:]
@@ -372,7 +373,8 @@ if not rank==0:
 							## print("")
 							## print("s_cube[0] "+str(bottleneck.nanmax(s_cube[0])))
 						## rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], x1=-1, pad=2)[:,start:end]
-						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)[:,start:end]
+						## rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)[:,start:end]
+						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],cube_list['info'][cn][fn,11], pad=2)[:,start:end]
 						## temp=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)
 						## if rank==2:
 							## print("temp "+str(bottleneck.nanmax(temp)))
