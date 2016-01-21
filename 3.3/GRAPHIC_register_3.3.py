@@ -306,10 +306,14 @@ if rank==0:  # Master process
 		print(" Average time per cube: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" = "+str((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" seconds.")
 
 
-	if 'ESO OBS TARG NAME' in cube_header.keys():
-		log_file=log_file+"_"+cube_header['ESO OBS TARG NAME']+"_"+str(__version__)+".log"
+	if 'ESO OBS TARG NAME' in hdr.keys():
+		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+	elif 'OBJECT' in hdr.keys():
+		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
 	else:
-		log_file=log_file+"_"+str(__version__)+".log"
+		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
+
+
 
 	graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
 	# Stop slave processes
