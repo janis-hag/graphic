@@ -42,6 +42,10 @@ parser.add_argument('--trim', dest='trim', action='store_const',
 				   const=True, default=False,
 				   help='Trim images.')
 
+parser.add_argument('-chuck', dest='chuck', action='store_const',
+				   const=True, default=False,
+				   help='Trim chuck cam images.')
+
 parser.add_argument('--offset', dest='offset', action='store_const',
 				   const=True, default=False,
 				   help='Add an offset to the pixel values. Usefull in case of negative images.')
@@ -55,6 +59,7 @@ source_dir=args.source_dir
 stat=args.stat
 offset=args.offset
 trim=args.trim
+chuck=args.chuck
 
 #target_dir = "RED"
 #backup_dir = "prev"
@@ -106,6 +111,8 @@ for i in range(len(dirlist)):
 
 	if trim:
 		cube=cube[:,100:-100,100:-100]
+	elif chuck:
+		cube=cube[:,:,32:-32]
 	elif cube.shape[1]-cube.shape[2]==2:
 		overscan_limit=cube.shape[2]
 		cube=cube[:,:overscan_limit,:]
@@ -126,10 +133,11 @@ for i in range(len(dirlist)):
 	header["HIERARCH GC RM_OVERSCAN"]=(__version__+'.'+__subversion__, "")
 	graphic_nompi_lib.save_fits(targetfile, cube, hdr=header, backend='pyfits' )
 
-if 'ESO OBS TARG NAME' in header.keys():
-	log_file=log_file+"_"+header['ESO OBS TARG NAME']+"_"+str(__version__)+".log"
-else:
-	log_file=log_file+"_"+str(__version__)+".log"
-
-graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+## if 'ESO OBS TARG NAME' in header.keys():
+	## log_file=log_file+"_"+header['ESO OBS TARG NAME']+"_"+str(__version__)+".log"
+## else:
+	## log_file=log_file+"_"+str(__version__)+".log"
+if rank==0:
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init),log_file, header)
+## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 sys.exit(0)

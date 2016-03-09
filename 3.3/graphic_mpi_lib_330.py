@@ -70,10 +70,13 @@ def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
 	Threshold could be given as argument...
 	-im: the image to be analysed
 	-spot_ary: the 2d array of spots [psf_barycentre_x, psf_barycentre_y, psf_pixel_size]
+
+	TODO: currently creates 3 copies of the image. image, ima, and check_ima.
+	the code should be optimised by using only one copy.
 	"""
 	import sys, numpy
 
-	ima=image.copy()
+	ima=image.copy()*1.
 	from sys import setrecursionlimit
 	setrecursionlimit(25000)
 

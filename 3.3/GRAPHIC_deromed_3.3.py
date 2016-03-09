@@ -24,7 +24,8 @@ import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
 import numpy as np
 from graphic_mpi_lib_330 import dprint
-import astropy.io.fits as fits
+## import astropy.io.fits as fits
+from astropy.io import fits as pyfits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
@@ -163,10 +164,10 @@ if rank==0:
 
 	## comm.bcast(p0,root=0)
 
-	hdulist = fits.open(dirlist[0])
-	hdr=hdulist[0].header
-	cube=hdulist[0].data
-	## cube,hdr=pyfits.getdata(dirlist[0],header=True)
+	## hdulist = fits.open(dirlist[0])
+	## hdr=hdulist[0].header
+	## cube=hdulist[0].data
+	cube,hdr=pyfits.getdata(dirlist[0],header=True)
 	if interpolate:
 		fil ='interp_'
 	else:
@@ -218,15 +219,17 @@ if rank==0:
 	hdr.add_history("Final product of GRAPHIC reduction pipeline")
 
 	# loop through the serie, broadcast range at each step
+	prev_step_filename=None
 	for step in range(steps):
 		step_filename=str(step)+"."+str(steps)+"_"+finalname
 		if os.access( step_filename, os.F_OK ): # Check if file already exists
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			print("Using already processed file: "+step_filename)
-			hdulist_med = fits.open(step_filename)
+			## hdulist_med = fits.open(step_filename)
+			med_tot = pyfits.getdata(step_filename)
 			## hdr=hdulist[0].header
-			med_tot=hdulist_med[0].data
+			## med_tot=hdulist_med[0].data
 			if step==steps-1:
 				print('Already processed, nothing else to do, leaving...')
 				sys.exit(0)
@@ -283,6 +286,10 @@ if rank==0:
 			med_tot=np.concatenate((med_tot,med), axis=1)
 		print("Saving: "+step_filename)
 		graphic_nompi_lib.save_fits(step_filename, med_tot, hdr=hdr, backend='pyfits' )
+		#Clean up
+		if not prev_step_filename is None and os.access(prev_step_filename, os.F_OK | os.R_OK):
+			os.remove(prev_step_filename)
+		prev_step_filename=step_filename
 		print("Step time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0_step)))
 
 	# Put a cross in the centre
@@ -301,6 +308,9 @@ if rank==0:
 	graphic_nompi_lib.save_fits(finalname, med_tot, hdr=hdr, backend='pyfits' )
 	if nomask:
 		graphic_nompi_lib.save_fits('nomask_'+finalname, med_nomask, hdr=hdr, backend='pyfits' )
+	#Clean up
+	if not prev_step_filename is None and os.access(prev_step_filename, os.F_OK | os.R_OK):
+		os.remove(prev_step_filename)
 	comm.bcast("over",root=0)
 	MPI.Finalize()
 	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
@@ -340,8 +350,9 @@ if not rank==0:
 				## graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i]))
 				graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i])+'\n')
 
-				hdulist_s = fits.open(dirlist[i],memmap=True)
-				s_cube=hdulist_s[0].data
+				## hdulist_s = fits.open(dirlist[i],memmap=True)
+				## s_cube=hdulist_s[0].data
+				s_cube=pyfits.getdata(dirlist[i])
 				rs_cube=np.ones((s_cube.shape[0],s_cube.shape[1],end-start))*np.NaN
 				cn=cube_list['cube_filename'].index(dirlist[i])
 				## if s_cube.shape[0]==1:
