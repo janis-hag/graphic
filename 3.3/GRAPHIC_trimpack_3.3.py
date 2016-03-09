@@ -89,7 +89,7 @@ graphic_nompi_lib.print_init()
 hdr=None
 
 dirlist=graphic_nompi_lib.create_dirlist(pattern)
-
+print(dirlist)
 ## infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
 ## infolist.sort() # Sort the list alphabetically
 ## cube_list,dirlist=graphic_lib_310.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
@@ -101,7 +101,7 @@ skipped=0
 	# 9: frame_number, 10: frame_time, 11: paralactic_angle
 ## l_max=0
 
-for j in range(int(np.ceil(len(dirlist)/naxis3))):
+for j in range(int(np.ceil(1.*len(dirlist)/naxis3))):
 	if naxis3*j>len(dirlist):
 		n3=naxis3*j-len(dirlist)
 	else:

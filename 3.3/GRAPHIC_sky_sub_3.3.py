@@ -157,7 +157,7 @@ if rank==0:
 		if d>2:
 			print("skylist: "+str(skylist))
 
-	if type(sky_med_frame)==None:
+	if sky_med_frame is None:
 		graphic_mpi_lib.dprint(d>1,'Warning: sky_med_frame is empty')
 		sky_med_frame=0
 	comm.bcast(skylist, root=0)
@@ -299,16 +299,13 @@ for i in range(len(dirlist)):
 
 if rank==0:
 	if not header==None:
-		## if nici==True:
-			## log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-		## else:
+		## if 'ESO OBS TARG NAME' in header.keys():
 			## log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		## else:
+			## log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
 		## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
-		if 'ESO OBS TARG NAME' in header.keys():
-			log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-		else:
-			log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-		graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+
+		graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, header, comments, nprocs=nprocs)
 
 print(str(rank)+": Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
 sys.exit(0)

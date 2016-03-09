@@ -51,6 +51,12 @@ parser.add_argument('--rmax', action="store", dest="rmax", type=float, default=3
 parser.add_argument('--t', action="store", dest="t", type=float, default=20, help='The threshold value')
 parser.add_argument('--t_max', action="store", dest="t_max", type=float, help='The maximum deviation value')
 parser.add_argument('--ratio', action="store", dest="ratio", type=float, help='PSF ellipticity ratio')
+## parser.add_argument('--date', action="store", dest="date", help='Give the date in ISO format, e.g. 2015-11-30')
+parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
+parser.add_argument('--size', action="store", dest="size", type=int, default=-1, help='Filter size')
+parser.add_argument('--chuck', action="store", dest="hiciao_filename", help='HICIAO fits file to use as reference for chuckcam data')
+
+# No argument options...
 parser.add_argument('-deviation', dest='deviation', action='store_const',
 				   const=True, default=False,
 				   help='Use a threshold based on standard deviation instead of an absolute threshold')
@@ -81,8 +87,6 @@ parser.add_argument('-sphere', dest='sphere', action='store_const',
 parser.add_argument('-scexao', dest='scexao', action='store_const',
 				   const=True, default=False,
 				   help='Switch for SCExAO data')
-parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
-parser.add_argument('--size', action="store", dest="size", type=int, default=-1, help='Filter size')
 parser.add_argument('-no_psf', action='store_const', dest='no_psf',
 					const=True, default=False,
 					help='Do not look for a PSF, assume it is already centred.')
@@ -110,6 +114,7 @@ deviation=args.deviation
 recurs=int(args.recurs)
 window_size=args.size
 no_psf=args.no_psf
+hiciao_filename=args.hiciao_filename
 
 if moffat:
 	header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
@@ -117,6 +122,11 @@ if moffat:
 else:
 	header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 		'frame_num', 'frame_time', 'paralactic_angle']
+
+if hiciao_filename is None:
+	chuck=False
+else:
+	chuck=True
 
 target_dir = "."
 backup_dir = "prev"
@@ -146,15 +156,25 @@ if rank==0:  # Master process
 	if spherepipe:
 		fctable_list=glob.glob(positions_dir+os.sep+'SPHER*fctable.rdb')
 		fctable_list.sort()
-	elif scexao:
+	elif chuck:
+		# Read the IERS_A table
+		iers_a = graphic_nompi_lib.read_iers_a()
+		if os.access(hiciao_filename, os.F_OK ):
+			hdr=pyfits.getheader(hiciao_filename)
+		else:
+			print(hiciao_filename+' not found. Interrupting!')
+			MPI.Abort()
+			sys.exit(1)
+	elif scexao and not chuck:
 		fctable_list=glob.glob(positions_dir+os.sep+'scexao_parang_*.rdb')
 		fctable_list.sort()
 
 	if len(dirlist)==0:
 		print("No files found!")
-		for n in range(nprocs-1):
-			comm.send("over", dest = n+1 )
-			comm.send("over", dest = n+1 )
+		MPI.Abort()
+		## for n in range(nprocs-1):
+			## comm.send("over", dest = n+1 )
+			## comm.send("over", dest = n+1 )
 		sys.exit(1)
 
 	for i in range(len(dirlist)):
@@ -180,6 +200,31 @@ if rank==0:  # Master process
 			continue
 		else:
 			cube,cube_header=pyfits.getdata(dirlist[i], header=True)
+			if not chuck:
+				hdr=cube_header
+			else:
+				cube_header['OBS-MOD'] = hdr['OBS-MOD']
+				cube_header.comments['OBS-MOD'] = 'Observation mode'
+				cube_header['P_TRMODE']= hdr['P_TRMODE']
+				cube_header.comments['P_TRMODE']= 'Tracking mode of Lyot stop'
+				cube_header['DATA-TYP']= hdr['DATA-TYP']
+				cube_header.comments['DATA-TYP']= 'Type / Characteristics of this data'
+				cube_header['OBJECT']  = hdr['OBJECT']
+				cube_header.comments['OBJECT']  = 'Target Description'
+				cube_header['RADECSYS']= hdr['RADECSYS']
+				cube_header.comments['RADECSYS']= 'The equitorial coordinate system'
+				cube_header['RA']    =hdr['RA']
+				cube_header.comments['RA']    = 'HH:MM:SS.SSS RA pointing'
+				cube_header['DEC']     =hdr['DEC']
+				cube_header.comments['DEC']     = '+/-DD:MM:SS.SS DEC pointing'
+				cube_header['EQUINOX'] =  hdr['EQUINOX']
+				cube_header.comments['EQUINOX'] =  'Standard FK5 (years)'
+				cube_header['RA2000']  = hdr['RA2000']
+				cube_header.comments['RA2000']  = 'HH:MM:SS.SSS RA (J2000) pointing)'
+				cube_header['DEC2000']= hdr['DEC2000']
+
+				graphic_nompi_lib.save_fits('h_'+dirlist[i], cube, hdr=cube_header, backend='pyfits', verify='warn')
+
 
 		#######
 		# Currently crashes if not rdb file found. Should print an error instead and continue.
@@ -199,11 +244,21 @@ if rank==0:  # Master process
 					parang_list=numpy.vstack((parang_list,[i,jdate,fctable['Angle_deg'][i]]))
 		elif 'INSTRUME' in cube_header.keys() and cube_header['INSTRUME']=='SPHERE':
 			parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
-		elif scexao:
+		elif scexao and not chuck:
 			fctable_filename= fnmatch.filter(fctable_list,'*'+string.split(dirlist[i],'_')[-1][:-5]+'.rdb')[0]
 			fctable=graphic_nompi_lib.read_rdb(fctable_filename)
 			parang_list=np.array([fctable['frame_num'][:],fctable['frame_time'][:],fctable['paralactic_angle'][:]])
 			parang_list=(np.rollaxis(parang_list,1))
+		elif chuck:
+			## 'ircam'+string.split(tfile,'ircam')[1]
+			frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+			if os.access(frame_text_info, os.F_OK | os.R_OK):
+				f=open(frame_text_info)
+				timestamps=f.readlines()
+				parang_list=graphic_nompi_lib.create_parang_scexao_chuck(timestamps, hdr, iers_a)
+			else:
+				print('No '+frame_text_info+' file found. Skipping '+dirlist[c+n])
+				continue
 		else:
 			# Creates a 2D array [frame_number, frame_time, paralactic_angle]
 			parang_list=graphic_nompi_lib.create_parang_list_ada(cube_header)
@@ -306,37 +361,38 @@ if rank==0:  # Master process
 		print(" Average time per cube: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" = "+str((MPI.Wtime()-t0)/(len(dirlist)-skipped))+" seconds.")
 
 
-	if 'ESO OBS TARG NAME' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-	elif 'OBJECT' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
-	else:
-		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
+	## if 'ESO OBS TARG NAME' in hdr.keys():
+		## log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+	## elif 'OBJECT' in hdr.keys():
+		## log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+	## else:
+		## log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
 
 
 
-	graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr, comments, nprocs=nprocs)
+	## graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
 	# Stop slave processes
-	comm.bcast("over", root=0)
-	for n in range(nprocs-1):
-		comm.send("over", dest = n+1 )
-		comm.send("over", dest = n+1 )
+	MPI.Finalize()
+	## comm.bcast("over", root=0)
+	## for n in range(nprocs-1):
+		## comm.send("over", dest = n+1 )
+		## comm.send("over", dest = n+1 )
 	sys.exit(0)
 
 #except:
-	print "Unexpected error:", sys.exc_info()[0]
-	comm.bcast("over", root=0)
-	for n in range(nprocs-1):
-		comm.send("over", dest = n+1 )
-		comm.send("over", dest = n+1 )
+	## print "Unexpected error:", sys.exc_info()[0]
+	## for n in range(nprocs-1):
+		## comm.send("over", dest = n+1 )
+		## comm.send("over", dest = n+1 )
 
-	for n in range(nprocs-1):
-		check=comm.recv(source = n+1)
-		if not check=="OK":
-			print("Unexpected reply from slave("+str(n+1)+"). Expected OK, recieved:"+str(check))
-			print("Ignoring error.")
+	## for n in range(nprocs-1):
+		## check=comm.recv(source = n+1)
+		## if not check=="OK":
+			## print("Unexpected reply from slave("+str(n+1)+"). Expected OK, recieved:"+str(check))
+			## print("Ignoring error.")
 
-	sys.exit(1)
+	## sys.exit(1)
 
 
 else: # Slave processes
@@ -354,8 +410,8 @@ else: # Slave processes
 	x0_i=0
 	y0_i=0
 
-	while not data_in=="over":
-		if not data_in is None:
+	while not data_in is "over":
+		if not data_in is None and isinstance(data_in, np.ndarray):
 			for frame in range(data_in.shape[0]):
 				sys.stdout.write('\r\r\r [Rank '+str(rank)+', cube '+str(cube_count)+']  Frame '+str(frame+startframe)+' of '+str(startframe+data_in.shape[0]))
 				sys.stdout.flush()

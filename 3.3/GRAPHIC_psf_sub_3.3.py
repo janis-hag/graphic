@@ -625,13 +625,15 @@ if rank==0:
 	print("\n Program finished, killing all the slaves...")
 	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 	comm.bcast("over", root=0)
-	if 'ESO OBS TARG NAME' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-	elif 'OBJECT' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
-	else:
-		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
-	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+	## if 'ESO OBS TARG NAME' in hdr.keys():
+		## log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+	## elif 'OBJECT' in hdr.keys():
+		## log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+	## else:
+		## log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
+	## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr, comments=None, nprocs=nprocs)
+
 	if nici:
 		print('--pattern '+string.split(psf_sub_filename, '_S')[0]+' --info_pattern '+string.split(info_filename,'_S')[0])
 	elif sphere:
