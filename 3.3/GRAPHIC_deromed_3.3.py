@@ -173,7 +173,7 @@ if rank==0:
 	else:
 		fil=''
 	if 'ESO OBS TARG NAME' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		## log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 		if 'ESO INS OPTI6 ID' in hdr.keys(): # VLT/NACO
 			fil=fil+str(hdr['ESO INS OPTI6 ID'])
 		elif 'ESO INS COMB IFLT' in hdr.keys(): #VLT/SPHERE
@@ -186,10 +186,10 @@ if rank==0:
 			fil=fil+string.replace(hdr['FILTER_B'],'%','')
 		elif hdr['CHANNEL']=='RED':
 			fil=fil+string.replace(hdr['FILTER_R'],'%','')
-		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+		## log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
 		finalname='final_image_'+string.upper(string.replace(hdr['OBJECT'],' ',''))+'_'+fil+'_'+dirlist[0]
 	else:
-		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
+		## log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
 		finalname='final_image_UNKNOW_TARGET_'+dirlist[0]
 	# check if already done io.access
 	if 'GC ORIG NAXIS1' in hdr.keys():
@@ -316,7 +316,8 @@ if rank==0:
 	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 
 	## log_file=log_file+"_"+hdr['HIERARCH ESO OBS TARG NAME']+"_"+str(__version__)+".log"
-	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+	## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr)
 	sys.exit(0)
 
 if not rank==0:
