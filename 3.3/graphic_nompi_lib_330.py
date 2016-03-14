@@ -7,6 +7,9 @@ These are function common to different programs of the pipeline.
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
+__version__='3.3'
+
+__subversion__='0'
 
 import numpy, os, shutil, sys, glob, math
 import numpy as np
@@ -127,6 +130,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 		## sys.stdout.write("\r\r\r Found "+str(len(dirlist))+" files.\n")
 		## sys.stdout.flush()
 	else:
+		print('No files found.')
 		return None
 
 	## dirlist.sort() # Sort the list alphabetically
@@ -481,14 +485,14 @@ def create_parang_scexao(hdr):
 	### Altitude: 4139 m (Elevation axis is at 4163 m)
  	### 19 49 31.81425 	155 28 33.66719
 
-	geolong=coordinates.Longitude(angle='155 28 34', unit=u.deg)
+	geolong=coordinates.Longitude(angle='-155 28 34', unit=u.deg)
 	geolat=coordinates.Latitude(angle='+19 49 32', unit=u.deg)
 	geo_coord=coordinates.EarthLocation.from_geodetic(geolong,geolat, 4163)
 	obs_time=Time(hdr['MJD'], format='mjd', scale='ut1', location=geo_coord)
 
 
 	## coord=SkyCoord(hdr['DEC'], hdr['RA'], 'FK5', unit=(u.deg, u.hourangle))  #HH:MM:SS.SSS RA pointing, +/-DD:MM:SS.SS DEC pointing
-	coord=coordinates.SkyCoord('fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
+	coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
 
 	ra_deg = coord.ra.deg
 	dec_deg = coord.dec.deg
@@ -513,7 +517,7 @@ def create_parang_scexao(hdr):
 		if coord.dec.deg > geo_coord.latitude.deg:
 			pa = ((pa + 360) % 360)
 
-		pa = pa + 180
+		## pa = pa + 180
 		parang_array=numpy.array([obs_time.mjd,pa ])
 
 	else:
@@ -524,6 +528,77 @@ def create_parang_scexao(hdr):
 
 		parang_array=numpy.array([mjdstart,0])
 
+	return parang_array
+
+def create_parang_scexao_chuck(times, hdr, iers_a):
+	"""
+	Reads the times array as produced by the log and based on additional information from
+	the simultaneous HICIAO data creates a pralactic angles array for the
+	Chuck cam fits files.
+
+	Input:
+	- times: an array containing the individual frame times
+	- hdr: a simultaneous HICIAO header
+	"""
+
+	from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
+	import dateutil.parser
+	from astropy import units as u
+	from astropy import coordinates
+	from astropy.time import Time
+	import string
+
+	## r2d = 180/pi
+	## d2r = pi/180
+
+	### Subaru telescope coordinates
+	### Latitude: +19 49' 32'' N (NAD83)
+	### Longitude: 155 28' 34'' W (NAD83)
+	### Altitude: 4139 m (Elevation axis is at 4163 m)
+ 	### 19 49 31.81425 	155 28 33.66719
+
+	date=hdr['DATE-OBS']
+
+	geolong=coordinates.Longitude(angle='-155 28 34', unit=u.deg)
+	geolat=coordinates.Latitude(angle='+19 49 32', unit=u.deg)
+	geo_coord=coordinates.EarthLocation.from_geodetic(geolong,geolat, 4163)
+
+	coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
+	## coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.hourangle))
+
+	ra_deg = coord.ra.deg
+	dec_deg = coord.dec.deg
+
+	parang_array=numpy.ones((len(times),3))
+
+	for i in xrange(len(times)):
+		times[i]=date+' '+string.split(times[i],' ')[0]
+
+		obs_time=Time(times[i], format='iso', scale='utc', location=geo_coord)
+
+		# Get UTC-UT1 delta using the provided IERS_A table
+		obs_time.delta_ut1_utc = obs_time.get_delta_ut1_utc(iers_a)
+
+		## lst_long=coordinates.Longitude(angle=hdr['LST'],unit=u.hourangle)
+		## lst=float(lst_long.to_string(decimal=True, precision=10))*15
+
+		lst=obs_time.sidereal_time('apparent')
+
+		## ha_deg=lst-coord.ra.deg
+		ha_deg=obs_time.sidereal_time('apparent').deg-coord.ra.deg
+
+		# VLT TCS formula
+		f1 = cos(geo_coord.latitude.rad) * sin(deg2rad(ha_deg))
+		f2 = sin(geo_coord.latitude.rad) * cos(coord.dec.rad) - cos(geo_coord.latitude.rad) * sin(coord.dec.rad) * cos(deg2rad(ha_deg))
+
+		## parang_array=numpy.array([obs_time.mjd,r2d*arctan(f1/f2)])
+		pa=-rad2deg(arctan2(-f1,f2))
+		if coord.dec.deg > geo_coord.latitude.deg:
+			pa = ((pa + 360) % 360)
+
+		## pa = pa + 180
+
+		parang_array[i]=numpy.array([i,obs_time.mjd,pa ])
 	return parang_array
 
 
@@ -1895,6 +1970,30 @@ def nanmask_frame(x0, y0,frame, R, d):
 
 	return frame
 
+def read_iers_a():
+	"""
+	Read a local version of the iers_a file.
+
+	We could consider adding a function that downloads a new one if the
+	local version is missing.
+	"""
+	import pkg_resources, os
+	import inspect
+
+	from astropy.utils.iers import IERS_A
+
+	resource_package = __name__  ## Could be any module/package name.
+	## resource_path = os.path.join('templates', 'temp_file')
+	## iers_a_file = pkg_resources.resource_string(resource_package, 'finals2000A.all')
+
+	## iers_a_file = os.path.join(os.path.dirname(graphic_nompi_lib_330.__file__), 'finals2000A.all')
+	iers_a_file = os.path.join(os.path.dirname(inspect.stack()[0][1]), 'finals2000A.all')
+
+	## print(iers_a_file)
+	iers_a = IERS_A.open(iers_a_file)
+
+	return iers_a
+
 def read_rdb(file, h=0, comment=None):
 	"""
 	Reads an rdb file
@@ -2401,6 +2500,42 @@ def write_log(runtime, log_file, comments=None, nprocs=0):
 	if nprocs>0:
 		f.write('mpirun -n '+str(nprocs)+' '+str(out))
 	if not comments==None:
+		if isinstance(comments,list):
+			for c in comments:
+				f.write(c+'\n')
+		elif isinstance(comments,str):
+			f.write(comments)
+		else:
+			print('Unknown '+type(comments)+': '+str(comments))
+	f.write(string.join(sys.argv)+'\n')
+	f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
+	f.close()
+
+
+def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
+	"""
+	Adds the executed command to the logfile
+	from subprocess import Popen, PIPE
+	"""
+	from datetime import datetime
+	import string
+	from subprocess import Popen, PIPE
+	import sys
+
+	if 'ESO OBS TARG NAME' in hdr.keys():
+		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+	elif 'OBJECT' in hdr.keys():
+		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+	else:
+		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
+
+	p=Popen(["ps","-o", "cmd=","-p",str(os.getpid())], stdout=PIPE)
+	out, err = p.communicate()
+	f = open(log_file, 'aw')
+	f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
+	if nprocs>0:
+		f.write('mpirun -n '+str(nprocs)+' '+str(out))
+	if not comments is None:
 		if isinstance(comments,list):
 			for c in comments:
 				f.write(c+'\n')

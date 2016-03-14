@@ -75,7 +75,6 @@ parser.add_argument('--flat_filename', dest='flat_filename', action='store',
 parser.add_argument('--sky_interp', dest='sky_interp', action='store', type=int,default=1, 
 				   help='Number of sky files to interpolate when doing the sky subtraction. Default is to use 1 file only (no interpolation).')
 
-
 args = parser.parse_args()
 d=args.d
 pattern=args.pattern
@@ -334,11 +333,13 @@ for i in range(len(dirlist)):
 
 if rank==0:
 	if not header==None:
-		if 'ESO OBS TARG NAME' in header.keys():
-			log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-		else:
-			log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-		graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+		## if 'ESO OBS TARG NAME' in header.keys():
+			## log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		## else:
+			## log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
+		## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+
+		graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, header, comments, nprocs=nprocs)
 
 print(str(rank)+": Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
 sys.exit(0)

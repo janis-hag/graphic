@@ -24,7 +24,8 @@ import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
 import numpy as np
 from graphic_mpi_lib_330 import dprint
-import astropy.io.fits as fits
+## import astropy.io.fits as fits
+from astropy.io import fits as pyfits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
@@ -163,16 +164,16 @@ if rank==0:
 
 	## comm.bcast(p0,root=0)
 
-	hdulist = fits.open(dirlist[0])
-	hdr=hdulist[0].header
-	cube=hdulist[0].data
-	## cube,hdr=pyfits.getdata(dirlist[0],header=True)
+	## hdulist = fits.open(dirlist[0])
+	## hdr=hdulist[0].header
+	## cube=hdulist[0].data
+	cube,hdr=pyfits.getdata(dirlist[0],header=True)
 	if interpolate:
 		fil ='interp_'
 	else:
 		fil=''
 	if 'ESO OBS TARG NAME' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		## log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
 		if 'ESO INS OPTI6 ID' in hdr.keys(): # VLT/NACO
 			fil=fil+str(hdr['ESO INS OPTI6 ID'])
 		elif 'ESO INS COMB IFLT' in hdr.keys(): #VLT/SPHERE
@@ -185,10 +186,10 @@ if rank==0:
 			fil=fil+string.replace(hdr['FILTER_B'],'%','')
 		elif hdr['CHANNEL']=='RED':
 			fil=fil+string.replace(hdr['FILTER_R'],'%','')
-		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+		## log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
 		finalname='final_image_'+string.upper(string.replace(hdr['OBJECT'],' ',''))+'_'+fil+'_'+dirlist[0]
 	else:
-		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
+		## log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
 		finalname='final_image_UNKNOW_TARGET_'+dirlist[0]
 	# check if already done io.access
 	if 'GC ORIG NAXIS1' in hdr.keys():
@@ -218,15 +219,17 @@ if rank==0:
 	hdr.add_history("Final product of GRAPHIC reduction pipeline")
 
 	# loop through the serie, broadcast range at each step
+	prev_step_filename=None
 	for step in range(steps):
 		step_filename=str(step)+"."+str(steps)+"_"+finalname
 		if os.access( step_filename, os.F_OK ): # Check if file already exists
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			print("Using already processed file: "+step_filename)
-			hdulist_med = fits.open(step_filename)
+			## hdulist_med = fits.open(step_filename)
+			med_tot = pyfits.getdata(step_filename)
 			## hdr=hdulist[0].header
-			med_tot=hdulist_med[0].data
+			## med_tot=hdulist_med[0].data
 			if step==steps-1:
 				print('Already processed, nothing else to do, leaving...')
 				sys.exit(0)
@@ -283,6 +286,10 @@ if rank==0:
 			med_tot=np.concatenate((med_tot,med), axis=1)
 		print("Saving: "+step_filename)
 		graphic_nompi_lib.save_fits(step_filename, med_tot, hdr=hdr, backend='pyfits' )
+		#Clean up
+		if not prev_step_filename is None and os.access(prev_step_filename, os.F_OK | os.R_OK):
+			os.remove(prev_step_filename)
+		prev_step_filename=step_filename
 		print("Step time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0_step)))
 
 	# Put a cross in the centre
@@ -301,12 +308,16 @@ if rank==0:
 	graphic_nompi_lib.save_fits(finalname, med_tot, hdr=hdr, backend='pyfits' )
 	if nomask:
 		graphic_nompi_lib.save_fits('nomask_'+finalname, med_nomask, hdr=hdr, backend='pyfits' )
+	#Clean up
+	if not prev_step_filename is None and os.access(prev_step_filename, os.F_OK | os.R_OK):
+		os.remove(prev_step_filename)
 	comm.bcast("over",root=0)
 	MPI.Finalize()
 	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 
 	## log_file=log_file+"_"+hdr['HIERARCH ESO OBS TARG NAME']+"_"+str(__version__)+".log"
-	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+	## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr)
 	sys.exit(0)
 
 if not rank==0:
@@ -340,8 +351,9 @@ if not rank==0:
 				## graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i]))
 				graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i])+'\n')
 
-				hdulist_s = fits.open(dirlist[i],memmap=True)
-				s_cube=hdulist_s[0].data
+				## hdulist_s = fits.open(dirlist[i],memmap=True)
+				## s_cube=hdulist_s[0].data
+				s_cube=pyfits.getdata(dirlist[i])
 				rs_cube=np.ones((s_cube.shape[0],s_cube.shape[1],end-start))*np.NaN
 				cn=cube_list['cube_filename'].index(dirlist[i])
 				## if s_cube.shape[0]==1:

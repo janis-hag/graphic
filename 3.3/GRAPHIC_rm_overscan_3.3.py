@@ -37,13 +37,15 @@ parser.add_argument('--log_file', action="store", dest="log_file",  default='GRA
 parser.add_argument('-s', dest='stat', action='store_const',
 				   const=True, default=False,
 				   help='Print benchmarking statistics')
-
 parser.add_argument('--trim', dest='trim', action='store_const',
 				   const=True, default=False,
 				   help='Trim images.')
 parser.add_argument('--l_max', dest='l_max', action='store', type=int, default=None, help='The output image size (default is to not change the shape)')
 parser.add_argument('--centre_offset', dest='centre_offset',action='store',type=int,default=0,nargs=2,
 					help='Offset the image centre when using l_max, so that the image is cut centred on this position (in x,y)')
+parser.add_argument('-chuck', dest='chuck', action='store_const',
+				   const=True, default=False,
+				   help='Trim chuck cam images.')
 parser.add_argument('--offset', dest='offset', action='store_const',
 				   const=True, default=False,
 				   help='Add an offset to the pixel values. Usefull in case of negative images.')
@@ -59,6 +61,7 @@ offset=args.offset
 trim=args.trim
 l_max=args.l_max
 centre_offset=args.centre_offset
+chuck=args.chuck
 
 #target_dir = "RED"
 #backup_dir = "prev"
@@ -110,6 +113,8 @@ for i in range(len(dirlist)):
 
 	if trim:
 		cube=cube[:,100:-100,100:-100]
+	elif chuck:
+		cube=cube[:,:,32:-32]
 	elif type(l_max) != type(None):
 		if cube.ndim ==3:
 			mindim=1
@@ -147,10 +152,11 @@ for i in range(len(dirlist)):
 	header["HIERARCH GC RM_OVERSCAN"]=(__version__+'.'+__subversion__, "")
 	graphic_nompi_lib.save_fits(targetfile, cube, hdr=header, backend='pyfits' )
 
-if 'ESO OBS TARG NAME' in header.keys():
-	log_file=log_file+"_"+header['ESO OBS TARG NAME']+"_"+str(__version__)+".log"
-else:
-	log_file=log_file+"_"+str(__version__)+".log"
-
-graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
+## if 'ESO OBS TARG NAME' in header.keys():
+	## log_file=log_file+"_"+header['ESO OBS TARG NAME']+"_"+str(__version__)+".log"
+## else:
+	## log_file=log_file+"_"+str(__version__)+".log"
+if rank==0:
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init),log_file, header)
+## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 sys.exit(0)
