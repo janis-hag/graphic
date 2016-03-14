@@ -41,7 +41,9 @@ parser.add_argument('-s', dest='stat', action='store_const',
 parser.add_argument('--trim', dest='trim', action='store_const',
 				   const=True, default=False,
 				   help='Trim images.')
-
+parser.add_argument('--l_max', dest='l_max', action='store', type=int, default=None, help='The output image size (default is to not change the shape)')
+parser.add_argument('--centre_offset', dest='centre_offset',action='store',type=int,default=0,nargs=2,
+					help='Offset the image centre when using l_max, so that the image is cut centred on this position (in x,y)')
 parser.add_argument('--offset', dest='offset', action='store_const',
 				   const=True, default=False,
 				   help='Add an offset to the pixel values. Usefull in case of negative images.')
@@ -55,6 +57,8 @@ source_dir=args.source_dir
 stat=args.stat
 offset=args.offset
 trim=args.trim
+l_max=args.l_max
+centre_offset=args.centre_offset
 
 #target_dir = "RED"
 #backup_dir = "prev"
@@ -106,10 +110,27 @@ for i in range(len(dirlist)):
 
 	if trim:
 		cube=cube[:,100:-100,100:-100]
-	elif cube.shape[1]-cube.shape[2]==2:
+	elif type(l_max) != type(None):
+		if cube.ndim ==3:
+			mindim=1
+		elif cube.ndim==2:
+			mindim=0
+		if type(centre_offset) ==type(None):
+			cenx=np.min(cube.shape[mindim:])/2
+			ceny=np.min(cube.shape[mindim:])/2
+		else:
+			cenx=centre_offset[0]
+			ceny=centre_offset[1]
+		if cube.ndim==3:	
+			cube=cube[:,cenx-l_max/2:cenx+l_max/2,ceny-l_max/2:ceny+l_max/2] 
+		elif cube.ndim==2:	
+			cube=cube[cenx-l_max/2:cenx+l_max/2,ceny-l_max/2:ceny+l_max/2] 
+
+	# This used to only work if the difference in size was 2 pixels, but this is no longer the case for NACO. ACC edit Feb 2016
+	elif cube.shape[1]>cube.shape[2]:
 		overscan_limit=cube.shape[2]
 		cube=cube[:,:overscan_limit,:]
-	elif cube.shape[2]-cube.shape[1]==2:
+	elif cube.shape[2]>cube.shape[1]:
 		overscan_limit=cube.shape[1]
 		cube=cube[:,:overscan_limit,:]
 	else:

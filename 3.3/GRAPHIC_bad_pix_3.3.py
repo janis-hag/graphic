@@ -94,13 +94,20 @@ def gen_badpix(sky ,coef, comments):
 	dprint(d>2, "sky.shape: "+str(sky.shape)+", sky.size: "+str(sky.size))
 	# if np.shape(deadpix)[1]+np.shape(negativepix)[1]+np.shape(hotpix)[1]==0:
 	if np.shape(deadpix)[1]+np.shape(hotpix)[1]==0:
-		c="No bad pixels found. Aborting"
-		dprint(d>2, 'No bad pixels found. Aborting!')
-		## print(c)
+		# This used to abort and leave all procs running at full speed indefinitely.
+		# But in principal this could legitimately happen, so ACC removed this section
+		# c="No bad pixels found. Aborting"
+		# dprint(d>2, 'No bad pixels found. Aborting!')
+		# ## print(c)
+		# comments.append(c)
+		# for n in range(nprocs-1):
+		# 	comm.send(None,dest =n+1)
+		# sys.exit(1)
+
+		# Instead, how about we just return an empty list
+		c="No badpix found!"
 		comments.append(c)
-		for n in range(nprocs-1):
-			comm.send(None,dest =n+1)
-		sys.exit(1)
+		print("WARNING: No bad pixels were found!")
 	else:
 		c="Found "+str(np.shape(deadpix)[1])+" = "+str(100.*np.shape(deadpix)[1]/sky.size)+"% dead, "+\
 		"and "+str(np.shape(hotpix)[1])+" = "+str(100.*np.shape(hotpix)[1]/sky.size)+"% hot pixels."
