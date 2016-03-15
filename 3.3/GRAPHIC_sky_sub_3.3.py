@@ -305,7 +305,7 @@ if rank==0:
 			## log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
 		## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 
-		graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, header, comments=None, nprocs=nprocs)
+		graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, header, comments=None, 	nprocs=nprocs)
 
 print(str(rank)+": Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
 sys.exit(0)
