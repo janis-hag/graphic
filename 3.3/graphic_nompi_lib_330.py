@@ -318,7 +318,7 @@ def create_parang_list(hdr):
 
 	return parang_array
 
-def create_parang_list_ada(hdr):
+def create_parang_list_naco(hdr):
 	"""
 	Reads the header and creates an array giving the paralactic angle for each frame,
 	taking into account the inital derotator position.
@@ -345,7 +345,7 @@ def create_parang_list_ada(hdr):
 		sys.stdout.write("\n Warning! No ESO ADA PUPILPOS keyword found, using 89.44. Is it ADI?\n")
 		sys.stdout.flush()
 
-	ROT_PT_OFF=179.44-ADA_PUPILPOS # from NACO manual v90 p.85
+	ROT_PT_OFF=179.44+ADA_PUPILPOS # from NACO manual v90 p.85
 	dit=float(hdr['ESO DET DIT'])
 
 	if 'ESO DET DITDELAY' in hdr.keys():
@@ -363,13 +363,12 @@ def create_parang_list_ada(hdr):
 
 	mjdstart=float(hdr['MJD-OBS'])
 
-	if 'ESO TEL ROT ALTAZTRACK' in hdr.keys() and hdr['ESO TEL ROT ALTAZTRACK']==True:
+	if ('ESO TEL ROT ALTAZTRACK' in hdr.keys() and hdr['ESO TEL ROT ALTAZTRACK']==True) or (hdr['HIERARCH ESO DPR TECH'] =='IMAGE,JITTER,CUBE,PT'):
 
 		pa = -r2d*arctan2(-f1,f2)
 		if dec_deg > geolat_deg:
 			pa = ((pa + 360) % 360)
 
-		pa = pa + 180
 		parang_array=numpy.array([0,mjdstart,pa+ROT_PT_OFF])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
@@ -380,24 +379,16 @@ def create_parang_list_ada(hdr):
 			f1 = cos(geolat_rad) * sin(d2r*ha_deg)
 			f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
 
-			pa = -r2d*arctan2(-f1,f2)
-			if dec_deg > geolat_deg:
-				pa = ((pa + 360) % 360)
+			pa = -r2d*arctan2(-f1,f2)+ROT_PT_OFF	
+			pa = ((pa + 360) % 360)
 
-			pa = pa + 180
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa+ROT_PT_OFF]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
-
-		parang_array=numpy.array([0,mjdstart,0])
-		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
-
-		for i in range(1,hdr['NAXIS3']):
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,0]))
 
 	return parang_array
 

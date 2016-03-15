@@ -25,6 +25,7 @@ from mpi4py import MPI
 ## from astropy.io import fits as pyfits
 import astropy.io.fits as pyfits
 import bottleneck
+from scipy.interpolate import interp1d
 
 nprocs = MPI.COMM_WORLD.Get_size()
 rank   = MPI.COMM_WORLD.Get_rank()
@@ -71,6 +72,8 @@ parser.add_argument('-interactive', dest='interactive', action='store_const',
 				   help='Switch to set execution to interactive mode')
 parser.add_argument('--flat_filename', dest='flat_filename', action='store',
 				   default=None, help='Name of flat field to be used. If this argument is not set, the data will not be flat fielded')
+parser.add_argument('--sky_interp', dest='sky_interp', action='store', type=int,default=1, 
+				   help='Number of sky files to interpolate when doing the sky subtraction. Default is to use 1 file only (no interpolation).')
 
 args = parser.parse_args()
 d=args.d
@@ -84,6 +87,7 @@ log_file=args.log_file
 fit=args.fit
 nici=args.nici
 flat_filename=args.flat_filename
+sky_interp=args.sky_interp
 ## hdf5=args.hdf5
 
 header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
@@ -128,6 +132,8 @@ if rank==0:
 
 	sky_med_frame=None
 
+	sky_obstimes={}
+
 	if len(skyls)<1:
 		print("No sky file found")
 		comm.bcast("over", root=0)
@@ -135,32 +141,34 @@ if rank==0:
 
 	elif len(skyls)==1:
 		print("One single sky file found. Will be used for all files.")
-		skylist={}
-		skylist[skyls[0]] = []
-		for sfile in dirlist:
-			skylist[skyls[0]].append(sfile)
+
+		sky_data, sky_hdr = pyfits.getdata(skyls[0], header=True)
+		sky_med_frame=sky_data
+
+		sky_obstimes[sky_hdr['HIERARCH GC SKY_OBSTIME']]=skyls[0]
 
 	else:
-		skylist={}
+		
+		# Loop over all the sky files and make a big array containing all of them. 
+		# Also save the MJDs of the sky frames so we can work out which one to use
 		for skyfits in skyls:
 			sky_data, sky_hdr = pyfits.getdata(skyfits, header=True)
-			## sky_hdr=sky_hdulist[0].header
-			#hdr=pyfits.getheader(skyfits)
-			skylist[skyfits]=fnmatch.filter(sky_hdr['history'],"*.fits")
-			if type(sky_med_frame)==None:
+
+			sky_obstimes[sky_hdr['HIERARCH GC SKY_OBSTIME']]=skyfits
+			if type(sky_med_frame)==type(None):
 				sky_med_frame=sky_data
 			else:
 				sky_med_frame=np.dstack((sky_med_frame,sky_data))
-			## sky_hdulist.close()
-		if not sky_med_frame==None:
+			
+		if not type(sky_med_frame)==type(None):
 			sky_med_frame=bottleneck.nanmedian(sky_med_frame, axis=2)
 		if d>2:
-			print("skylist: "+str(skylist))
+			print("sky_obstimes "+str(sky_obstimes))
 
-	if sky_med_frame is None:
+	if type(sky_med_frame)==None:
 		graphic_mpi_lib.dprint(d>1,'Warning: sky_med_frame is empty')
 		sky_med_frame=0
-	comm.bcast(skylist, root=0)
+	comm.bcast(sky_obstimes, root=0)
 	comm.bcast(sky_med_frame, root=0)
 	# Create directory to store reduced data
 	if not os.path.isdir(target_dir):
@@ -174,10 +182,12 @@ if not rank==0:
 	start=int(comm.recv(source = 0))
 
 	cube_list=comm.bcast(None, root=0)
-	skylist=comm.bcast(None, root=0)
+	# skylist=comm.bcast(None, root=0)
+	sky_obstimes=comm.bcast(None,root=0)
 	sky_med_frame=comm.bcast(None, root=0)
 
-	if skylist==None:
+	# if skylist==None:
+	if type(sky_obstimes)==type(None):
 		sys.exit(1)
 
 skyfile=None
@@ -187,6 +197,11 @@ t0=MPI.Wtime()
 if flat_filename:
 	flat=pyfits.getdata(flat_filename)
 
+# Initialise arrays for the sky interpolation
+last_skyfiles=[]
+current_skyfiles=[]
+
+# Loop through the files and do the sky subtraction
 for i in range(len(dirlist)):
 	targetfile="no"+string.replace(sky_pattern,'_','')+"_"+dirlist[i]
 	if os.access(target_dir+os.sep+targetfile, os.F_OK | os.R_OK):
@@ -202,9 +217,6 @@ for i in range(len(dirlist)):
 
 	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
 	cube,header=pyfits.getdata(dirlist[i], header=True)
-	## hdulist = fits.open(dirlist[i])
-	## header=hdulist[0].header
-	## cube=hdulist[0].data
 
 	found=False
 
@@ -213,52 +225,75 @@ for i in range(len(dirlist)):
 	else:
 		all_info='empty'
 
-	for e in range(13): # e will shorten the filename progressively until it finds a sky that was made with a file taken at a matching time.
-		if d>3:
-			print(str(rank)+"e "+str(e)+": "+str(dirlist[i][-28:-5-e+1]))
-		if found:
-			if e > 1:
-				print(str(rank)+": No sky found for "+dirlist[i][-28:]+", using closest sky file: "+str(skyfile)+" matching "+str(fnmatch.filter(skylist[skyfile],"*"+dirlist[i][-28:-5-e+1]+"*.fits")))
-			break
+	# Do we want to interpolate between sky frames?
+	if sky_interp >1:
+		# Find the sky frames with a mean MJD closest to the file
+		targ_mjd=header['MJD-OBS']
+		sky_obstimes_arr=np.array(sky_obstimes.keys())
+		time_diffs=np.abs(targ_mjd-sky_obstimes_arr)
+		best_mjds=np.argsort(time_diffs)[0:sky_interp] # this refers to the elements of sky_obstimes_arr
 
-		for key in skylist.keys(): # loop through the sky files
-			if len(fnmatch.filter(skylist[key],"*"+dirlist[i][-28:-5-e]+"*.fits"))>0 or len(skylist)==1:
-				if key==skyfile:
-					found=True
-					if d >1:
-						print(str(rank)+": key="+str(key)+", skyfile="+str(skyfile))
-				elif len(skylist)==1:
-					# Only one sky file, no need to search further
-					found=True
-					skyfile=key
-				else:
-					skyfile=key
-					if not os.access(skyfile, os.F_OK ): # Check if file exists
-						print("Error: cannot access file "+skyfile)
-						skipped=skipped+1
-						continue
+		# To save time, we only load the ones we need and dont reload the files that were used last loop
+		current_skyfiles=[]
+		current_skies=[]
+		current_mjds=[]
+		for ix in best_mjds:
+			# Update the info we need
+			current_mjds.append(sky_obstimes_arr[ix])
 
-
+			# was it in the previous list?
+			if ix in last_skyfiles:
+				current_skyfiles.append(ix)
+				current_skies.append(last_skies[last_skyfiles.index(ix)])
+			else:
+				current_skyfiles.append(ix)
+				skyfile=sky_obstimes[sky_obstimes_arr[ix]]
 				sky,sky_header=pyfits.getdata(skyfile, header=True)
-				## sky_hdulist = fits.open(skyfile)
-				## sky=sky_hdulist[0].data
+				current_skies.append(sky)
 
-				if cube.shape[1]==1024:
-					# Strip overscan
-					sky=sky[:1024,:]
+		# Keep a record of which ones we used this loop, to save time next time.
+		last_skies=current_skies
+		last_skyfiles=current_skyfiles
 
-				elif cube.shape[1]==512:
-					# Strip overscan
-					sky=sky[:512,:]
+		# Now sort them into the right order and interpolate!
+		sort_ix=list(np.argsort(sky_obstimes_arr[best_mjds]))
+		current_mjds=sky_obstimes_arr[best_mjds[sort_ix]]
+		current_skies=np.array(current_skies)[sort_ix]
+		current_skyfiles=np.array(current_skyfiles)[sort_ix]
 
-				if args.normalise:
-					skymed=bottleneck.nanmedian(1.*sky)
-					if skymed==0:
-						skymed=1
-					graphic_mpi_lib.dprint(d>1,str(rank)+": skymed="+str(skymed))
-					break
-	if found==False:
-		continue
+		# Now interpolate using scipy. If the frame was taken before the first sky 
+		# frame or after the last, use the closest file rather than extrapolate
+		if targ_mjd < current_mjds[0]:
+			sky=current_skies[0]
+		elif targ_mjd > current_mjds[-1]:
+			sky=current_skies[-1]
+		else:
+			interp_funct=interp1d(current_mjds,current_skies,kind=(sky_interp-1),axis=0)
+			sky=interp_funct(targ_mjd)
+
+	else: # The normal case of no interpolation
+		# Find the sky frame with a mean MJD closest to the file
+		targ_mjd=header['MJD-OBS']
+		sky_obstimes_arr=np.array(sky_obstimes.keys())
+		time_diffs=np.abs(targ_mjd-sky_obstimes_arr)
+		best_mjd=np.where(time_diffs ==np.min(time_diffs))
+		skyfile=sky_obstimes[sky_obstimes_arr[best_mjd[0][0]]]
+
+		# Load the sky file
+		sky,sky_header=pyfits.getdata(skyfile, header=True)
+
+	# If the cubes aren't the same shape, then remove extra rows from the sky.
+	if cube.shape[1] < sky.shape[0]:
+		sky=sky[:cube.shape[1]]
+	if cube.shape[2] < sky.shape[1]:
+		sky=sky[:,:cube.shape[2]]
+
+	if args.normalise:
+		skymed=bottleneck.nanmedian(1.*sky)
+		if skymed==0:
+			skymed=1
+		graphic_mpi_lib.dprint(d>1,str(rank)+": skymed="+str(skymed))
+		break
 
 	if args.normalise:
 		for frame in range(cube.shape[0]):
@@ -271,14 +306,17 @@ for i in range(len(dirlist)):
 	else:
 		graphic_mpi_lib.dprint(d>1, "Not normalising")
 		graphic_mpi_lib.dprint(d>2, "len(np.where(np.isnan(sky)[0])):"+str(len(np.where(np.isnan(sky))[0])))
-		## cube[frame]=cube[frame]-np.where(np.isnan(sky), sky_med_frame, sky)
-		cube=cube-np.where(np.isnan(sky), sky_med_frame, sky)
 
-	## sky_hdulist.close()
+		# cube=cube-np.where(np.isnan(sky), sky_med_frame, sky)
 
-	skyref=string.split(skyfile,os.sep)[-1] # Strip directory away.
-	## if len(skyref)>59: # value to long for FITS (limited to 80 chars - 18 for keyword name and 3 for ' = '
-		## skyref
+		# ACC changed this in an effort to speed up the code in the case there are no NaNs
+		nan_ix=np.isnan(sky)
+		if np.sum(nan_ix) ==0:
+			cube=cube-sky 
+		else:
+			cube=cube-np.where(nan_ix, sky_med_frame, sky)
+
+	skyref=string.split(skyfile,os.sep)[-1] # Strip directory away so we can record which sky file was used
 
 	# Flat field the data if a filename was provided
 	if flat_filename:
@@ -289,13 +327,9 @@ for i in range(len(dirlist)):
 		header['HIERARCH GC SUB_SK_MED']=(skymed,'Median of sub. sky')
 	header['HIERARCH GC SUB_SKY']=( __version__+'.'+__subversion__, '')
 	header['HIERARCH GC SKYREF']=( skyref[-58:], '')
-	## graphic_nompi_lib.save_fits( targetfile,  target_dir, cube, header )
-	## graphic_nompi_lib.save_fits(targetfile,cube,hdr=header, backend='pyfits')
-	graphic_nompi_lib.save_fits(targetfile, cube, hdr=header, backend='pyfits', verify='warn')
+	header['HIERARCH GC SKY_INTERP']=( sky_interp, '# of sky frames used to interpolate')
 
-	## graphic_nompi_lib.save_fits(targetfile, hdulist, backend='astropy', verify='warn')
-
-	## hdulist.close()
+	graphic_nompi_lib.save_fits(targetfile, cube, hdr=header, backend='pyfits') # ACC removed verify='warn' because NACO files have a PXSPACE card that is non-standard
 
 if rank==0:
 	if not header==None:

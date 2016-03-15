@@ -121,59 +121,43 @@ if rank==0:
 	print("Reading headers")
 	# Initialise
 	skylist = {}
-	quadlist=None
-	tplno=None
-	naxis1=None
-	naxis2=None
-	#sframe=None
-	for c in range(len(cube_list['cube_filename'])):
-		header=pyfits.getheader(cube_list['cube_filename'][c])
-		## if tplno == header['ESO OBS TPLNO'] and naxis1==header['NAXIS1'] and naxis2==header['NAXIS2']:
-		if cube_list['info'][c][int(header['NAXIS3'])/2.,4] < int(header['NAXIS1'])/2.:
-			if cube_list['info'][c][int(header['NAXIS3'])/2.,5] < int(header['NAXIS1'])/2.:
-				quad=0
-			else:
-				quad=1
-		else:
-			if cube_list['info'][c][int(header['NAXIS3'])/2.,5] < int(header['NAXIS1'])/2.:
-				quad=2
-			else:
-				quad=3
-		if quadlist==None:
-			sframe=cube_list['cube_filename'][c]
-			quadlist=[]
-			quadlist.append(quad)
-			skylist[cube_list['cube_filename'][c]]=[]
-		if noquad and len(quadlist)<=num:
-			quadlist.append(quad)
-			skylist[sframe].append(cube_list['cube_filename'][c])
-		elif noquad and len(quadlist)>num:
-			quadlist=[]
-			quadlist.append(quad)
-			sys.stdout.write('\r\r\r '+str(cube_list['cube_filename'][c]))
-			sys.stdout.flush()
-			skylist[cube_list['cube_filename'][c]]=[]
-			skylist[cube_list['cube_filename'][c]].append(cube_list['cube_filename'][c])
-			sframe=cube_list['cube_filename'][c]
-		elif quad not in quadlist or len(quadlist)<num:
-			quadlist.append(quad)
-			skylist[sframe].append(cube_list['cube_filename'][c])
-		else:
-			quadlist=[]
-			quadlist.append(quad)
-			sys.stdout.write('\r\r\r '+str(cube_list['cube_filename'][c]))
-			sys.stdout.flush()
-			skylist[cube_list['cube_filename'][c]]=[]
-			skylist[cube_list['cube_filename'][c]].append(cube_list['cube_filename'][c])
-			sframe=cube_list['cube_filename'][c]
-			## naxis1=header['NAXIS1']
-			## naxis2=header['NAXIS2']
+	obstimes=[]
+	mean_obstimes={}
+
+	# Loop over cubes to organise the sky frames into groups (stored in skylist)
+	for cube_ix in range(len(cube_list['cube_filename'])):
+		header=pyfits.getheader(cube_list['cube_filename'][cube_ix])
+		obstimes.append(header['MJD-OBS'])
+
+	# Now sort them by observation time
+	obstimes=np.array(obstimes)
+	sorted_ix=np.argsort(obstimes)
+
+	# Break them into groups of num with a for-loop
+	for ix in range(len(cube_list['cube_filename'])):
+		# Work out what cube number we're up to
+		cube_ix=sorted_ix[ix]
+
+		# First loop we have to set up an array to track the filenames used for the current sky
+		if (ix % num) ==0:
+			this_skylist=[]
+			these_obstimes=[]
+		
+		# Add the current filename to the list
+		this_skylist.append(cube_list['cube_filename'][sorted_ix[ix]])
+		these_obstimes.append(obstimes[cube_ix])
+
+		# If we have enough, save it and the mean obstime
+		if len(this_skylist) == num:
+			skylist[cube_list['cube_filename'][cube_ix]]=this_skylist
+			mean_obstimes[cube_list['cube_filename'][cube_ix]]=np.mean(these_obstimes)
 
 	if d>1:
 		print('skylist: '+str(skylist))
 
 	skipped=0
 
+	# Now go through the lists of sky frames and combine them.
 	for k in skylist.keys():
 		skyfile="med"+str(num)+"_"+k
 		# Check if already processed
@@ -185,11 +169,11 @@ if rank==0:
 		header=pyfits.getheader(k)
 		header["HIERARCH GC NAN_N_MED"]=( __version__+'.'+__subversion__, "")
 		header.add_history("This sky is made from masked median of:")
+		header["HIERARCH GC SKY_OBSTIME"]=(mean_obstimes[k],"mean MJD of sky frame")
 
 		i=1
 
 		for cube_name in skylist[k]:
-
 			ci=cube_list['cube_filename'].index(cube_name)
 			sys.stdout.write('\r\r\r Reading cube '+str(i)+' of '+str(len(skylist[k]))+' : '+str(cube_name))
 			sys.stdout.flush()
@@ -258,7 +242,7 @@ else: #if not rank == 0
 	data_in=comm.recv(source = 0)
 	if d >2:
 		print(data_in)
-	if not data_in=="compute":
+	if not type(data_in)==type("compute"):
 		my_cube=data_in
 	if d>1:
 		print(str(rank)+" received cube shape: "+str(my_cube.shape))
@@ -275,39 +259,40 @@ else: #if not rank == 0
 		print(str(rank)+" received masked cube shape: "+str(data_in.shape))
 
 	while not start=="over":
-		if start=="compute" or data_in=="compute":
-			dprint(d>0, "calculating median.")
-			try:
-				my_cube.shape
-			except:
-				print(my_cube)
-			if args.mean:
-				my_cube=bottleneck.nanmean(1.*my_cube,axis=0)
-			else:
-				my_cube=bottleneck.nanmedian(1.*my_cube,axis=0)
-			comm.send(my_cube, dest = 0)
-			my_cube=None
-			data_in=None
-			start=comm.recv(source = 0)
-			data_in=comm.recv(source = 0)
-			try:
-				data_in.shape
-				dprint(d>1," received cube shape: "+str(data_in.shape)+", start: "+str(start))
-			except:
-				dprint(d>1," instead of cube chunk received: "+str(data_in))
+		if isinstance(start,str) or isinstance(data_in,str): 
+			if start=="compute" or data_in=="compute":
+				dprint(d>0, "calculating median.")
+				try:
+					my_cube.shape
+				except:
+					print(my_cube)
+				if args.mean:
+					my_cube=bottleneck.nanmean(1.*my_cube,axis=0)
+				else:
+					my_cube=bottleneck.nanmedian(1.*my_cube,axis=0)
+				comm.send(my_cube, dest = 0)
+				my_cube=None
+				data_in=None
+				start=comm.recv(source = 0)
+				data_in=comm.recv(source = 0)
+				try:
+					data_in.shape
+					dprint(d>1," received cube shape: "+str(data_in.shape)+", start: "+str(start))
+				except:
+					dprint(d>1," instead of cube chunk received: "+str(data_in))
 
-		elif start==None:
+		elif type(start)==type(None):
 			print("Received None... nothing yet implemented to handle this case.")
 			sys.exit(1)
 
 		else:
 			dprint(d>2,"data_in: "+str(data_in))
-			if data_in==None or my_cube==None:
+			if type(data_in)==type(None) or type(my_cube)==type(None):
 				dprint(d>1,"start: "+str(start)+", my_cube: "+str(my_cube)+", data_in: "+str(data_in))
 			else:
 				 dprint(d>1,"start: "+str(start)+", my_cube.shape: "+str(my_cube.shape)+", data_in.shape: "+str(data_in.shape))
 
-			if my_cube==None:
+			if type(my_cube)==type(None):
 				my_cube=data_in
 			else:
 				my_cube=np.concatenate((my_cube,data_in),axis=0)
