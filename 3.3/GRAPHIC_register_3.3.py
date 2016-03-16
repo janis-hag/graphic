@@ -167,7 +167,7 @@ if rank==0:  # Master process
 			hdr=pyfits.getheader(hiciao_filename)
 		else:
 			print(hiciao_filename+' not found. Interrupting!')
-			MPI.Abort()
+			comm.Abort()
 			sys.exit(1)
 	elif scexao and not chuck:
 		fctable_list=glob.glob(positions_dir+os.sep+'scexao_parang_*.rdb')
@@ -175,7 +175,7 @@ if rank==0:  # Master process
 
 	if len(dirlist)==0:
 		print("No files found!")
-		MPI.Abort()
+		comm.Abort()
 		## for n in range(nprocs-1):
 			## comm.send("over", dest = n+1 )
 			## comm.send("over", dest = n+1 )
@@ -268,7 +268,7 @@ if rank==0:  # Master process
 			parang_list=graphic_nompi_lib.create_parang_list_naco(cube_header)
 		else:
 			print('Unknown instrument. Please specify using a the available command switches.')
-			MPI.Abort()
+			comm.Abort()
 			sys.exit(1)
 
 		print('Parang list generated')
