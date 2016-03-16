@@ -81,9 +81,12 @@ parser.add_argument('-stat', dest='stat', action='store_const',
 parser.add_argument('-drh', dest='spherepipe', action='store_const',
 				   const=True, default=False,
 				   help='Switch for data pre-processed by the SPHERE DRH')
+parser.add_argument('-naco', dest='naco', action='store_const',
+				   const=True, default=False,
+				   help='Switch for NACO data')
 parser.add_argument('-sphere', dest='sphere', action='store_const',
 				   const=True, default=False,
-				   help='Switch for data pre-processed by the SPHERE')
+				   help='Switch for SPHEREdata')
 parser.add_argument('-scexao', dest='scexao', action='store_const',
 				   const=True, default=False,
 				   help='Switch for SCExAO data')
@@ -103,6 +106,7 @@ thres_coefficient=args.t
 max_deviation=args.t_max
 ratio=args.ratio
 spherepipe=args.spherepipe
+naco=args.naco
 scexao=args.scexao
 log_file=args.log_file
 no_neg=args.no_neg
@@ -202,7 +206,7 @@ if rank==0:  # Master process
 			cube,cube_header=pyfits.getdata(dirlist[i], header=True)
 			if not chuck:
 				hdr=cube_header
-			else:
+			else: #Creating a header for the empty chuck cam headers
 				cube_header['OBS-MOD'] = hdr['OBS-MOD']
 				cube_header.comments['OBS-MOD'] = 'Observation mode'
 				cube_header['P_TRMODE']= hdr['P_TRMODE']
@@ -259,9 +263,13 @@ if rank==0:  # Master process
 			else:
 				print('No '+frame_text_info+' file found. Skipping '+dirlist[c+n])
 				continue
-		else:
+		elif naco:
 			# Creates a 2D array [frame_number, frame_time, paralactic_angle]
-			parang_list=graphic_nompi_lib.create_parang_list_ada(cube_header)
+			parang_list=graphic_nompi_lib.create_parang_list_naco(cube_header)
+		else:
+			print('Unknown instrument. Please specify using a the available command switches.')
+			MPI.Abort()
+			sys.exit(1)
 
 		print('Parang list generated')
 
