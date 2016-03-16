@@ -9,7 +9,7 @@ Its purpose is to generate medians of "n" cubes.
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
-__version__='3.2'
+__version__='3.3'
 __subversion__='0'
 
 import numpy, scipy, glob, shutil, os, sys, fnmatch, string, time
@@ -142,7 +142,7 @@ if rank==0:
 		if (ix % num) ==0:
 			this_skylist=[]
 			these_obstimes=[]
-		
+
 		# Add the current filename to the list
 		this_skylist.append(cube_list['cube_filename'][sorted_ix[ix]])
 		these_obstimes.append(obstimes[cube_ix])
@@ -216,17 +216,13 @@ if rank==0:
 		## graphic_nompi_lib.save_fits(skyfile,  target_dir, sky, header )
 		graphic_nompi_lib.save_fits(skyfile, sky, hdr=header, target_dir=target_dir,backend='pyfits')
 
+	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, header, comments=None, 	nprocs=nprocs)
+
 	## send over
 	for p in range(nprocs-1):
 		comm.send("over", dest=p+1)
 		comm.send("over", dest=p+1)
 	MPI.Finalize()
-
-	if 'ESO OBS TARG NAME' in header.keys():
-		log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-	else:
-		log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 
 	sys.exit(0)
 
@@ -259,7 +255,7 @@ else: #if not rank == 0
 		print(str(rank)+" received masked cube shape: "+str(data_in.shape))
 
 	while not start=="over":
-		if isinstance(start,str) or isinstance(data_in,str): 
+		if isinstance(start,str) or isinstance(data_in,str):
 			if start=="compute" or data_in=="compute":
 				dprint(d>0, "calculating median.")
 				try:
