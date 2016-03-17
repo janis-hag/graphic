@@ -384,13 +384,14 @@ def create_parang_list_naco(hdr):
 
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
 			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
+		return parang_array
+
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
-
-	return parang_array
+		return np.zeros((hdr['NAXIS3'],10))
 
 
 def create_parang_list_nici(hdr):
