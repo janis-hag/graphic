@@ -267,7 +267,7 @@ if rank==0:  # Master process
 			# Creates a 2D array [frame_number, frame_time, paralactic_angle]
 			parang_list=graphic_nompi_lib.create_parang_list_naco(cube_header)
 		else:
-			print('Unknown instrument. Please specify using a the available command switches.')
+			print('Unknown instrument. Please specify one using the available command switches.')
 			comm.Abort()
 			sys.exit(1)
 

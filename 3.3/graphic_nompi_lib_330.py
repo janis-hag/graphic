@@ -201,7 +201,7 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-19:-5]+'*')
 		elif scexao:
 			info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
-		else:
+		else: #ESO format
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-28:-5]+'*')
 
 
@@ -379,7 +379,7 @@ def create_parang_list_naco(hdr):
 			f1 = cos(geolat_rad) * sin(d2r*ha_deg)
 			f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
 
-			pa = -r2d*arctan2(-f1,f2)+ROT_PT_OFF	
+			pa = -r2d*arctan2(-f1,f2)+ROT_PT_OFF
 			pa = ((pa + 360) % 360)
 
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))

@@ -72,7 +72,7 @@ parser.add_argument('-interactive', dest='interactive', action='store_const',
 				   help='Switch to set execution to interactive mode')
 parser.add_argument('--flat_filename', dest='flat_filename', action='store',
 				   default=None, help='Name of flat field to be used. If this argument is not set, the data will not be flat fielded')
-parser.add_argument('--sky_interp', dest='sky_interp', action='store', type=int,default=1, 
+parser.add_argument('--sky_interp', dest='sky_interp', action='store', type=int,default=1,
 				   help='Number of sky files to interpolate when doing the sky subtraction. Default is to use 1 file only (no interpolation).')
 
 args = parser.parse_args()
@@ -120,7 +120,11 @@ if rank==0:
 		if info_pattern=='all_info':
 			print('Warning, using default value: info_pattern=\"all_info\" wrong info file may be used.')
 		infolist=graphic_nompi_lib.create_dirlist(info_dir+os.sep+info_pattern,extension='.rdb')
-		cube_list,dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
+		if infolist is None:
+			print('No infofiles found. Check --info_pattern')
+			comm.Abort()
+		else:
+			cube_list,dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
 
 	print('Distributing dirlist to slaves.')
 	start,dirlist=graphic_mpi_lib.send_dirlist(dirlist)
@@ -148,8 +152,8 @@ if rank==0:
 		sky_obstimes[sky_hdr['HIERARCH GC SKY_OBSTIME']]=skyls[0]
 
 	else:
-		
-		# Loop over all the sky files and make a big array containing all of them. 
+
+		# Loop over all the sky files and make a big array containing all of them.
 		# Also save the MJDs of the sky frames so we can work out which one to use
 		for skyfits in skyls:
 			sky_data, sky_hdr = pyfits.getdata(skyfits, header=True)
@@ -159,7 +163,7 @@ if rank==0:
 				sky_med_frame=sky_data
 			else:
 				sky_med_frame=np.dstack((sky_med_frame,sky_data))
-			
+
 		if not type(sky_med_frame)==type(None):
 			sky_med_frame=bottleneck.nanmedian(sky_med_frame, axis=2)
 		if d>2:
@@ -261,7 +265,7 @@ for i in range(len(dirlist)):
 		current_skies=np.array(current_skies)[sort_ix]
 		current_skyfiles=np.array(current_skyfiles)[sort_ix]
 
-		# Now interpolate using scipy. If the frame was taken before the first sky 
+		# Now interpolate using scipy. If the frame was taken before the first sky
 		# frame or after the last, use the closest file rather than extrapolate
 		if targ_mjd < current_mjds[0]:
 			sky=current_skies[0]
@@ -312,7 +316,7 @@ for i in range(len(dirlist)):
 		# ACC changed this in an effort to speed up the code in the case there are no NaNs
 		nan_ix=np.isnan(sky)
 		if np.sum(nan_ix) ==0:
-			cube=cube-sky 
+			cube=cube-sky
 		else:
 			cube=cube-np.where(nan_ix, sky_med_frame, sky)
 
