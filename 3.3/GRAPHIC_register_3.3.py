@@ -381,7 +381,7 @@ if rank==0:  # Master process
 	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr, comments, nprocs=nprocs)
 	## graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
 	# Stop slave processes
-	MPI.Finalize()
+	## MPI.Finalize()
 	## comm.bcast("over", root=0)
 	## for n in range(nprocs-1):
 		## comm.send("over", dest = n+1 )
