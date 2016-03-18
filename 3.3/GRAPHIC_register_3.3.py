@@ -386,6 +386,7 @@ if rank==0:  # Master process
 	## for n in range(nprocs-1):
 		## comm.send("over", dest = n+1 )
 		## comm.send("over", dest = n+1 )
+	comm.Abort()
 	sys.exit(0)
 
 #except:
