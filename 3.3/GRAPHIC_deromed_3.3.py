@@ -24,8 +24,7 @@ import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
 import numpy as np
 from graphic_mpi_lib_330 import dprint
-## import astropy.io.fits as fits
-from astropy.io import fits as pyfits
+import astropy.io.fits as fits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
@@ -82,6 +81,9 @@ parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
 parser.add_argument('-mean', dest='use_mean', action='store_const',
 				   const=True, default=False,
 				   help='Use mean instead of median when combining frames.')
+parser.add_argument('-derotate_not_on_first_frame', dest='derotate_not_on_first_frame', action='store_const',
+				   const=True, default=False,
+				   help='Derotate on the paralactic angle calculated and not on the first frame as it is done by default')
 
 args = parser.parse_args()
 d=args.d
@@ -92,6 +94,7 @@ info_pattern=args.info_pattern
 info_dir=args.info_dir
 log_file=args.log_file
 pa_offset=args.pa_offset
+derotate_not_on_first_frame=args.derotate_not_on_first_frame
 info_type=args.info_type
 nici=args.nici
 sphere=args.sphere
@@ -154,20 +157,26 @@ if rank==0:
 	comm.bcast(cube_list,root=0)
 
 	# Search for the first valid angle to align all the frames to
-	## p0=-1
-	## for cube_number in xrange(len(cube_list['info'])):
-		## for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
-			## cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
-			## if p0==-1:
-				## p0=float(cube_list['info'][cube_number][frame_number][11])
+	p0=-1
+	for cube_number in xrange(len(cube_list['info'])):
+		for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
+			cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
+			if p0==-1:
+				p0=float(cube_list['info'][cube_number][frame_number][11])
+			## if not p0==-1:
+				## break
+		## if not p0==-1:
+			## break
+	if derotate_not_on_first_frame:
+		p0=0 #the derotation is done on the paralactic angle calculated and not on the first valid frame
 
 
-	## comm.bcast(p0,root=0)
+	comm.bcast(p0,root=0)
 
-	## hdulist = fits.open(dirlist[0])
-	## hdr=hdulist[0].header
-	## cube=hdulist[0].data
-	cube,hdr=pyfits.getdata(dirlist[0],header=True)
+	hdulist = fits.open(dirlist[0])
+	hdr=hdulist[0].header
+	cube=hdulist[0].data
+	## cube,hdr=pyfits.getdata(dirlist[0],header=True)
 	if interpolate:
 		fil ='interp_'
 	else:
@@ -226,10 +235,9 @@ if rank==0:
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			print("Using already processed file: "+step_filename)
-			## hdulist_med = fits.open(step_filename)
-			med_tot = pyfits.getdata(step_filename)
+			hdulist_med = fits.open(step_filename)
 			## hdr=hdulist[0].header
-			## med_tot=hdulist_med[0].data
+			med_tot=hdulist_med[0].data
 			if step==steps-1:
 				print('Already processed, nothing else to do, leaving...')
 				sys.exit(0)
@@ -316,15 +324,14 @@ if rank==0:
 	print("Total time: "+str(MPI.Wtime()-t_init)+" s = "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)))
 
 	## log_file=log_file+"_"+hdr['HIERARCH ESO OBS TARG NAME']+"_"+str(__version__)+".log"
-	## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
-	graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr)
+	graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
 	sys.exit(0)
 
 if not rank==0:
 	cube_list=comm.bcast(None,root=0)
 	if cube_list=="over":
 		sys.exit(1)
-	## p0=comm.bcast(None,root=0)
+	p0=comm.bcast(None,root=0)
 	cub_shape=comm.bcast(None,root=0)
 	naxis1=comm.bcast(None,root=0)
 	todo=comm.bcast(None,root=0)
@@ -351,9 +358,8 @@ if not rank==0:
 				## graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i]))
 				graphic_nompi_lib.iprint(interactive, '\r\r\r '+str(rank)+': Derotating cube '+str(i+1)+' of '+str(len(dirlist))+' : '+str(dirlist[i])+'\n')
 
-				## hdulist_s = fits.open(dirlist[i],memmap=True)
-				## s_cube=hdulist_s[0].data
-				s_cube=pyfits.getdata(dirlist[i])
+				hdulist_s = fits.open(dirlist[i],memmap=True)
+				s_cube=hdulist_s[0].data
 				rs_cube=np.ones((s_cube.shape[0],s_cube.shape[1],end-start))*np.NaN
 				cn=cube_list['cube_filename'].index(dirlist[i])
 				## if s_cube.shape[0]==1:
@@ -365,8 +371,7 @@ if not rank==0:
 						s_cube=s_cube[1:]
 						continue
 					elif interpolate:
-						rs_cube[fn]=ndimage.interpolation.rotate(s_cube[0], cube_list['info'][cn][fn,11],reshape=False, order=3, mode='constant', cval=np.NaN, prefilter=False)[:,start:end]
-						## rs_cube[fn]=ndimage.interpolation.rotate(s_cube[0], p0-cube_list['info'][cn][fn,11],reshape=False, order=3, mode='constant', cval=np.NaN, prefilter=False)[:,start:end]
+						rs_cube[fn]=ndimage.interpolation.rotate(s_cube[0], p0-cube_list['info'][cn][fn,11],reshape=False, order=3, mode='constant', cval=np.NaN, prefilter=False)[:,start:end]
 						s_cube=s_cube[1:]
 					## elif not naxis1==0:
 					else:
@@ -375,7 +380,7 @@ if not rank==0:
 							## pad=2,x1=cube_list['info'][cn][fn,4],
 							## y1=cube_list['info'][cn][fn,5])[:,start:end]
 						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(
-							s_cube[0],cube_list['info'][cn][fn,11],
+							s_cube[0],p0-cube_list['info'][cn][fn,11],
 							pad=2,x1=cube_list['info'][cn][fn,4],
 							y1=cube_list['info'][cn][fn,5])[:,start:end]
 						s_cube=s_cube[1:]
@@ -385,8 +390,7 @@ if not rank==0:
 							## print("")
 							## print("s_cube[0] "+str(bottleneck.nanmax(s_cube[0])))
 						## rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], x1=-1, pad=2)[:,start:end]
-						## rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)[:,start:end]
-						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],cube_list['info'][cn][fn,11], pad=2)[:,start:end]
+						rs_cube[fn]=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)[:,start:end]
 						## temp=graphic_nompi_lib.fft_3shear_rotate_pad(s_cube[0],p0-cube_list['info'][cn][fn,11], pad=2)
 						## if rank==2:
 							## print("temp "+str(bottleneck.nanmax(temp)))

@@ -199,6 +199,9 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 	for i in range(len(dirlist)):
 		if nici:
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-19:-5]+'*')
+		elif sphere:
+			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-40:-5]+'*')
+			#print('info_filename',info_filename)
 		elif scexao:
 			info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
 		else:
@@ -625,14 +628,25 @@ def create_parang_list_sphere(hdr):
 	geolat_deg=float(hdr['ESO TEL GEOLAT'])
 	geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
 
-	dit=hdr['ESO DET SEQ1 REALDIT']
-
-	if 'ESO DET DITDELAY' in hdr.keys():
-		dit_delay=float(hdr['ESO DET DITDELAY'])
+	#dit=hdr['ESO DET SEQ1 REALDIT']
+	######################ajouter par Seb
+	from astropy.time import Time
+	date_start=hdr['DATE-OBS']
+	date_end=hdr['DATE']
+	t_start = Time(date_start, format='isot', scale='utc')
+	t_end = Time(date_end, format='isot', scale='utc')
+	if hdr['NAXIS3']==1:
+		delta_dit=0
 	else:
+		delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
+###########################
+	
+	#if 'ESO DET DITDELAY' in hdr.keys():
+	#	dit_delay=float(hdr['ESO DET DITDELAY'])
+	#else:
 		## sys.stdout.write('\n Warning! No HIERARCH ESO DET DITDELAY keyword found, using 0. Is it ADI?\n')
 		## sys.stdout.flush()
-		dit_delay=0
+	#	dit_delay=0
 
 	ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
 
@@ -648,24 +662,25 @@ def create_parang_list_sphere(hdr):
 		if dec_deg > geolat_deg:
 			pa = ((pa + 360) % 360)
 
-		pa = pa + 180
+		pa = pa +135.87 #correspond to the difference between the PUPIL tracking ant the FIELD tracking for IRDIS taken here: http://wiki.oamp.fr/sphere/AstrometricCalibration (PUPOFFSET)
 		parang_array=numpy.array([0,mjdstart,pa])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
 		for i in range(1,hdr['NAXIS3']):
-			ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-ra_deg
-
+			#ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-ra_deg
+			ha_deg=((float(hdr['LST'])+i*delta_dit)*15./3600)-ra_deg
 			# VLT TCS formula
-			f1 = cos(geolat_rad) * sin(d2r*ha_deg)
-			f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
+			f1 = float(cos(geolat_rad) * sin(d2r*ha_deg))
+			f2 = float(sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg))
 
 			pa = -r2d*arctan2(-f1,f2)
 			if dec_deg > geolat_deg:
 				pa = ((pa + 360) % 360)
 
-			pa = pa + 180
+			#pa = pa + 180
+			pa=pa+135.87 #correspond to the difference between the PUPIL tracking ant the FIELD tracking for IRDIS taken here: http://wiki.oamp.fr/sphere/AstrometricCalibration (PUPOFFSET)
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,pa]))
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
@@ -676,7 +691,7 @@ def create_parang_list_sphere(hdr):
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
 		for i in range(1,hdr['NAXIS3']):
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,0]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,0]))
 
 	return parang_array
 
@@ -1393,6 +1408,143 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 
 	return pad_frame
 
+def inject_FP_sphere(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, wavelen, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True, pad=1):
+	"""
+	Inject fake companions to an image with a primary star centreed. The companions are of different magnitudes (DeltaMagVect)
+	and for each magnitude they are at different radial distances (rhoVect_as) from the primary stars
+
+	input:
+
+	image: 2d numpy array containing the astro image
+	rhoVect_as: numpy array containing the separation of the companions in arcseconds
+	FluxPrimary_adu: Flux of the star used to calculate the flux of the companions with the DeltaMagVect
+	DeltaMagVect: numpy array containing the differences between the primary star and the companions
+	hdr: header of the fits file of the image
+	waveLen: Central wavelength of the filter in wich the image is taken
+
+	Optional
+	--------
+	alpha: angle of rotation to add to the companions in radians
+	x0,y0: translation in pixels of the central star from the centre of the image (used if the star is not in the centre)
+	r_tel_prim: radius of the primary mirror of the telescope (optional, if not specified the radius is the VLT's one)
+	r_tel_sec: radius of the secondary mirror of the telescope that hides a part of the field of view (optional, if not specified
+	  the radius is the VLT's one)
+
+
+	output: 2d numpy array containing the astro image with the companions added to it
+	"""
+	import math
+	from scipy import fftpack
+
+	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
+	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
+	pad_mask[
+		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
+		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=np.where(np.isnan(in_frame),True,False)
+	pad_frame[
+		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
+		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame
+	pad_frame=np.where(np.isnan(pad_frame),0.,pad_frame)
+	l=pad_frame.shape[0]
+	if x0==None:
+		x0=l/2.
+	else:
+		x0=x0+((pad-1)/2.)*in_frame.shape[0]
+
+	if y0==None:
+		y0=l/2.
+	else:
+		y0=y0+((pad-1)/2.)*in_frame.shape[1]
+
+	alpha=np.deg2rad(alpha)
+
+	angle=2.*np.pi/(np.size(DeltaMagVect)) #used to distribute the different magnitudes in the image
+	if 'ESO INS PIXSCALE' in hdr.keys():
+		pix_scale_as_pix=hdr['ESO INS PIXSCALE'] # as/pixel
+	else: #for sphere data
+		pix_scale_as_pix=hdr['PIXSCAL']/1000. # as/pixel
+	if 'ESO INS CWLEN' in hdr.keys():
+		wavelen_m=hdr['ESO INS CWLEN']*10**(-6) # microns*10**(-6)=meters
+	elif wavelen!=0: #for sphere data you have to give the wavelength as a parameter
+		wavelen_m=wavelen*10**(-6) # microns*10**(-6)=meters
+	else:
+		print "error no wavelength found!"
+	
+	## waveLen_nyquist=1.3778#micron
+	## focal_scale_as_p_m=hdr['ESO TEL FOCU SCALE']*10**(3) #Focal scale (arcsec/mm)*10**(3)=(arcsec/m)
+	if 'ESO DET CHIP PXSPACE' in hdr.keys():
+		pix_size_m=hdr['ESO DET CHIP PXSPACE']
+	elif 'ESO DET CHIP1 PXSPACE' in hdr.keys(): #for IRDIS
+		pix_size_m=hdr['ESO DET CHIP1 PXSPACE']
+	else:
+		print "error pix_size not found check header"
+	## waveLen_nyquist_m=(2*r_tel_prim*as_par_pixel)/focal_scale_as_p_m #meters
+	wavelen_nyquist_m=(r_tel_prim*pix_scale_as_pix*pix_size_m)/1.22  # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
+	## wavelen_nyquist_m=(pix_scale_as_pix*r_tel_prim*2)/(1.22*206265) # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
+	## focal=(pix_size*180.*(60.**2))/(np.pi*as_par_pixel)
+
+	## r_ext=(waveLen_nyquist_m/wavelen_m)*(l/4.)
+	r_ext=(wavelen_m/wavelen_nyquist_m)*(l/8.)
+	#print "r_ext=",r_ext
+	## r_ext=l/4.
+	r_int=r_ext*(r_tel_sec/r_tel_prim)
+	#print "r_int=",r_int
+
+	x=y=np.arange(-l/2.,l/2.)
+
+	X,Y=np.meshgrid(x,y)
+	R = np.sqrt(X**2 + Y**2)
+
+	u_asm1=v_asm1=fftpack.fftshift(fftpack.fftfreq(np.size(x),d=pix_scale_as_pix)) # in arcsec^-1
+	## u_asm1=v_asm1=fftpack.fftshift(fftpack.fftfreq(np.size(x),d=as_par_pixel*2.)) # in arcsec^-1
+	u_pix1=v_pix1=fftpack.fftshift(fftpack.fftfreq(np.size(x))) # in pix^-1
+
+	## FluxPrimary_adu=FluxPrimary_adu
+
+	#PSF telescope
+	telescopeFilter = np.ones((l,l))
+	telescopeFilter[np.where(R<r_int,True,False)+np.where(R>r_ext,True,False)]=0
+	## nbr_pix_pupil=np.size(telescopeFilter[np.where(R<r_ext,True,False)-np.where(R<r_int,True,False)])
+	nbr_pix_pupil=np.sum(telescopeFilter) # Simply count the ones in telescopeFilter to have the size
+	factor=l**2./nbr_pix_pupil
+	FluxPrimary_adu=FluxPrimary_adu-np.nanmedian(in_frame)
+
+	pupil = np.zeros((l,l),dtype=complex)
+
+	for k in range(len(DeltaMagVect)): #different magn in each quadrant
+		FluxSecondary_adu= FluxPrimary_adu*math.pow(10,-0.4*DeltaMagVect[k])
+
+		Amplitude = factor*np.sqrt(FluxSecondary_adu)
+		waveFront  = np.zeros((l,l),dtype=complex)
+
+		for j in range(len(rhoVect_as)):#displaying the companions with the good distances from the star
+			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the centre
+			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the centre
+			## phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaX_as*u_asm1+x0*u_pix1))).T*np.exp(-2j*np.pi*(deltaY_as*v_asm1+y0*v_pix1))).T
+			phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaY_as*u_asm1+y0*u_pix1))).T*np.exp(-2j*np.pi*(deltaX_as*v_asm1+x0*v_pix1))).T
+			waveFront += phasor
+
+		pupil += Amplitude*waveFront*telescopeFilter
+
+	## a=(fftpack.ifft2(fftpack.fftshift(pupil)))
+	a=(fftpack.ifftshift(fftpack.ifft2(pupil)))*(np.conjugate(fftpack.ifftshift(fftpack.ifft2(pupil))))
+	## a=(fftpack.ifft2(fftpack.fftshift(pupil)))*(np.conjugate(fftpack.ifft2(fftpack.fftshift(pupil))))
+
+	if noise:
+		fp_image = np.random.poisson(np.real(a))
+	else:
+		fp_image = np.real(a)
+	#import pyfits
+	#pyfits.writeto("test_FP_image.fits",fp_image,clobber=True)
+	pad_frame+=fp_image[:,:]
+	## pad_frame=np.where(fp_image>pad_frame, fp_image, pad_frame)
+
+	pad_frame[pad_mask]=np.NaN
+	pad_frame=pad_frame[
+		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
+		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]
+
+	return pad_frame
 
 def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True, pad=2):
 	"""
