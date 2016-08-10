@@ -49,6 +49,9 @@ parser.add_argument('-chuck', dest='chuck', action='store_const',
 parser.add_argument('--offset', dest='offset', action='store_const',
 				   const=True, default=False,
 				   help='Add an offset to the pixel values. Usefull in case of negative images.')
+parser.add_argument('--fix_naco_columns', dest='fix_naco_columns', action='store_const',
+				   const=True, default=False,
+				   help='Fix the vertical striping present in NACO images after Nov 2015.')
 
 args = parser.parse_args()
 d=args.d
@@ -62,6 +65,7 @@ trim=args.trim
 l_max=args.l_max
 centre_offset=args.centre_offset
 chuck=args.chuck
+fix_naco_columns=args.fix_naco_columns
 
 #target_dir = "RED"
 #backup_dir = "prev"
@@ -111,10 +115,15 @@ for i in range(len(dirlist)):
 
 	cube_shape=cube.shape
 
+	if fix_naco_columns:
+		cube=graphic_nompi_lib.fix_naco_bad_cols(cube)
+
 	if trim:
 		cube=cube[:,100:-100,100:-100]
+
 	elif chuck:
 		cube=cube[:,:,32:-32]
+
 	elif type(l_max) != type(None):
 		if cube.ndim ==3:
 			mindim=1
@@ -138,7 +147,7 @@ for i in range(len(dirlist)):
 	elif cube.shape[2]>cube.shape[1]:
 		overscan_limit=cube.shape[1]
 		cube=cube[:,:overscan_limit,:]
-	else:
+	elif not fix_naco_columns:
 		print('Error! No overscan detected for: '+str(dirlist[i]))
 		sys.exit(1)
 

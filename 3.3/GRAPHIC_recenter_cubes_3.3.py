@@ -62,7 +62,9 @@ parser.add_argument('-nici', dest='nici', action='store_const',
 parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
 				   const=True, default=False,
 				   help='Use bottleneck module instead of numpy for nanmedian.')
-
+parser.add_argument('-update_crpix', dest='update_crpix', action='store_const',
+				   const=True, default=False,
+				   help='Update the CRPIX values from the header')
 args = parser.parse_args()
 d=args.d
 pattern=args.pattern
@@ -76,6 +78,7 @@ nici=args.nici
 naxis3=args.naxis3
 use_bottleneck=args.use_bottleneck
 l_max=args.l_max
+update_crpix=args.update_crpix
 
 if use_bottleneck:
 	from bottleneck import median as median
@@ -183,6 +186,7 @@ if rank==0:
 				l_max=np.floor(l_max)
 			if l_max==0:
 				l_max=2*int(hdr['NAXIS1'])
+
 			cube, t0_trans=read_recentre_cube(c+n, cube, cube_list, l_max)
 			if collapse:
 				if new_cube is None:
@@ -210,10 +214,13 @@ if rank==0:
 			hdr['HIERARCH GC LMAX']=(l_max,"")
 			## hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c][hdr['NAXIS3']/2,4]), "")
 			## hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+hdr['CRPIX2']-cube_list['info'][c][hdr['NAXIS3']/2,5]), "")
-			hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+np.float(hdr['CRPIX1'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,4]>0),4])), "")
-			hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+np.float(hdr['CRPIX2'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,5]>0),5])), "")
 
-			hdr['history']= 'Updated CRPIX1, CRPIX2'
+			## ACC made the following 3 lines an option because they were not working correctly for NACO, and the header values arent used elsewhere.
+			if update_crpix:
+				hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+np.float(hdr['CRPIX1'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,4]>0),4])), "")
+				hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+np.float(hdr['CRPIX2'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,5]>0),5])), "")
+				hdr['history']= 'Updated CRPIX1, CRPIX2'
+
 			graphic_nompi_lib.save_fits(psf_sub_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
 			graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
 
@@ -308,7 +315,7 @@ else:
 						bigstack[fn]=ndimage.interpolation.shift(bigstack[fn], (stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5]), order=3, mode='constant', cval=np.NaN, prefilter=False)
 					else: # Shift in Fourier space
 						# ACC fixed a bug in the following lines, which were meant to reduce the amplitude of the edges to 1/2 their measured value.
-						#  They don't work if the edge of the centred image is outside of the output array (which is the case for dithered data)
+						#  They did't work if the edge of the centred image is outside of the output array (which is the case for dithered data)
 						left_edge=np.ceil(l_max - info_stack[s+fn,4])
 						right_edge=np.floor(l_max - info_stack[s+fn,4]+stack.shape[1])
 						bottom_edge=np.ceil(l_max - info_stack[s+fn,5])

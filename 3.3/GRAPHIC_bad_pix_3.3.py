@@ -56,6 +56,7 @@ parser.add_argument('-sphere', dest='sphere', action='store_const',
 				   const=True, default=False,
 				   help='Switch to set sphere to sphere mode')
 
+
 args = parser.parse_args()
 d=args.d
 pattern=args.pattern
@@ -87,8 +88,10 @@ def gen_badpix(sky ,coef, comments, cut):
 	"""
 	global median
 
-	sigma = nanmedian(numpy.abs(sky-nanmedian(sky)))
+
 	med = nanmedian(sky)
+	sigma=1.4826*nanmedian(np.abs(sky-med)) # the 1.4826 converts the Median Absolute Deviation to the standard deviation for a Normal distribution
+
 	print("Sigma: "+str(sigma)+", median: "+str(med))
 
 	#Creates a tuple with the x-y positions of the dead pixels
@@ -120,7 +123,7 @@ def gen_badpix(sky ,coef, comments, cut):
 	else:
 		c="Found "+str(np.shape(deadpix)[1])+" = "+str(100.*np.shape(deadpix)[1]/sky.size)+"% dead, "+\
 		"and "+str(np.shape(hotpix)[1])+" = "+str(100.*np.shape(hotpix)[1]/sky.size)+"% hot pixels."
-		## print(c)
+		# print(c)
 		comments.append(c)
 
 

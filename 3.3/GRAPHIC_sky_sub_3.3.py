@@ -174,6 +174,7 @@ if rank==0:
 		sky_med_frame=0
 	comm.bcast(sky_obstimes, root=0)
 	comm.bcast(sky_med_frame, root=0)
+
 	# Create directory to store reduced data
 	if not os.path.isdir(target_dir):
 		os.mkdir(target_dir)
@@ -194,6 +195,8 @@ if not rank==0:
 	## skylist=comm.bcast(None, root=0)
 	#sky_obstimes=comm.bcast(None,root=0)
 	#sky_med_frame=comm.bcast(None, root=0)
+
+
 
 	# if skylist==None:
 	if type(sky_obstimes)==type(None):
@@ -338,7 +341,10 @@ for i in range(len(dirlist)):
 	header['HIERARCH GC SKYREF']=( skyref[-58:], '')
 	header['HIERARCH GC SKY_INTERP']=( sky_interp, '# of sky frames used to interpolate')
 
-	graphic_nompi_lib.save_fits(targetfile, cube, hdr=header, backend='pyfits', verify='warn') # ACC removed verify='warn' because NACO files have a PXSPACE card that is non-standard
+	# ACC removed verify='warn' because NACO files have a PXSPACE card that is non-standard
+	# Also, ACC changed this to explicitly write out 32 bit floats, since images are usually 32 bit 
+	#  to begin with and this saves 50% of the disk space used.
+	graphic_nompi_lib.save_fits(targetfile, cube.astype(np.float32), hdr=header, backend='pyfits') 
 
 if rank==0:
 	if not header==None:
