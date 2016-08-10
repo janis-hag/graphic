@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Some PCA code for NACO
+Some PCA code for ADI
 """
 
 import scipy,time,pickle
@@ -9,10 +9,10 @@ import astropy.io.fits as pyfits
 from scipy import ndimage
 from multiprocessing import Pool
 try:
-	import pyfftw.interfaces.scipy_fftpack as fftpack
+    import pyfftw.interfaces.scipy_fftpack as fftpack
 except:
-	print('Failed to load pyfftw')
-	from scipy import fftpack
+    print('Failed to load pyfftw')
+    from scipy import fftpack
 
 
 ###############
@@ -101,7 +101,7 @@ def pca_multi_annular(all_vars):
 
 ###############
 
-def fft_rotate(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
+def fft_rotate(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0,return_full=False):
     """
     3 FFT shear based rotation, following Larkin et al 1997
 
@@ -186,7 +186,10 @@ def fft_rotate(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 
     pad_xyx[pad_mask]=np.NaN
 
-    return np.real(pad_xyx[px1:px2,py1:py2]).copy()
+    if return_full:
+        return np.real(pad_xyx).copy()
+    else:
+        return np.real(pad_xyx[px1:px2,py1:py2]).copy()
 
 ###############
 
@@ -194,7 +197,8 @@ def fft_rotate(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 
 def fft_rotate_multi(all_vars):
     ''' A wrapper for fft_rotate, needed for multiprocessing'''
-    return fft_rotate(all_vars['in_frame'],all_vars['alpha'],all_vars['pad'])
+    return fft_rotate(all_vars['in_frame'],all_vars['alpha'],all_vars['pad'],
+                      return_full=all_vars['return_full'])
 
 ###############
 
@@ -212,7 +216,7 @@ def define_annuli(npix,n_radii,arc_length,r_min):
     arc_length=np.int(arc_length)
     r_min=np.int(r_min)
     
-    radii=np.linspace(r_min,npix/2,num=(n_radii+1))
+    radii=np.linspace(r_min,np.sqrt(2)*npix/2,num=(n_radii+1))
 
     # Make maps of the distance from the origin and the angle in azimuth
     xarr=np.arange(0,npix)-npix/2
@@ -242,6 +246,11 @@ def define_annuli(npix,n_radii,arc_length,r_min):
             # Calculate which pixels satisfy both the azimuth and radius constraints
             region_2d=np.where((pix_dist_map_2d>=minrad) & (pix_dist_map_2d <maxrad) 
                 & (azimuth_map_2d > minaz) & (azimuth_map_2d <= maxaz))
+            
+            # Ignore any regions that are partially outside the FoV and don't have many pixels
+            if (minrad >npix/2) and (len(region_2d[0]) <(0.75*arc_length*(maxrad-minrad))):
+                continue
+
             regions.append(region_2d[0])
             radii_output.append(meanrad)
 
@@ -435,8 +444,10 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     cube=pyfits.getdata(image_file)
     initial_shape=cube.shape
     cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
-    
-    parangs=np.loadtxt(parang_file)
+    try:
+        parangs=np.loadtxt(parang_file)
+    except:
+        parangs=pyfits.getdata(parang_file)
     
     cube_out=0*cube # this should preserve the NaNs
     
@@ -470,6 +481,7 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     t_start=time.time()
     pcomps=np.zeros((n_modes,cube.shape[0],cube.shape[1]))
 
+    print('Setting up arrays for the loop')
     # Set up arrays for the loop
     region_cube=[]
     for region in regions:
@@ -482,7 +494,7 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
         all_vars.append(these_vars)
      
     
-    print '  Starting loop over frames in image'
+    print('  Starting loop over frames in image')
     # Now let multiprocessing do it all
     pca_output=pool.map(pca_multi_annular,all_vars,chunksize=1)
     # Close the threads
@@ -504,14 +516,14 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
         pcomps[:,ix,:]=output[1]
         pca_output[ix]=[]
         
-    print '  Reordered output'    
+    print('  Reordered output') 
     
     cube_out[nan_mask]=np.nan
     # Make the cube 3d again
     cube_out=cube_out.reshape(initial_shape)
     if save_name:
         pyfits.writeto(save_name,cube_out,clobber=True)
-        print '  PCA subtracted cube saved as:',save_name
+        print('  PCA subtracted cube saved as: '+save_name)
 
     if pc_name:
         data={'principal_components':pcomps,'regions':None,'npix':initial_shape[1],
@@ -539,14 +551,14 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     except:
         parangs=pyfits.getdata(parang_file)
     
-    out_cube=0*cube
+    out_cube=np.zeros(cube.shape*np.array([1,2,2]))+np.nan # assuming pad=2 in fft_rotate
     t_start=time.time()
 
     print 'Starting image derotation'
     # Loop through the images
     for ix in range(cube.shape[0]):
         in_frame=cube[ix]
-        derot_frame=fft_rotate(in_frame,-parangs[ix], pad=2)
+        derot_frame=fft_rotate(in_frame,-parangs[ix], pad=2,return_full=True)
         out_cube[ix]=derot_frame
         
         if (ix % 20) ==19:
@@ -558,6 +570,19 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
         out_frame=np.nanmedian(out_cube,axis=0)
     else:
         out_frame=np.nanmean(out_cube,axis=0)
+        
+    # cut it down. Count the number of NaNs in each row/column
+    n_nans_x=np.sum(np.isnan(out_frame),axis=1)
+    n_nans_y=np.sum(np.isnan(out_frame),axis=0)
+    # Find the first elements that have less than n_pixels NaNs. 
+    # Check both the +ve and -ve directions by reversing the array the second time.
+    # The minimum of these is the one with the largest distance from the centre. 
+    # Then turn into distance from the centre by doing n_pixels/2-index
+    xradius=out_frame.shape[0]/2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
+    yradius=out_frame.shape[1]/2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
+    
+    out_frame=out_frame[out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
+                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
     
     if save_name:
         pyfits.writeto(save_name,out_frame,clobber=True)
@@ -584,14 +609,13 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
     except:
         parangs=pyfits.getdata(parang_file)
     
-    out_cube=0*cube
     print 'Starting image derotation'
     
     # Initialize the pool and the list of variables needed
     pool=Pool(processes=threads)
     all_vars=[]
     for ix in range(cube.shape[0]):
-        these_vars={'in_frame':cube[ix],'alpha':-parangs[ix],'pad':2}
+        these_vars={'in_frame':cube[ix],'alpha':-parangs[ix],'pad':2,"return_full":True}
         all_vars.append(these_vars)
     out_cube=pool.map(fft_rotate_multi,all_vars)
     pool.close()
@@ -602,10 +626,23 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
     else:
         out_frame=np.nanmean(out_cube,axis=0)
         
+    # cut it down. Count the number of NaNs in each row/column
+    n_nans_x=np.sum(np.isnan(out_frame),axis=1)
+    n_nans_y=np.sum(np.isnan(out_frame),axis=0)
+    # Find the first elements that have less than n_pixels NaNs. 
+    # Check both the +ve and -ve directions by reversing the array the second time.
+    # The minimum of these is the one with the largest distance from the centre. 
+    # Then turn into distance from the centre by doing n_pixels/2-index
+    xradius=out_frame.shape[0]/2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
+    yradius=out_frame.shape[1]/2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
+    
+    out_frame=out_frame[out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
+                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
+        
     if save_name:
         pyfits.writeto(save_name,out_frame,clobber=True)
         print 'Combined image saved as:',save_name
-    return out_frame
+    return out_cube
 
 ###############
 
