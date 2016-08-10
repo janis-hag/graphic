@@ -49,6 +49,10 @@ parser.add_argument('-interactive', dest='interactive', action='store_const',
 parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
 				   const=True, default=False,
 				   help='Use bottleneck module instead of numpy for nanmedian.')
+parser.add_argument('-mad', dest='mad', action='store_const',
+				   const=True, default=False,
+				   help='Use median absolute deviation instead of standard deviation.')
+
 
 args = parser.parse_args()
 d=args.d
@@ -58,6 +62,7 @@ dark_dir=args.dark_dir
 coef=args.coef
 log_file=args.log_file
 use_bottleneck=args.use_bottleneck
+mad=args.mad
 
 if use_bottleneck:
 	from bottleneck import median as median
@@ -78,8 +83,11 @@ def gen_badpix(sky ,coef, comments):
 	"""
 	global median
 
-	sigma = sky.std()
 	med = median(sky)
+	if mad:
+		sigma=median(np.abs(sky-med))
+	else:
+		sigma = sky.std()
 	print("Sigma: "+str(sigma)+", median: "+str(med))
 
 	#Creates a tuple with the x-y positions of the dead pixels
@@ -111,7 +119,7 @@ def gen_badpix(sky ,coef, comments):
 	else:
 		c="Found "+str(np.shape(deadpix)[1])+" = "+str(100.*np.shape(deadpix)[1]/sky.size)+"% dead, "+\
 		"and "+str(np.shape(hotpix)[1])+" = "+str(100.*np.shape(hotpix)[1]/sky.size)+"% hot pixels."
-		## print(c)
+		# print(c)
 		comments.append(c)
 
 

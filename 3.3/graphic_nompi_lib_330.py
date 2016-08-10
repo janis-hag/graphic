@@ -15,12 +15,20 @@ import numpy, os, shutil, sys, glob, math
 import numpy as np
 ## from scipy.signal import correlate2d
 from gaussfit_330 import fitgaussian
-from scipy import ndimage, fftpack
+from scipy import ndimage
 #import astropy.io.fits as pyfits
 from astropy.io import fits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
+
+try:
+	import pyfftw.interfaces.scipy_fftpack as fftpack
+	import pyfftw.interfaces.numpy_fft as fft
+except:
+	print('Failed to load pyfftw')
+	from scipy import fftpack
+	from numpy import fft
 
 
 def calc_parang(hdr):
@@ -389,6 +397,12 @@ def create_parang_list_naco(hdr):
 			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
+		pa=0
+
+		parang_array=numpy.array([0,mjdstart,pa])
+		for i in range(1,hdr['NAXIS3']):	
+			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
 
 	return parang_array
 
@@ -768,8 +782,7 @@ def fft_3shear_rotate(in_frame, alpha,x1,x2,y1,y2):
 	Return the rotated array
 	"""
 	import numpy as np
-	from numpy import fft
-	from scipy import ndimage, fftpack
+	from scipy import ndimage
 	# Check alpha validity and correct if needed
 	alpha=1.*alpha-360*np.floor(alpha/360)
 	# FFT rotation only work in the -45:+45 range
@@ -842,8 +855,7 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 	Return the rotated array
 	"""
 	import numpy as np
-	from numpy import fft
-	from scipy import ndimage, fftpack
+	from scipy import ndimage
 
 	#################################################
 	# Check alpha validity and correcting if needed
@@ -1298,7 +1310,6 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
 	import math
-	from scipy import fftpack
 
 	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
 	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
@@ -1421,7 +1432,6 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
 	import math
-	from scipy import fftpack
 
 	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
 	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
@@ -1545,7 +1555,6 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
 	import math, string
-	from scipy import fftpack
 
 	## CH4 H 1% S 1.587 	0.0150 (0.94%) 	G0724 G0722
 	## CH4 H 1% Sp 	1.603 	0.0162 (1.01%) 	G0728 G0726
@@ -1706,7 +1715,6 @@ def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha
 		output: 2d numpy array containing the astro image with the companions added to it
 		"""
 		import math
-		from scipy import fftpack
 
 		l=image.shape[0]
 		if x0==None:
@@ -2546,3 +2554,57 @@ def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
 	f.write(string.join(sys.argv)+'\n')
 	f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
 	f.close()
+
+
+def fix_naco_bad_cols(cube):
+    ''' Fix the new bad columns on the NACO detector by averaging the neighbouring
+    columns.
+    We can get rid of the if/elif/else statements by working on cube.T, but this should always work fine '''
+
+    if cube.ndim==3:
+        cols=np.arange(0,cube.shape[2]/2,8)+3        
+        d1=0
+        d2=cube.shape[1]/2
+        cube[:,d1:d2,cols]=(cube[:,d1:d2,cols+1]+cube[:,d1:d2,cols-1])/2
+        
+    elif cube.ndim==2:
+        cols=np.arange(cube.shape[1]/2,8)+3
+        d1=0
+        d2=cube.shape[0]/2
+        cube[d1:d2,cols]=(cube[d1:d2,cols+1]+cube[d1:d2,cols-1])/2
+    else:
+        raise ValueError("The input cube to fix_bad_cols has the wrong dimensions: "+str(cube.ndim))
+        
+    return cube
+
+def make_twilight_flat(flat_cube,quality_flag):
+    '''Turns a 3D cube of twilight flat frames into a single flat field, by subtracting
+    the frame with the lowest value, then taking a flux-weighted mean of the rest
+    Returns the flat and the flux differences used to weight the input frames
+    '''
+    # Find the average values in each image
+    meds=np.median(flat_cube,axis=(1,2))
+    
+    # Subtract off the "darkest" frame and calculate the average flux difference of each frame
+    flat_cube-=flat_cube[meds==np.min(meds)]
+    flux_diffs=np.median(flat_cube,axis=(1,2))
+
+    # Clear the dark frame to remove any warnings from the rest of the code (we wont use it anyway)
+    flat_cube[meds==np.min(meds)]=1
+    
+    # Normalise them by their average. This will print a warning for the frame that was used as a dark...
+    flat_cube=np.array([flat_cube[ix]/np.median(flat_cube[ix]) for ix in range(len(meds))])
+        
+    # Turn nans to 1s
+    # flat_cube[np.isnan(flat_cube)]=1.
+    
+    # do a flux-weighted mean to get the final flat field
+    weights=flux_diffs/np.sum(flux_diffs)
+    flat=np.dot(flat_cube.T,weights).T
+    
+    # And normalise it
+    flat/=np.median(flat)
+    
+    return flat,flux_diffs
+
+    
