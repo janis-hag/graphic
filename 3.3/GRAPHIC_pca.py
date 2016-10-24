@@ -96,6 +96,8 @@ if rank==0:
 	sys.stdout.write("\n")
 	sys.stdout.write("pca finished")
 	sys.stdout.flush()
-	os._exit(1)
+	# os._exit(1)
+	sys.exit(0)
 else:
-	sys.exit(1)
+	# sys.exit(1)
+	sys.exit(0)

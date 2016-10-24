@@ -42,10 +42,10 @@ if rank==0:
 	    
 	    im1_3d=np.nan_to_num(im1_3d).astype(float)
 	    
-	    l=256 #2xl is the size of the inner part of the image taken to calculate the flux ratio between the to filters
-	    nbr_pix=int(l*lambda2/lambda1-l)
-	    flux_factor1=np.mean(im2_3d[:,np.shape(im2_3d)[1]/2.-l-nbr_pix:np.shape(im2_3d)[1]/2.+l+nbr_pix,np.shape(im2_3d)[2]/2.-l-nbr_pix:np.shape(im2_3d)[2]/2.+l+nbr_pix])/np.mean(im1_3d[:,np.shape(im1_3d)[1]/2.-l:np.shape(im1_3d)[1]/2.+l,np.shape(im1_3d)[2]/2.-l:np.shape(im1_3d)[2]/2.+l])
-	    im1_3d=im1_3d*flux_factor1
+	    # l=256 #2xl is the size of the inner part of the image taken to calculate the flux ratio between the to filters
+	    # nbr_pix=int(l*lambda2/lambda1-l)
+	    # flux_factor1=np.mean(im2_3d[:,np.shape(im2_3d)[1]/2.-l-nbr_pix:np.shape(im2_3d)[1]/2.+l+nbr_pix,np.shape(im2_3d)[2]/2.-l-nbr_pix:np.shape(im2_3d)[2]/2.+l+nbr_pix])/np.mean(im1_3d[:,np.shape(im1_3d)[1]/2.-l:np.shape(im1_3d)[1]/2.+l,np.shape(im1_3d)[2]/2.-l:np.shape(im1_3d)[2]/2.+l])
+	    # im1_3d=im1_3d*flux_factor1
 	    
 	    
 	    shape=np.shape(im1_3d)
@@ -118,19 +118,26 @@ if rank==0:
 	    R1=np.sqrt(X**2+Y**2)
 	    donut=np.where(R1>r_int,1,np.nan)
 	    donut=np.where(R1>r_ext,np.nan,donut)
-	    #flux_factor=np.nanmean(np.copy(im2_3d)*donut)/np.nanmean(np.copy(im1_3d_rescale_cut)*donut)
-	    flux_factor=(np.shape(fft_3d)[1]*np.shape(fft_3d)[2])/(float(shape_bis[1]*shape_bis[2]))
-	    im1_3d_rescale_cut=im1_3d_rescale_cut*flux_factor
+	    # flux_factor=np.nanmean(np.copy(im2_3d)*donut)/np.nanmean(np.copy(im1_3d_rescale_cut)*donut)
+	    # flux_factor=(np.shape(fft_3d)[1]*np.shape(fft_3d)[2])/(float(shape_bis[1]*shape_bis[2]))
+	    # im1_3d_rescale_cut=im1_3d_rescale_cut*flux_factor
+
+	    # Instead, let's scale the flux of the H3 image, since H2 is where the planet flux should be.
+	    flux_factor=np.nanmean(np.copy(im1_3d_rescale_cut)*donut)/np.nanmean(np.copy(im2_3d)*donut)
+	    im2_3d*=flux_factor
+
+	    # print 'Flux factor:',flux_factor
 	    
 	    if lambda1==1189.5 or lambda1==1025.8: #absorbtion in Y2 and J2 so companion is positive with this
 		im_3d_subtracted=im2_3d-im1_3d_rescale_cut
 	    else: #absorption in K2 and H3 so companion is positive with this
 		im_3d_subtracted=im1_3d_rescale_cut-im2_3d
+
 	    # "end of scaling"
 	    if additional:
-		return im_3d_subtracted,im1_3d_rescale_cut
+		return im_3d_subtracted,im1_3d_rescale_cut,flux_factor
 	    else:
-		return im_3d_subtracted
+		return im_3d_subtracted,flux_factor
 
 	#additional=False
 	#key_word="left*SCIENCE_DBI*"
@@ -179,11 +186,17 @@ if rank==0:
 	    	sys.stdout.flush()
 	    
 	    if additional:
-	    	cube_subtracted,cube_rescale_cut=sdi(cube_left,cube_right,lambda1,lambda2,additional)
+	    	cube_subtracted,cube_rescale_cut,flux_factor=sdi(cube_left,cube_right,lambda1,lambda2,additional)
+	    	# Save the factor used to scale the flux in the left channel
+	    	hdr_l['HIERARCH GC SDI Flux rescaling:']=flux_factor
+	    	hdr_l['HIERARCH GC SDI Channel rescaled:']='right'
 	    	pyfits.writeto(allfiles.replace('left','sdi'),cube_subtracted,header=hdr_l,clobber=True)
 	    	pyfits.writeto(allfiles.replace('left','left_rescale'),cube_rescale_cut,header=hdr_l,clobber=True)
 	    else:
-	    	cube_subtracted=sdi(cube_left,cube_right,lambda1,lambda2,additional)
+	    	cube_subtracted,flux_factor=sdi(cube_left,cube_right,lambda1,lambda2,additional)
+	    	# Save the factor used to scale the flux in the left channel
+	    	hdr_l['HIERARCH GC SDI Flux rescaling:']=flux_factor
+	    	hdr_l['HIERARCH GC SDI Channel rescaled:']='right'
 	    	pyfits.writeto(allfiles.replace('left','sdi'),cube_subtracted,header=hdr_l,clobber=True)
 	    count+=1
 	for allfiles in glob.iglob(info_dir+'/'+info_pattern+'*'):
@@ -192,7 +205,7 @@ if rank==0:
 
 	print("Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
 	print("sdi finished")
-	os._exit(1)
+	sys.exit(0)
 	##sys.exit(0)
 else:
 	sys.exit(0)

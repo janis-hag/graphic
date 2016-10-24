@@ -631,16 +631,31 @@ def create_parang_list_sphere(hdr):
 	from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
 	import dateutil.parser
 
-	SPHERE=False
-
 	r2d = 180/pi
 	d2r = pi/180
 
-	ra_deg = float(hdr['RA'])
-	dec_deg = float(hdr['DEC'])
+	detector = hdr['HIERARCH ESO DET ID']
+	if detector.strip() == 'IFS':
+		offset=135.87-100.46 # from the SPHERE manual v4
+	elif detector.strip() == 'IRDIS':
+		#correspond to the difference between the PUPIL tracking ant the FIELD tracking for IRDIS taken here: http://wiki.oamp.fr/sphere/AstrometricCalibration (PUPOFFSET)
+		offset=135.87
+	else:
+		offset=0
+		print('WARNING: Unknown instrument in create_parang_list_sphere: '+str(detector))
 
-	geolat_deg=float(hdr['ESO TEL GEOLAT'])
-	geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
+	try:
+		ra_deg = float(hdr['RA'])
+		dec_deg = float(hdr['DEC'])
+
+		geolat_deg=float(hdr['ESO TEL GEOLAT'])
+		geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
+	except:
+		print('WARNING: No RA/Dec Keywords found in header')
+		ra_deg=0
+		dec_deg=0
+		geolat_deg=0
+		geolat_rad=0
 
 	#dit=hdr['ESO DET SEQ1 REALDIT']
 	######################ajouter par Seb
@@ -662,7 +677,11 @@ def create_parang_list_sphere(hdr):
 		## sys.stdout.flush()
 	#	dit_delay=0
 
-	ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
+	try:
+		ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
+	except:
+		ha_deg=0
+		print('WARNING: No LST keyword found in header')
 
 	# VLT TCS formula
 	f1 = cos(geolat_rad) * sin(d2r*ha_deg)
@@ -673,10 +692,9 @@ def create_parang_list_sphere(hdr):
 	if 'ESO INS4 COMB ROT' in hdr.keys() and hdr['ESO INS4 COMB ROT']=='PUPIL':
 
 		pa = -r2d*arctan2(-f1,f2)
-		if dec_deg > geolat_deg:
-			pa = ((pa + 360) % 360)
 
-		pa = pa +135.87 #correspond to the difference between the PUPIL tracking ant the FIELD tracking for IRDIS taken here: http://wiki.oamp.fr/sphere/AstrometricCalibration (PUPOFFSET)
+		pa = pa +offset
+		pa = ((pa + 360) % 360)
 		parang_array=numpy.array([0,mjdstart,pa])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
@@ -688,11 +706,9 @@ def create_parang_list_sphere(hdr):
 			f2 = float(sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg))
 
 			pa = -r2d*arctan2(-f1,f2)
-			if dec_deg > geolat_deg:
-				pa = ((pa + 360) % 360)
 
-			#pa = pa + 180
-			pa=pa+135.87 #correspond to the difference between the PUPIL tracking ant the FIELD tracking for IRDIS taken here: http://wiki.oamp.fr/sphere/AstrometricCalibration (PUPOFFSET)
+			pa=pa+offset
+			pa = ((pa + 360) % 360)
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
 			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,pa]))
 	else:
@@ -707,6 +723,14 @@ def create_parang_list_sphere(hdr):
 		for i in range(1,hdr['NAXIS3']):
 			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,0]))
 
+	# And a sanity check at the end
+	try:
+		expected_delta_parang = hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']
+		delta_parang = parang_array[-1,2]-parang_array[0,2]
+		if np.abs(expected_delta_parang - delta_parang) > 1.:
+			print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
+	except:
+		pass
 	return parang_array
 
 
@@ -978,12 +1002,12 @@ def fft_rotate(frame, angle):
 	# Rotate a mask, to know what part is actually the image
 	mask=ndimage.interpolation.rotate(numpy.where(numpy.isnan(frame),True,False), angle,reshape=False, order=0, mode='constant', cval=True, prefilter=False)
 	# Replace part outside the image which are NaN by 0, and go into Fourier space.
-	frame=numpy.fft.fftshift(numpy.fft.fft2(numpy.where(numpy.isnan(frame),0.,frame)))
+	frame=fft.fftshift(fft.fft2(numpy.where(numpy.isnan(frame),0.,frame)))
 	# Rotation in Fourier space
 	frame.imag=ndimage.interpolation.rotate(frame.imag,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	frame.real=ndimage.interpolation.rotate(frame.real,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	# Go back to real space
-	frame=numpy.real(numpy.fft.ifft2(numpy.fft.ifftshift(frame)))
+	frame=numpy.real(fft.ifft2(fft.ifftshift(frame)))
 	# Put back to NaN pixels outside the image.
 	frame[mask]=numpy.NaN
 
@@ -1004,12 +1028,12 @@ def fft_rotate_pad(in_frame, angle):
 	pad_mask=ndimage.interpolation.rotate(pad_mask, angle,reshape=False, order=0, mode='constant', cval=True, prefilter=False)
 	print(pad_mask)
 	# Replace part outside the image which are NaN by 0, and go into Fourier space.
-	pad_frame=numpy.fft.fftshift(numpy.fft.fft2(numpy.where(numpy.isnan(pad_frame),0.,pad_frame)))
+	pad_frame=fft.fftshift(fft.fft2(numpy.where(numpy.isnan(pad_frame),0.,pad_frame)))
 	# Rotation in Fourier space
 	pad_frame.imag=ndimage.interpolation.rotate(pad_frame.imag,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	pad_frame.real=ndimage.interpolation.rotate(pad_frame.real,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	# Go back to real space
-	pad_frame=numpy.real(numpy.fft.ifft2(numpy.fft.ifftshift(pad_frame)))
+	pad_frame=numpy.real(fft.ifft2(fft.ifftshift(pad_frame)))
 	# Put back to NaN pixels outside the image.
 	pad_frame[pad_mask]=numpy.NaN
 
@@ -1018,14 +1042,14 @@ def fft_rotate_pad(in_frame, angle):
 		((pad-1)/2.)*in_frame.shape[1]/2:((pad+1)/2.)*in_frame.shape[1]/2]
 
 def fft_shift(in_frame, dx, dy):
-	f_frame=numpy.fft.fft2(in_frame)
-	N=numpy.fft.fftfreq(in_frame.shape[0])
+	f_frame=fft.fft2(in_frame)
+	N=fft.fftfreq(in_frame.shape[0])
 	v=numpy.exp(-2j*numpy.pi*dx*N)
 	u=numpy.exp(-2j*numpy.pi*dy*N)
 	f_frame=f_frame*u
 	f_frame=(f_frame.T*v).T
 
-	return numpy.real(numpy.fft.ifft2(f_frame))
+	return numpy.real(fft.ifft2(f_frame))
 
 def fft_shift_fpad(in_frame, dx, dy, pad=4.):
 	f_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad),dtype=complex)
@@ -1084,7 +1108,7 @@ def fft_shift_pad(in_frame, dx, dy):
 	f_frame=f_frame*u
 	f_frame=(f_frame.T*v).T
 
-	pad_frame=numpy.real(numpy.fft.ifft2(f_frame))
+	pad_frame=numpy.real(fft.ifft2(f_frame))
 	pad_frame[pad_mask]=np.NaN
 	pad_frame=pad_frame[
 		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
@@ -2445,16 +2469,16 @@ def shift_diff(shift, rw, shift_im ,x_start, x_end, y_start, y_end,R):
 	# rw = numpy.where(rw>0.28,0,rw) #desaturate
 	# rw = numpy.where(rw<0.02,0,rw) #set background to 0
 
-	fsw=numpy.fft.fft2(sw)
+	fsw=fft.fft2(sw)
 	#	print(fsw.shape)
-	n=numpy.fft.fftfreq(fsw.shape[0])
+	n=fft.fftfreq(fsw.shape[0])
 
 	u=numpy.exp(-2j*numpy.pi*shift[0]*n).reshape(1,fsw.shape[0])
 	v=numpy.exp(-2j*numpy.pi*shift[1]*n).reshape(fsw.shape[1],1)
 
 	fsw=fsw*u*v
 
-	diff_im=numpy.real(numpy.fft.ifft2(numpy.fft.fft2(rw)-fsw))
+	diff_im=numpy.real(fft.ifft2(fft.fft2(rw)-fsw))
 
 	## cor=correlate2d(rw,sw,mode='same')
 	## mass=cor.sum()
@@ -2490,9 +2514,9 @@ def shift_diff_interpol(shift, rw, shift_im ,x_start, x_end, y_start, y_end,R):
 	# rw = numpy.where(rw>0.28,0,rw) #desaturate
 	# rw = numpy.where(rw<0.02,0,rw) #set background to 0
 
-	## fsw=numpy.fft.fft2(sw)
+	## fsw=fft.fft2(sw)
 	## #	print(fsw.shape)
-	## n=numpy.fft.fftfreq(fsw.shape[0])
+	## n=fft.fftfreq(fsw.shape[0])
 
 	## u=numpy.exp(-2j*numpy.pi*shift[0]*n).reshape(1,fsw.shape[0])
 	## v=numpy.exp(-2j*numpy.pi*shift[1]*n).reshape(fsw.shape[1],1)

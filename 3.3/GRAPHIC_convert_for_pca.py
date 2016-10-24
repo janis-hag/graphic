@@ -8,7 +8,7 @@ import argparse
 rank   = MPI.COMM_WORLD.Get_rank()
 
 target_dir = "."
-parser = argparse.ArgumentParser(description='Detection of the star center for corono images with the waffle pattern')
+parser = argparse.ArgumentParser(description='Converts images to the correct format for the PCA code')
 parser.add_argument('--pattern', action="store", dest="pattern",  default="cl_nomed_SPHER*STAR_CENTER", help='cubes to apply the star centering')
 
 
@@ -21,6 +21,7 @@ if rank==0:
 	sys.stdout.write("\n")
 	sys.stdout.flush()
 	
+	# Get the list of files
 	dirlist=glob.glob(pattern+"*")
 	dirlist.sort()
 	for i,allfiles in enumerate(dirlist):
@@ -28,6 +29,7 @@ if rank==0:
 	    sys.stdout.write('\n')
 	sys.stdout.flush()
 	
+	# Loop through the files and combine them into a single cube
 	count=1
 	paralactic_angle_vec=[]
 	for i,allfiles in enumerate(dirlist):
@@ -46,7 +48,7 @@ if rank==0:
 	    		paralactic_angle_vec=np.append(paralactic_angle_vec,paralactic_angle)
 	    count+=1
 	
-	pyfits.writeto("master_cube_PCA.fits",master_cube,header=hdr)
+	pyfits.writeto("master_cube_PCA.fits",master_cube,header=hdr,clobber=True)
 	f2=open("paralactic_angle.txt",'w')
 	for i,paralactic_angle in enumerate(paralactic_angle_vec):
 		f2.write(paralactic_angle+"\n")
@@ -56,7 +58,9 @@ if rank==0:
 	sys.stdout.write("\n")
 	sys.stdout.write("end of convert")
 	sys.stdout.flush()
-	os._exit(1)
+	# os._exit(1)
+	sys.exit(0)
 else:
-	sys.exit(1)
+	# sys.exit(1)
+	sys.exit(0)
 
