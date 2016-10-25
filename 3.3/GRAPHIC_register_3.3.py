@@ -86,7 +86,7 @@ parser.add_argument('-naco', dest='naco', action='store_const',
 				   help='Switch for NACO data')
 parser.add_argument('-sphere', dest='sphere', action='store_const',
 				   const=True, default=False,
-				   help='Switch for SPHEREdata')
+				   help='Switch for RAW SPHERE data')
 parser.add_argument('-scexao', dest='scexao', action='store_const',
 				   const=True, default=False,
 				   help='Switch for SCExAO data')
@@ -119,6 +119,7 @@ recurs=int(args.recurs)
 window_size=args.size
 no_psf=args.no_psf
 hiciao_filename=args.hiciao_filename
+sphere=args.sphere
 
 if moffat:
 	header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
@@ -247,7 +248,10 @@ if rank==0:  # Master process
 				else:
 					parang_list=numpy.vstack((parang_list,[i,jdate,fctable['Angle_deg'][i]]))
 		elif 'INSTRUME' in cube_header.keys() and cube_header['INSTRUME']=='SPHERE':
-			parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
+			#parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
+			parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
+		elif sphere:
+			parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
 		elif scexao and not chuck:
 			fctable_filename= fnmatch.filter(fctable_list,'*'+string.split(dirlist[i],'_')[-1][:-5]+'.rdb')[0]
 			fctable=graphic_nompi_lib.read_rdb(fctable_filename)

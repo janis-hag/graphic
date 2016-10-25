@@ -39,6 +39,7 @@ parser.add_argument('--pattern', action="store", dest="pattern",  default='*', h
 parser.add_argument('--dark_pattern', action="store", dest="dark_pattern", required=True, help='Darks filename pattern')
 parser.add_argument('--dark_dir', action="store", dest="dark_dir", required=True, help='Directory containing the darks')
 parser.add_argument('--coef', action="store", dest="coef", type=float, default=5, help='The sigma threshold for pixels to be rejected')
+parser.add_argument('--cut', action="store", dest="cut", type=float, default=9999999, help='cut above which a pixel will be considered hot pix')
 parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
 parser.add_argument('-s', dest='stat', action='store_const',
 				   const=True, default=False,
@@ -49,6 +50,12 @@ parser.add_argument('-interactive', dest='interactive', action='store_const',
 parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
 				   const=True, default=False,
 				   help='Use bottleneck module instead of numpy for nanmedian.')
+parser.add_argument('--flat_filename', dest='flat_filename', action='store',
+				   default=None, help='Name of flat field to be used. If this argument is not set, the data will use flat fiel for the badpixel map')
+parser.add_argument('-sphere', dest='sphere', action='store_const',
+				   const=True, default=False,
+				   help='Switch to set sphere to sphere mode')
+
 
 args = parser.parse_args()
 d=args.d
@@ -56,8 +63,11 @@ pattern=args.pattern
 dark_pattern=args.dark_pattern
 dark_dir=args.dark_dir
 coef=args.coef
+cut=args.cut
 log_file=args.log_file
 use_bottleneck=args.use_bottleneck
+sphere=args.sphere
+flat_filename=args.flat_filename
 
 if use_bottleneck:
 	from bottleneck import median as median
@@ -69,8 +79,8 @@ else:
 
 comments=[]
 
-def gen_badpix(sky ,coef, comments):
-	""" Create badpixel map by searching for pixels
+def gen_badpix(sky ,coef, comments, cut):
+	"""Create badpixel map by searching for pixels
 
 	Input:
 	-sky: an array containing a sky
@@ -78,8 +88,10 @@ def gen_badpix(sky ,coef, comments):
 	"""
 	global median
 
-	sigma = sky.std()
-	med = median(sky)
+
+	med = nanmedian(sky)
+	sigma=1.4826*nanmedian(np.abs(sky-med)) # the 1.4826 converts the Median Absolute Deviation to the standard deviation for a Normal distribution
+
 	print("Sigma: "+str(sigma)+", median: "+str(med))
 
 	#Creates a tuple with the x-y positions of the dead pixels
@@ -111,7 +123,7 @@ def gen_badpix(sky ,coef, comments):
 	else:
 		c="Found "+str(np.shape(deadpix)[1])+" = "+str(100.*np.shape(deadpix)[1]/sky.size)+"% dead, "+\
 		"and "+str(np.shape(hotpix)[1])+" = "+str(100.*np.shape(hotpix)[1]/sky.size)+"% hot pixels."
-		## print(c)
+		# print(c)
 		comments.append(c)
 
 
@@ -160,7 +172,7 @@ def clean_bp(badpix, cub_in):
 												cub_in[f,y-1,x+1],cub_in[f,y,x+1],
 												cub_in[f,y+1,x],
 												cub_in[f,y+1,x+1]])
-			elif x == cub_in.shape[1]-1: # Along the edge
+			elif x == cub_in.shape[2]-1: # Along the edge
 				cub_in[f,y,x]=nanmedian([cub_in[f,y-1,x-1],cub_in[f,y-1,x],
 										  cub_in[f,y,x-1],
 										  cub_in[f,y+1,x-1],cub_in[f,y+1,x]])
@@ -171,6 +183,32 @@ def clean_bp(badpix, cub_in):
 	return cub_in
 
 t_init=MPI.Wtime()
+if sphere: # for SPHERE a large part of the image are badpix because outside of the filter. We apply a nan mask to the dark so there are not determined as bad pixels and therefore makes the code much faster. This part of the image is set to nan for the science cubes as well
+	#applying nan mask on the image part where there is no filter
+	x=np.arange(1024)
+	y=np.copy(x)
+	X,Y=np.meshgrid(x,y)
+	z=np.arange(-512,512)
+        centre_filtre_left=[471,529]
+        centre_filtre_right=[1558-1024,516]
+	w=np.copy(z)
+	Z,W=np.meshgrid(z,w)
+        R_left=np.sqrt((Z+(512-centre_filtre_left[0]))**2+(W+(512-centre_filtre_left[1]))**2)
+        R_right=np.sqrt((Z+(512-centre_filtre_right[0]))**2+(W+(512-centre_filtre_right[1]))**2)
+	R=np.sqrt(Z**2+W**2)
+	#left part of the image
+	mask_nan_l=np.where(X<50,np.nan,1.)
+	mask_nan_l=np.where(X>934,np.nan,mask_nan_l)
+	mask_nan_l=np.where(Y<22,np.nan,mask_nan_l)
+	mask_nan_l=np.where(R>521,np.nan,mask_nan_l)
+	#right image
+	mask_nan_r=np.where(X<55,np.nan,1.)
+	mask_nan_r=np.where(X>935,np.nan,mask_nan_r)
+	mask_nan_r=np.where(Y<12,np.nan,mask_nan_r)
+	mask_nan_r=np.where(Y>1014,np.nan,mask_nan_r)
+	mask_nan_r=np.where(R>531,np.nan,mask_nan_r)
+	mask_nan=np.append(mask_nan_l,mask_nan_r,axis=1)
+
 if rank==0:
 	graphic_nompi_lib.print_init()
 
@@ -219,7 +257,31 @@ if rank==0:
 	elif len(dark_cube.shape)==2:
 		dark=dark_cube
 	del dark_cube
-	bad_pix,comments = gen_badpix(dark, coef, comments)
+
+	if sphere:
+		dark=dark*mask_nan
+	
+	bad_pix,comments = gen_badpix(dark, coef, comments, cut)
+
+	badpix_map=np.zeros((np.shape(dark)[0],np.shape(dark)[1]))
+	badpix_map[bad_pix]=1
+	hdulist=pyfits.PrimaryHDU()
+	hdr_badpix = hdulist.header
+	hdr_badpix['dark'] = comments[0]
+	
+	if flat_filename and sphere:
+		flatfield=pyfits.getdata(flat_filename, header=False)
+		flatfield=flatfield*mask_nan
+		badpix_flat,comments = gen_badpix(flatfield, coef, comments, cut)
+		badpix_map_flat=np.zeros((np.shape(flatfield)[0],np.shape(flatfield)[1]))
+		badpix_map_flat[badpix_flat]=1
+		badpix_map=badpix_map+badpix_map_flat
+		badpix_map=np.where(badpix_map>1,1,badpix_map)
+		bad_pix=tuple(np.where(badpix_map==1))
+		#bad_pix=tuple(numpy.append(numpy.array(badpix),numpy.array(badpix_flat), axis=1))
+		hdr_badpix['flat'] = comments[1]
+
+	pyfits.writeto("badpixel_map.fits",badpix_map,header=hdr_badpix,clobber=True)
 	comm.bcast(bad_pix, root=0)
 
 if not rank==0:
@@ -245,6 +307,8 @@ for i in range(len(dirlist)):
 	## cube=hdulist[0].data
 	cube,header=pyfits.getdata(dirlist[i], header=True)
 	cube=clean_bp(bad_pix, cube)
+	if sphere:
+		cube=cube*mask_nan
 
 	header["HIERARCH GC BAD_PIX"]=(__version__+'.'+__subversion__, "")
 	## graphic_nompi_lib.save_fits( target_pattern+dirlist[i],  target_dir, cube, header )

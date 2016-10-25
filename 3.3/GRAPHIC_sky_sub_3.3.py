@@ -74,6 +74,9 @@ parser.add_argument('--flat_filename', dest='flat_filename', action='store',
 				   default=None, help='Name of flat field to be used. If this argument is not set, the data will not be flat fielded')
 parser.add_argument('--sky_interp', dest='sky_interp', action='store', type=int,default=1,
 				   help='Number of sky files to interpolate when doing the sky subtraction. Default is to use 1 file only (no interpolation).')
+parser.add_argument('-sphere', dest='sphere', action='store_const',
+				   const=True, default=False,
+				   help='Switch for raw SPHERE data')
 
 args = parser.parse_args()
 d=args.d
@@ -89,6 +92,7 @@ nici=args.nici
 flat_filename=args.flat_filename
 sky_interp=args.sky_interp
 ## hdf5=args.hdf5
+sphere=args.sphere
 
 header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
 	'frame_num', 'frame_time', 'paralactic_angle']
@@ -169,26 +173,34 @@ if rank==0:
 		if d>2:
 			print("sky_obstimes "+str(sky_obstimes))
 
-	if type(sky_med_frame)==None:
+	if type(sky_med_frame)==type(None):
 		graphic_mpi_lib.dprint(d>1,'Warning: sky_med_frame is empty')
 		sky_med_frame=0
 	comm.bcast(sky_obstimes, root=0)
 	comm.bcast(sky_med_frame, root=0)
+
 	# Create directory to store reduced data
 	if not os.path.isdir(target_dir):
 		os.mkdir(target_dir)
 
 if not rank==0:
+	cube_list=comm.bcast(None, root=0)
+	# skylist=comm.bcast(None, root=0)
+	sky_obstimes=comm.bcast(None,root=0)
+	sky_med_frame=comm.bcast(None, root=0)
+	
 	dirlist=comm.recv(source = 0)
 	if dirlist==None:
 		sys.exit(0)
 
 	start=int(comm.recv(source = 0))
 
-	cube_list=comm.bcast(None, root=0)
-	# skylist=comm.bcast(None, root=0)
-	sky_obstimes=comm.bcast(None,root=0)
-	sky_med_frame=comm.bcast(None, root=0)
+	#cube_list=comm.bcast(None, root=0)
+	## skylist=comm.bcast(None, root=0)
+	#sky_obstimes=comm.bcast(None,root=0)
+	#sky_med_frame=comm.bcast(None, root=0)
+
+
 
 	# if skylist==None:
 	if type(sky_obstimes)==type(None):
@@ -333,7 +345,10 @@ for i in range(len(dirlist)):
 	header['HIERARCH GC SKYREF']=( skyref[-58:], '')
 	header['HIERARCH GC SKY_INTERP']=( sky_interp, '# of sky frames used to interpolate')
 
-	graphic_nompi_lib.save_fits(targetfile, cube, hdr=header, backend='pyfits') # ACC removed verify='warn' because NACO files have a PXSPACE card that is non-standard
+	# ACC removed verify='warn' because NACO files have a PXSPACE card that is non-standard
+	# Also, ACC changed this to explicitly write out 32 bit floats, since images are usually 32 bit 
+	#  to begin with and this saves 50% of the disk space used.
+	graphic_nompi_lib.save_fits(targetfile, cube.astype(np.float32), hdr=header, backend='pyfits') 
 
 if rank==0:
 	if not header==None:

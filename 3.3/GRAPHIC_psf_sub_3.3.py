@@ -331,7 +331,8 @@ if rank==0:
 
 			p0=float(cube_list['info'][c][f][11])
 			t0=float(cube_list['info'][c][f][10])
-			cube_timespan=np.abs(cube_list['info'][c][1][10]-cube_list['info'][c][-1][10])
+			#cube_timespan=np.abs(cube_list['info'][c][1][10]-cube_list['info'][c][-1][10])
+			cube_timespan=np.abs(cube_list['info'][c][0][10]-cube_list['info'][c][-1][10])
 			valid_count=0
 			valid_cubes=0
 			valid={}
@@ -372,15 +373,18 @@ if rank==0:
 					graphic_mpi_lib.dprint(d>1, "TooLate")
 					TooLate=True
 					continue
-
-				if np.min(cube_list['info'][cn][1:,10])>t0+ctmax-time_treshold:
+				#if np.min(cube_list['info'][cn][1:,10])>t0+ctmax-time_treshold:
+				if np.min(cube_list['info'][cn][0:,10])>t0+ctmax-time_treshold:
 					# Need to use [1:,10] as older cube-info had the first date in LST
 					TooLate=True
-					graphic_mpi_lib.dprint(d>1, "TooLate: np.min(cube_list['info'][cn][1:,10])"+str(np.min(cube_list['info'][cn][1:,10]))+">"+str(t0)+'+'+str(ctmax)+'='+str(t0+ctmax)+'=t0+ctmax')
-				elif np.max(cube_list['info'][cn][1:,10])<t0-ctmax+time_treshold:
+					#graphic_mpi_lib_330.dprint(d>1, "TooLate: np.min(cube_list['info'][cn][1:,10])"+str(np.min(cube_list['info'][cn][1:,10]))+">"+str(t0)+'+'+str(ctmax)+'='+str(t0+ctmax)+'=t0+ctmax')
+					graphic_mpi_lib.dprint(d>1, "TooLate: np.min(cube_list['info'][cn][0:,10])"+str(np.min(cube_list['info'][cn][0:,10]))+">"+str(t0)+'+'+str(ctmax)+'='+str(t0+ctmax)+'=t0+ctmax')
+				#elif np.max(cube_list['info'][cn][1:,10])<t0-ctmax+time_treshold:
+				elif np.max(cube_list['info'][cn][0:,10])<t0-ctmax+time_treshold:
 					# Need to use [1:,10] as older cube-info had the first date in LST
 					TooEarly=True
-					graphic_mpi_lib.dprint(d>1, "TooEarly: np.max(cube_list['info'][cn][1:,10])"+str(np.max(cube_list['info'][cn][1:,10]))+"<"+str(t0)+'-'+str(ctmax)+'='+str(t0-ctmax)+'=t0-ctmax')
+					#graphic_mpi_lib_330.dprint(d>1, "TooEarly: np.max(cube_list['info'][cn][1:,10])"+str(np.max(cube_list['info'][cn][1:,10]))+"<"+str(t0)+'-'+str(ctmax)+'='+str(t0-ctmax)+'=t0-ctmax')
+					graphic_mpi_lib.dprint(d>1, "TooEarly: np.max(cube_list['info'][cn][0:,10])"+str(np.max(cube_list['info'][cn][0:,10]))+"<"+str(t0)+'-'+str(ctmax)+'='+str(t0-ctmax)+'=t0-ctmax')
 
 				if TooEarly and TooLate:
 					# No need to look further, remaing cubes are too far in time

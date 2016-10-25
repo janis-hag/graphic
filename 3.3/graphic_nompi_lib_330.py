@@ -15,12 +15,20 @@ import numpy, os, shutil, sys, glob, math
 import numpy as np
 ## from scipy.signal import correlate2d
 from gaussfit_330 import fitgaussian
-from scipy import ndimage, fftpack
+from scipy import ndimage
 #import astropy.io.fits as pyfits
 from astropy.io import fits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
+
+try:
+	import pyfftw.interfaces.scipy_fftpack as fftpack
+	import pyfftw.interfaces.numpy_fft as fft
+except:
+	print('Failed to load pyfftw')
+	from scipy import fftpack
+	from numpy import fft
 
 
 def calc_parang(hdr):
@@ -199,6 +207,9 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 	for i in range(len(dirlist)):
 		if nici:
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-19:-5]+'*')
+		elif sphere:
+			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-40:-5]+'*')
+			#print('info_filename',info_filename)
 		elif scexao:
 			info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
 		elif sphere:
@@ -617,27 +628,57 @@ def create_parang_list_sphere(hdr):
 	from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
 	import dateutil.parser
 
-	SPHERE=False
-
 	r2d = 180/pi
 	d2r = pi/180
 
-	ra_deg = float(hdr['RA'])
-	dec_deg = float(hdr['DEC'])
-
-	geolat_deg=float(hdr['ESO TEL GEOLAT'])
-	geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
-
-	dit=hdr['ESO DET SEQ1 REALDIT']
-
-	if 'ESO DET DITDELAY' in hdr.keys():
-		dit_delay=float(hdr['ESO DET DITDELAY'])
+	detector = hdr['HIERARCH ESO DET ID']
+	if detector.strip() == 'IFS':
+		offset=135.87-100.46 # from the SPHERE manual v4
+	elif detector.strip() == 'IRDIS':
+		#correspond to the difference between the PUPIL tracking ant the FIELD tracking for IRDIS taken here: http://wiki.oamp.fr/sphere/AstrometricCalibration (PUPOFFSET)
+		offset=135.87
 	else:
+		offset=0
+		print('WARNING: Unknown instrument in create_parang_list_sphere: '+str(detector))
+
+	try:
+		ra_deg = float(hdr['RA'])
+		dec_deg = float(hdr['DEC'])
+
+		geolat_deg=float(hdr['ESO TEL GEOLAT'])
+		geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
+	except:
+		print('WARNING: No RA/Dec Keywords found in header')
+		ra_deg=0
+		dec_deg=0
+		geolat_deg=0
+		geolat_rad=0
+
+	#dit=hdr['ESO DET SEQ1 REALDIT']
+	######################ajouter par Seb
+	from astropy.time import Time
+	date_start=hdr['DATE-OBS']
+	date_end=hdr['DATE']
+	t_start = Time(date_start, format='isot', scale='utc')
+	t_end = Time(date_end, format='isot', scale='utc')
+	if hdr['NAXIS3']==1:
+		delta_dit=0
+	else:
+		delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
+###########################
+	
+	#if 'ESO DET DITDELAY' in hdr.keys():
+	#	dit_delay=float(hdr['ESO DET DITDELAY'])
+	#else:
 		## sys.stdout.write('\n Warning! No HIERARCH ESO DET DITDELAY keyword found, using 0. Is it ADI?\n')
 		## sys.stdout.flush()
-		dit_delay=0
+	#	dit_delay=0
 
-	ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
+	try:
+		ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
+	except:
+		ha_deg=0
+		print('WARNING: No LST keyword found in header')
 
 	# VLT TCS formula
 	f1 = cos(geolat_rad) * sin(d2r*ha_deg)
@@ -648,27 +689,25 @@ def create_parang_list_sphere(hdr):
 	if 'ESO INS4 COMB ROT' in hdr.keys() and hdr['ESO INS4 COMB ROT']=='PUPIL':
 
 		pa = -r2d*arctan2(-f1,f2)
-		if dec_deg > geolat_deg:
-			pa = ((pa + 360) % 360)
 
-		pa = pa + 180
+		pa = pa +offset
+		pa = ((pa + 360) % 360)
 		parang_array=numpy.array([0,mjdstart,pa])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
 		for i in range(1,hdr['NAXIS3']):
-			ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-ra_deg
-
+			#ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-ra_deg
+			ha_deg=((float(hdr['LST'])+i*delta_dit)*15./3600)-ra_deg
 			# VLT TCS formula
-			f1 = cos(geolat_rad) * sin(d2r*ha_deg)
-			f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
+			f1 = float(cos(geolat_rad) * sin(d2r*ha_deg))
+			f2 = float(sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg))
 
 			pa = -r2d*arctan2(-f1,f2)
-			if dec_deg > geolat_deg:
-				pa = ((pa + 360) % 360)
 
-			pa = pa + 180
+			pa=pa+offset
+			pa = ((pa + 360) % 360)
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,pa]))
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
@@ -679,8 +718,16 @@ def create_parang_list_sphere(hdr):
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
 		for i in range(1,hdr['NAXIS3']):
-			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,0]))
+			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,0]))
 
+	# And a sanity check at the end
+	try:
+		expected_delta_parang = hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']
+		delta_parang = parang_array[-1,2]-parang_array[0,2]
+		if np.abs(expected_delta_parang - delta_parang) > 1.:
+			print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
+	except:
+		pass
 	return parang_array
 
 
@@ -771,8 +818,7 @@ def fft_3shear_rotate(in_frame, alpha,x1,x2,y1,y2):
 	Return the rotated array
 	"""
 	import numpy as np
-	from numpy import fft
-	from scipy import ndimage, fftpack
+	from scipy import ndimage
 	# Check alpha validity and correct if needed
 	alpha=1.*alpha-360*np.floor(alpha/360)
 	# FFT rotation only work in the -45:+45 range
@@ -845,8 +891,7 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 	Return the rotated array
 	"""
 	import numpy as np
-	from numpy import fft
-	from scipy import ndimage, fftpack
+	from scipy import ndimage
 
 	#################################################
 	# Check alpha validity and correcting if needed
@@ -954,12 +999,12 @@ def fft_rotate(frame, angle):
 	# Rotate a mask, to know what part is actually the image
 	mask=ndimage.interpolation.rotate(numpy.where(numpy.isnan(frame),True,False), angle,reshape=False, order=0, mode='constant', cval=True, prefilter=False)
 	# Replace part outside the image which are NaN by 0, and go into Fourier space.
-	frame=numpy.fft.fftshift(numpy.fft.fft2(numpy.where(numpy.isnan(frame),0.,frame)))
+	frame=fft.fftshift(fft.fft2(numpy.where(numpy.isnan(frame),0.,frame)))
 	# Rotation in Fourier space
 	frame.imag=ndimage.interpolation.rotate(frame.imag,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	frame.real=ndimage.interpolation.rotate(frame.real,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	# Go back to real space
-	frame=numpy.real(numpy.fft.ifft2(numpy.fft.ifftshift(frame)))
+	frame=numpy.real(fft.ifft2(fft.ifftshift(frame)))
 	# Put back to NaN pixels outside the image.
 	frame[mask]=numpy.NaN
 
@@ -980,12 +1025,12 @@ def fft_rotate_pad(in_frame, angle):
 	pad_mask=ndimage.interpolation.rotate(pad_mask, angle,reshape=False, order=0, mode='constant', cval=True, prefilter=False)
 	print(pad_mask)
 	# Replace part outside the image which are NaN by 0, and go into Fourier space.
-	pad_frame=numpy.fft.fftshift(numpy.fft.fft2(numpy.where(numpy.isnan(pad_frame),0.,pad_frame)))
+	pad_frame=fft.fftshift(fft.fft2(numpy.where(numpy.isnan(pad_frame),0.,pad_frame)))
 	# Rotation in Fourier space
 	pad_frame.imag=ndimage.interpolation.rotate(pad_frame.imag,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	pad_frame.real=ndimage.interpolation.rotate(pad_frame.real,angle,reshape=False, order=3, mode='constant', cval=0, prefilter=False)
 	# Go back to real space
-	pad_frame=numpy.real(numpy.fft.ifft2(numpy.fft.ifftshift(pad_frame)))
+	pad_frame=numpy.real(fft.ifft2(fft.ifftshift(pad_frame)))
 	# Put back to NaN pixels outside the image.
 	pad_frame[pad_mask]=numpy.NaN
 
@@ -994,14 +1039,14 @@ def fft_rotate_pad(in_frame, angle):
 		((pad-1)/2.)*in_frame.shape[1]/2:((pad+1)/2.)*in_frame.shape[1]/2]
 
 def fft_shift(in_frame, dx, dy):
-	f_frame=numpy.fft.fft2(in_frame)
-	N=numpy.fft.fftfreq(in_frame.shape[0])
+	f_frame=fft.fft2(in_frame)
+	N=fft.fftfreq(in_frame.shape[0])
 	v=numpy.exp(-2j*numpy.pi*dx*N)
 	u=numpy.exp(-2j*numpy.pi*dy*N)
 	f_frame=f_frame*u
 	f_frame=(f_frame.T*v).T
 
-	return numpy.real(numpy.fft.ifft2(f_frame))
+	return numpy.real(fft.ifft2(f_frame))
 
 def fft_shift_fpad(in_frame, dx, dy, pad=4.):
 	f_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad),dtype=complex)
@@ -1060,7 +1105,7 @@ def fft_shift_pad(in_frame, dx, dy):
 	f_frame=f_frame*u
 	f_frame=(f_frame.T*v).T
 
-	pad_frame=numpy.real(numpy.fft.ifft2(f_frame))
+	pad_frame=numpy.real(fft.ifft2(f_frame))
 	pad_frame[pad_mask]=np.NaN
 	pad_frame=pad_frame[
 		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
@@ -1301,7 +1346,6 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
 	import math
-	from scipy import fftpack
 
 	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
 	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
@@ -1396,6 +1440,143 @@ def inject_FP(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0.
 
 	return pad_frame
 
+def inject_FP_sphere(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, wavelen, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True, pad=1):
+	"""
+	Inject fake companions to an image with a primary star centreed. The companions are of different magnitudes (DeltaMagVect)
+	and for each magnitude they are at different radial distances (rhoVect_as) from the primary stars
+
+	input:
+
+	image: 2d numpy array containing the astro image
+	rhoVect_as: numpy array containing the separation of the companions in arcseconds
+	FluxPrimary_adu: Flux of the star used to calculate the flux of the companions with the DeltaMagVect
+	DeltaMagVect: numpy array containing the differences between the primary star and the companions
+	hdr: header of the fits file of the image
+	waveLen: Central wavelength of the filter in wich the image is taken
+
+	Optional
+	--------
+	alpha: angle of rotation to add to the companions in radians
+	x0,y0: translation in pixels of the central star from the centre of the image (used if the star is not in the centre)
+	r_tel_prim: radius of the primary mirror of the telescope (optional, if not specified the radius is the VLT's one)
+	r_tel_sec: radius of the secondary mirror of the telescope that hides a part of the field of view (optional, if not specified
+	  the radius is the VLT's one)
+
+
+	output: 2d numpy array containing the astro image with the companions added to it
+	"""
+	import math
+	from scipy import fftpack
+
+	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
+	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
+	pad_mask[
+		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
+		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=np.where(np.isnan(in_frame),True,False)
+	pad_frame[
+		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
+		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame
+	pad_frame=np.where(np.isnan(pad_frame),0.,pad_frame)
+	l=pad_frame.shape[0]
+	if x0==None:
+		x0=l/2.
+	else:
+		x0=x0+((pad-1)/2.)*in_frame.shape[0]
+
+	if y0==None:
+		y0=l/2.
+	else:
+		y0=y0+((pad-1)/2.)*in_frame.shape[1]
+
+	alpha=np.deg2rad(alpha)
+
+	angle=2.*np.pi/(np.size(DeltaMagVect)) #used to distribute the different magnitudes in the image
+	if 'ESO INS PIXSCALE' in hdr.keys():
+		pix_scale_as_pix=hdr['ESO INS PIXSCALE'] # as/pixel
+	else: #for sphere data
+		pix_scale_as_pix=hdr['PIXSCAL']/1000. # as/pixel
+	if 'ESO INS CWLEN' in hdr.keys():
+		wavelen_m=hdr['ESO INS CWLEN']*10**(-6) # microns*10**(-6)=meters
+	elif wavelen!=0: #for sphere data you have to give the wavelength as a parameter
+		wavelen_m=wavelen*10**(-6) # microns*10**(-6)=meters
+	else:
+		print "error no wavelength found!"
+	
+	## waveLen_nyquist=1.3778#micron
+	## focal_scale_as_p_m=hdr['ESO TEL FOCU SCALE']*10**(3) #Focal scale (arcsec/mm)*10**(3)=(arcsec/m)
+	if 'ESO DET CHIP PXSPACE' in hdr.keys():
+		pix_size_m=hdr['ESO DET CHIP PXSPACE']
+	elif 'ESO DET CHIP1 PXSPACE' in hdr.keys(): #for IRDIS
+		pix_size_m=hdr['ESO DET CHIP1 PXSPACE']
+	else:
+		print "error pix_size not found check header"
+	## waveLen_nyquist_m=(2*r_tel_prim*as_par_pixel)/focal_scale_as_p_m #meters
+	wavelen_nyquist_m=(r_tel_prim*pix_scale_as_pix*pix_size_m)/1.22  # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
+	## wavelen_nyquist_m=(pix_scale_as_pix*r_tel_prim*2)/(1.22*206265) # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
+	## focal=(pix_size*180.*(60.**2))/(np.pi*as_par_pixel)
+
+	## r_ext=(waveLen_nyquist_m/wavelen_m)*(l/4.)
+	r_ext=(wavelen_m/wavelen_nyquist_m)*(l/8.)
+	#print "r_ext=",r_ext
+	## r_ext=l/4.
+	r_int=r_ext*(r_tel_sec/r_tel_prim)
+	#print "r_int=",r_int
+
+	x=y=np.arange(-l/2.,l/2.)
+
+	X,Y=np.meshgrid(x,y)
+	R = np.sqrt(X**2 + Y**2)
+
+	u_asm1=v_asm1=fftpack.fftshift(fftpack.fftfreq(np.size(x),d=pix_scale_as_pix)) # in arcsec^-1
+	## u_asm1=v_asm1=fftpack.fftshift(fftpack.fftfreq(np.size(x),d=as_par_pixel*2.)) # in arcsec^-1
+	u_pix1=v_pix1=fftpack.fftshift(fftpack.fftfreq(np.size(x))) # in pix^-1
+
+	## FluxPrimary_adu=FluxPrimary_adu
+
+	#PSF telescope
+	telescopeFilter = np.ones((l,l))
+	telescopeFilter[np.where(R<r_int,True,False)+np.where(R>r_ext,True,False)]=0
+	## nbr_pix_pupil=np.size(telescopeFilter[np.where(R<r_ext,True,False)-np.where(R<r_int,True,False)])
+	nbr_pix_pupil=np.sum(telescopeFilter) # Simply count the ones in telescopeFilter to have the size
+	factor=l**2./nbr_pix_pupil
+	FluxPrimary_adu=FluxPrimary_adu-np.nanmedian(in_frame)
+
+	pupil = np.zeros((l,l),dtype=complex)
+
+	for k in range(len(DeltaMagVect)): #different magn in each quadrant
+		FluxSecondary_adu= FluxPrimary_adu*math.pow(10,-0.4*DeltaMagVect[k])
+
+		Amplitude = factor*np.sqrt(FluxSecondary_adu)
+		waveFront  = np.zeros((l,l),dtype=complex)
+
+		for j in range(len(rhoVect_as)):#displaying the companions with the good distances from the star
+			deltaX_as=rhoVect_as[j]*np.cos(k*angle+alpha)#x position of the companion from the centre
+			deltaY_as=rhoVect_as[j]*np.sin(k*angle+alpha)#y position of the companion from the centre
+			## phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaX_as*u_asm1+x0*u_pix1))).T*np.exp(-2j*np.pi*(deltaY_as*v_asm1+y0*v_pix1))).T
+			phasor = ((np.ones((l,l))*np.exp(-2j*np.pi*(deltaY_as*u_asm1+y0*u_pix1))).T*np.exp(-2j*np.pi*(deltaX_as*v_asm1+x0*v_pix1))).T
+			waveFront += phasor
+
+		pupil += Amplitude*waveFront*telescopeFilter
+
+	## a=(fftpack.ifft2(fftpack.fftshift(pupil)))
+	a=(fftpack.ifftshift(fftpack.ifft2(pupil)))*(np.conjugate(fftpack.ifftshift(fftpack.ifft2(pupil))))
+	## a=(fftpack.ifft2(fftpack.fftshift(pupil)))*(np.conjugate(fftpack.ifft2(fftpack.fftshift(pupil))))
+
+	if noise:
+		fp_image = np.random.poisson(np.real(a))
+	else:
+		fp_image = np.real(a)
+	#import pyfits
+	#pyfits.writeto("test_FP_image.fits",fp_image,clobber=True)
+	pad_frame+=fp_image[:,:]
+	## pad_frame=np.where(fp_image>pad_frame, fp_image, pad_frame)
+
+	pad_frame[pad_mask]=np.NaN
+	pad_frame=pad_frame[
+		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
+		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]
+
+	return pad_frame
 
 def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha=0., x0=None, y0=None, r_tel_prim=8.2, r_tel_sec=1.116, noise=True, pad=2):
 	"""
@@ -1424,7 +1605,6 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
 	import math
-	from scipy import fftpack
 
 	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
 	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
@@ -1548,7 +1728,6 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
 	import math, string
-	from scipy import fftpack
 
 	## CH4 H 1% S 1.587 	0.0150 (0.94%) 	G0724 G0722
 	## CH4 H 1% Sp 	1.603 	0.0162 (1.01%) 	G0728 G0726
@@ -1709,7 +1888,6 @@ def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha
 		output: 2d numpy array containing the astro image with the companions added to it
 		"""
 		import math
-		from scipy import fftpack
 
 		l=image.shape[0]
 		if x0==None:
@@ -2288,16 +2466,16 @@ def shift_diff(shift, rw, shift_im ,x_start, x_end, y_start, y_end,R):
 	# rw = numpy.where(rw>0.28,0,rw) #desaturate
 	# rw = numpy.where(rw<0.02,0,rw) #set background to 0
 
-	fsw=numpy.fft.fft2(sw)
+	fsw=fft.fft2(sw)
 	#	print(fsw.shape)
-	n=numpy.fft.fftfreq(fsw.shape[0])
+	n=fft.fftfreq(fsw.shape[0])
 
 	u=numpy.exp(-2j*numpy.pi*shift[0]*n).reshape(1,fsw.shape[0])
 	v=numpy.exp(-2j*numpy.pi*shift[1]*n).reshape(fsw.shape[1],1)
 
 	fsw=fsw*u*v
 
-	diff_im=numpy.real(numpy.fft.ifft2(numpy.fft.fft2(rw)-fsw))
+	diff_im=numpy.real(fft.ifft2(fft.fft2(rw)-fsw))
 
 	## cor=correlate2d(rw,sw,mode='same')
 	## mass=cor.sum()
@@ -2333,9 +2511,9 @@ def shift_diff_interpol(shift, rw, shift_im ,x_start, x_end, y_start, y_end,R):
 	# rw = numpy.where(rw>0.28,0,rw) #desaturate
 	# rw = numpy.where(rw<0.02,0,rw) #set background to 0
 
-	## fsw=numpy.fft.fft2(sw)
+	## fsw=fft.fft2(sw)
 	## #	print(fsw.shape)
-	## n=numpy.fft.fftfreq(fsw.shape[0])
+	## n=fft.fftfreq(fsw.shape[0])
 
 	## u=numpy.exp(-2j*numpy.pi*shift[0]*n).reshape(1,fsw.shape[0])
 	## v=numpy.exp(-2j*numpy.pi*shift[1]*n).reshape(fsw.shape[1],1)
@@ -2549,3 +2727,57 @@ def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
 	f.write(string.join(sys.argv)+'\n')
 	f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
 	f.close()
+
+
+def fix_naco_bad_cols(cube):
+    ''' Fix the new bad columns on the NACO detector by averaging the neighbouring
+    columns.
+    We can get rid of the if/elif/else statements by working on cube.T, but this should always work fine '''
+
+    if cube.ndim==3:
+        cols=np.arange(0,cube.shape[2]/2,8)+3        
+        d1=0
+        d2=cube.shape[1]/2
+        cube[:,d1:d2,cols]=(cube[:,d1:d2,cols+1]+cube[:,d1:d2,cols-1])/2
+        
+    elif cube.ndim==2:
+        cols=np.arange(cube.shape[1]/2,8)+3
+        d1=0
+        d2=cube.shape[0]/2
+        cube[d1:d2,cols]=(cube[d1:d2,cols+1]+cube[d1:d2,cols-1])/2
+    else:
+        raise ValueError("The input cube to fix_bad_cols has the wrong dimensions: "+str(cube.ndim))
+        
+    return cube
+
+def make_twilight_flat(flat_cube,quality_flag):
+    '''Turns a 3D cube of twilight flat frames into a single flat field, by subtracting
+    the frame with the lowest value, then taking a flux-weighted mean of the rest
+    Returns the flat and the flux differences used to weight the input frames
+    '''
+    # Find the average values in each image
+    meds=np.median(flat_cube,axis=(1,2))
+    
+    # Subtract off the "darkest" frame and calculate the average flux difference of each frame
+    flat_cube-=flat_cube[meds==np.min(meds)]
+    flux_diffs=np.median(flat_cube,axis=(1,2))
+
+    # Clear the dark frame to remove any warnings from the rest of the code (we wont use it anyway)
+    flat_cube[meds==np.min(meds)]=1
+    
+    # Normalise them by their average. This will print a warning for the frame that was used as a dark...
+    flat_cube=np.array([flat_cube[ix]/np.median(flat_cube[ix]) for ix in range(len(meds))])
+        
+    # Turn nans to 1s
+    # flat_cube[np.isnan(flat_cube)]=1.
+    
+    # do a flux-weighted mean to get the final flat field
+    weights=flux_diffs/np.sum(flux_diffs)
+    flat=np.dot(flat_cube.T,weights).T
+    
+    # And normalise it
+    flat/=np.median(flat)
+    
+    return flat,flux_diffs
+
+    
