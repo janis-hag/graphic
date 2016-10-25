@@ -61,10 +61,6 @@ def verticalmed(flux, flat, r_ex=0):
 	if r_ex > 0:
 		r_ok = ((x - dimx / 2)**2 + (y - dimy / 2)**2) > r_ex**2
 
-		else:
-			r_ok = ((x - dimx / 4)**2 + (y - dimy / 2)**2) > r_ex**2
-			r_ok *= ((x - 3 * dimx / 4)**2 + (y - dimy / 2)**2) > r_ex**2
-
 		flux2 = np.ndarray(flux.shape, np.float32)
 		flux2[:] = flux
 		np.putmask(flux2, np.logical_not(r_ok), np.nan)
@@ -125,9 +121,20 @@ def verticalmed(flux, flat, r_ex=0):
 	return [oddstripe, evenstripe]
 
 
-def destripe(flux,flat, r_ex=0):
+def destripe(flux,flat, r_ex=0, header=None):
 
 	oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
+
+	sub_coef =1.
+
+	if header is None:
+		ncoadd =1
+	elif 'COADD' in header.keys():
+		ncoadd = int(header['COADD'])
+	elif 'COADDS' in header.keys():
+		ncoadd = int(header['COADDS'])
+	else:
+		ncoadd = 1
 
 	for i in range(1, 33, 2):
 		flux[64 * i:64 * i + 64] -= oddstripe * sub_coef
@@ -142,8 +149,8 @@ def destripe(flux,flat, r_ex=0):
 
 		flux[flux < -1000] = 0
 		flux[flux > 5e4 * ncoadd] = np.nan
-	else:
-		flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
+	## else:
+		## flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 
 	return flux
 
@@ -160,7 +167,8 @@ for i in xrange(len(dirlist)):
 	print('Processing '+str(i)+'/'+str(len(dirlist))+' '+dirlist[i])
 	hdr=pyfits.getheader(dirlist[i])
 	hdr["HIERARCH GC DESTRIPE"]=('T', "")
+	data=pyfits.getdata(dirlist[i])
 	## ds_frame=destripe(dirlist[i],flat,False,False,None,False,clean=badpix, storeall=True, r_ex=0, extraclean=True,
 			 ## full_destripe=True, do_horiz=True, PDI=False)
-	ds_frame=destripe(dirlist[i],flat, r_ex=0)
+	ds_frame=destripe(data,flat, r_ex=0,header=hdr)
 	pyfits.writeto('ds_'+dirlist[i], ds_frame, header=hdr)

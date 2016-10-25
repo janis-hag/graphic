@@ -394,8 +394,8 @@ if not rank==0:
 						## if rank==2:
 							## print("rs_cube[fn] "+str(bottleneck.nanmax(rs_cube[fn])))
 						s_cube=s_cube[1:]
-				if d>2:
-					graphic_nompi_lib.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdulist_s[0].header , backend='pyfits' )
+				## if d>2:
+					## graphic_nompi_lib.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdr , backend='pyfits' )
 
 				if full_stack is None:
 					full_stack=rs_cube.copy()

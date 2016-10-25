@@ -201,6 +201,8 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-19:-5]+'*')
 		elif scexao:
 			info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
+		elif sphere:
+			info_filename = fnmatch.filter(infolist,'*'+'SPHER'+string.split(dirlist[i],'SPHER')[-1][:-5]+'*')
 		else: #ESO format
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-28:-5]+'*')
 
@@ -2017,13 +2019,13 @@ def read_rdb(file, h=0, comment=None):
 	f.close()
 
 	# take the second line to define the list keys.
-	key = string.split(data[h][:-1],'\t')
+	key = data[h][:-1].split('\t')
 	data_list = {}
 	for i in range(len(key)): data_list[key[i]] = []
 
 	for line in data[h+2:]:
 		if not line[0]==comment or line[0:2]=='--':
-			qq = string.split(line[:-1],'\t')
+			qq = line[:-1].split('\t')
 			for i in range(len(key)):
 				try: value = float(qq[i])
 				except ValueError: value = qq[i]

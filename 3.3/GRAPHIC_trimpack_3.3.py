@@ -6,7 +6,7 @@ Janis Hagelberg <janis.hagelberg@unige.ch>
 This program is part of GRAPHIC: "The Geneva Reduction and Analysis Pipeline for
 High-contrast Imaging of planetary Companions".
 
-Creates cubes with by combining single frame files
+Creates cubes by combining single frame files
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
@@ -33,7 +33,7 @@ import astropy.io.fits as pyfits
 ## comm = MPI.COMM_WORLD
 
 
-parser = argparse.ArgumentParser(description='Creates cubes with by combining single frame files.')
+parser = argparse.ArgumentParser(description='Creates cubes by combining single frame files.')
 parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
 parser.add_argument('--pattern', action="store", dest="pattern",  default='*', help='Filename pattern')
 ## parser.add_argument('--info_pattern', action="store", dest="info_pattern", required=True, help='Info filename pattern')
@@ -56,6 +56,9 @@ parser.add_argument('-s', dest='stat', action='store_const',
 parser.add_argument('-nici', dest='nici', action='store_const',
 				   const=True, default=False,
 				   help='Switch for GEMINI/NICI data')
+parser.add_argument('-trimonly', dest='trimonly', action='store_const',
+				   const=True, default=False,
+				   help='Trim only.')
 
 
 args = parser.parse_args()
@@ -101,87 +104,108 @@ skipped=0
 	# 9: frame_number, 10: frame_time, 11: paralactic_angle
 ## l_max=0
 
-for j in range(int(np.ceil(1.*len(dirlist)/naxis3))):
-	if naxis3*j>len(dirlist):
-		n3=naxis3*j-len(dirlist)
-	else:
-		n3=naxis3
-	c=j*naxis3
-
-	ndata,hdr=pyfits.getdata(dirlist[c], header=True)
-	# Creating a double-cube with both channels
-	if naxis2==-1:
-		naxis2=ndata.shape[1]
-	cube=np.zeros((n3,naxis2,naxis2))
-	# Creating a double-list with both channels
-	cent_list=np.ones((n3,12))*-1.
-
-## for c in range(0, len(dirlist), naxis3): # Loop over the cubes
-	t0_cube=time.time()
-
-	trimpack_filename=target_pattern+"_"+dirlist[c]
-	info_filename="scexao_parang_"+trimpack_filename[:-5]+".rdb"
-
-	# Check if already processed
-	if os.access(target_dir+os.sep+trimpack_filename, os.F_OK | os.R_OK):
-		print('Already processed: '+trimpack_filename)
-		skipped=skipped+1
-		continue
-	# Check if already processed
-	elif os.access(target_dir+os.sep+trimpack_filename+'.EMPTY', os.F_OK | os.R_OK):
-		print('Already processed, but no cube created: '+trimpack_filename)
-		skipped=skipped+1
-		continue
-
-	new_cube=None
-	new_info=None
-	parang_list=None
-	for n in range(n3):
-
-		if c+n==len(dirlist):
-			break
-		sys.stdout.write("\n Processing cube ["+str(c+n+1)+"/"+str(len(dirlist))+"]: "+str(dirlist[c+n])+"\n")
-		sys.stdout.flush()
-		frame, header=pyfits.getdata(dirlist[c+n], header=True)
-		## if np.max(cube_list['info'][c+n][:][11])==0: # In order to work in field tracking mode too.
-		### frame_num       frame_time      paralactic_angle
-
-		## jdate=float(header['MJD'])+2400000.5
-		if parang_list is None:
-			parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_scexao(header))))
-			## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+if args.trimonly:
+	for i in xrange(len(dirlist)):
+		frame, hdr=pyfits.getdata(dirlist[i], header=True)
+		if len(frame.shape)==2:
+			cube=frame[frame.shape[0]/2-naxis2/2:frame.shape[0]/2+naxis2/2,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2]
+			hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[0]/2.+hdr['CRPIX1']+naxis2/2.)
+			hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX2']+naxis2/2.)
 		else:
-			parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_scexao(header)))))
+			cube=frame[:,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2,frame.shape[2]/2-naxis2/2:frame.shape[2]/2+naxis2/2]
+			hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX1']+naxis2/2.)
+			hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[2]/2.+hdr['CRPIX2']+naxis2/2.)
 
-		# Trimming the frame
-		cube[n]=frame[frame.shape[0]/2-naxis2/2:frame.shape[0]/2+naxis2/2,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2]
-
-
-	cent_list=np.ones((n3,9))
-	cent_list[:,0]=np.arange(n3) # Frame number
-	cent_list[:,1]=naxis2/2. # X center
-	cent_list[:,2]=naxis2/2. # Y center
-	cent_list=np.hstack((cent_list,parang_list))
-
-	## trimpack_filename=target_pattern+"_"+dirlist[c+n]
-	hdr['HIERARCH GC TRIMPACK']=str(__version__)+'.'+str(__subversion__)
-	hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[0]/2.+hdr['CRPIX1']+naxis2/2.)
-	hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX2']+naxis2/2.)
-
-	hdr['history']='Updated CRPIX1, CRPIX2'
-	graphic_nompi_lib.save_fits(trimpack_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
-	if not os.path.isdir(info_dir): # Check if info dir exists
-		os.mkdir(info_dir)
-	graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,cent_list,header_keys)
+		hdr['HIERARCH GC TRIMPACK']=str(__version__)+'.'+str(__subversion__)
 
 
-	sys.stdout.write("\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n"
-					 .format(name=trimpack_filename, human_time=graphic_nompi_lib.humanize_time(time.time()-t0_cube) ,
-							 rate=os.path.getsize(trimpack_filename)/(1048576*(time.time()-t0_cube))))
-	sys.stdout.write("Remaining time: "+graphic_nompi_lib.humanize_time((time.time()-t_init)*(len(dirlist)-c)/(c-skipped+1))+"\n")
-	sys.stdout.flush()
+		hdr['history']='Updated CRPIX1, CRPIX2'
 
-	del cube
+		trimpack_filename=target_pattern+"_"+dirlist[i]
+		graphic_nompi_lib.save_fits(trimpack_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
+
+else:
+	for j in range(int(np.ceil(1.*len(dirlist)/naxis3))):
+		if naxis3*j>len(dirlist):
+			n3=naxis3*j-len(dirlist)
+		else:
+			n3=naxis3
+		c=j*naxis3
+
+		ndata,hdr=pyfits.getdata(dirlist[c], header=True)
+		# Creating a double-cube with both channels
+		if naxis2==-1:
+			naxis2=ndata.shape[1]
+		cube=np.zeros((n3,naxis2,naxis2))
+		# Creating a double-list with both channels
+		cent_list=np.ones((n3,12))*-1.
+
+	## for c in range(0, len(dirlist), naxis3): # Loop over the cubes
+		t0_cube=time.time()
+
+		trimpack_filename=target_pattern+"_"+dirlist[c]
+		info_filename="scexao_parang_"+trimpack_filename[:-5]+".rdb"
+
+		# Check if already processed
+		if os.access(target_dir+os.sep+trimpack_filename, os.F_OK | os.R_OK):
+			print('Already processed: '+trimpack_filename)
+			skipped=skipped+1
+			continue
+		# Check if already processed
+		elif os.access(target_dir+os.sep+trimpack_filename+'.EMPTY', os.F_OK | os.R_OK):
+			print('Already processed, but no cube created: '+trimpack_filename)
+			skipped=skipped+1
+			continue
+
+		new_cube=None
+		new_info=None
+		parang_list=None
+		for n in range(n3):
+
+			if c+n==len(dirlist):
+				break
+			sys.stdout.write("\n Processing cube ["+str(c+n+1)+"/"+str(len(dirlist))+"]: "+str(dirlist[c+n])+"\n")
+			sys.stdout.flush()
+			frame, header=pyfits.getdata(dirlist[c+n], header=True)
+			## if np.max(cube_list['info'][c+n][:][11])==0: # In order to work in field tracking mode too.
+			### frame_num       frame_time      paralactic_angle
+
+			## jdate=float(header['MJD'])+2400000.5
+			if parang_list is None:
+				parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_scexao(header))))
+				## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+			else:
+				parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_scexao(header)))))
+
+			# Trimming the frame
+			cube[n]=frame[frame.shape[0]/2-naxis2/2:frame.shape[0]/2+naxis2/2,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2]
+
+
+		cent_list=np.ones((n3,9))
+		cent_list[:,0]=np.arange(n3) # Frame number
+		cent_list[:,1]=naxis2/2. # X center
+		cent_list[:,2]=naxis2/2. # Y center
+		cent_list=np.hstack((cent_list,parang_list))
+
+		## trimpack_filename=target_pattern+"_"+dirlist[c+n]
+		hdr['HIERARCH GC TRIMPACK']=str(__version__)+'.'+str(__subversion__)
+		hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[0]/2.+hdr['CRPIX1']+naxis2/2.)
+		hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX2']+naxis2/2.)
+
+		hdr['history']='Updated CRPIX1, CRPIX2'
+		graphic_nompi_lib.save_fits(trimpack_filename, cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
+		if not os.path.isdir(info_dir): # Check if info dir exists
+			os.mkdir(info_dir)
+		graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,cent_list,header_keys)
+
+
+		sys.stdout.write("\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n"
+						 .format(name=trimpack_filename, human_time=graphic_nompi_lib.humanize_time(time.time()-t0_cube) ,
+								 rate=os.path.getsize(trimpack_filename)/(1048576*(time.time()-t0_cube))))
+		sys.stdout.write("Remaining time: "+graphic_nompi_lib.humanize_time((time.time()-t_init)*(len(dirlist)-c)/(c-skipped+1))+"\n")
+		sys.stdout.flush()
+
+		del cube
 
 
 ## print("\n Program finished, killing all the slaves...")
