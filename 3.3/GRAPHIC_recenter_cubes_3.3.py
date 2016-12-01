@@ -44,6 +44,7 @@ parser.add_argument('--log_file', action="store", dest="log_file",  default='GRA
 parser.add_argument('--naxis3', action="store", dest="naxis3", default=4, type=int, help='The number of files to use to generate one cube')
 parser.add_argument('--lmax', action="store", dest="l_max", type=float, default=0,
 					help='Shape of the final image. If not specified it will be calculated to fit all the images.')
+
 parser.add_argument('-nofft', dest='nofft', action='store_const',
 					const=True, default=False,
 					help='Use interpolation instead of Fourier shift')
@@ -53,6 +54,10 @@ parser.add_argument('-nofit', dest='fit', action='store_const',
 parser.add_argument('-nocollapse', dest='collapse', action='store_const',
 				   const=False, default=True,
 				   help='Do not collapse cubes.')
+parser.add_argument('-combine_frames', dest='combine_frames', action='store_const',
+				   const=True, default=False,
+				   help='Mean combine the frames so that the output is a single 2D frame.')
+
 parser.add_argument('-s', dest='stat', action='store_const',
 					const=True, default=False,
 					help='Print benchmarking statistics')
@@ -95,6 +100,9 @@ if collapse:
 	target_pattern="rc"
 else:
 	target_pattern="r"
+
+# Save the requested output size so we can crop the images later
+l_max_in = l_max
 
 
 def read_recentre_cube(rcn, cube, rcube_list, l_max):
@@ -179,13 +187,26 @@ if rank==0:
 			if l_max==0:
 				for i in range(len(cube_list['info'])):
 					if not cube_list['info'][i][len(cube_list['info'][i])/2,4]==-1:
-						l=graphic_nompi_lib.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], int(hdr['NAXIS1']), cube_list['info'][i][:,11]-p0)
+						l=2*graphic_nompi_lib.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], int(hdr['NAXIS1']), cube_list['info'][i][:,11]-p0)
 						if l>l_max: l_max=l
 
 				dprint(d>1, 'l_max: '+str(l_max))
 				l_max=np.floor(l_max)
 			if l_max==0:
 				l_max=2*int(hdr['NAXIS1'])
+
+			# If l_max is too small, increase it now
+			max_dim = np.max([hdr['NAXIS1'],hdr['NAXIS2']])
+			if l_max < max_dim:
+				# l_max = int(hdr['NAXIS1'])
+				# Find the maximum amount of pixels that we need to shift the image
+				# Then we can make the output image big enough to store that
+				positions = [(this_cube_list[:,4:6]) for this_cube_list in cube_list['info']]
+				positions = np.array(positions)
+				positions = positions[positions != -1]
+				positions = np.abs(positions - max_dim/2)
+				
+				l_max = np.int(max_dim + np.max(positions))
 
 			cube, t0_trans=read_recentre_cube(c+n, cube, cube_list, l_max)
 			if collapse:
@@ -220,6 +241,14 @@ if rank==0:
 				hdr['CRPIX1']=('{0:14.7G}'.format(cube.shape[1]/2.+np.float(hdr['CRPIX1'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,4]>0),4])), "")
 				hdr['CRPIX2']=('{0:14.7G}'.format(cube.shape[2]/2.+np.float(hdr['CRPIX2'])-median(cube_list['info'][c+n][np.where(cube_list['info'][c+n][:,5]>0),5])), "")
 				hdr['history']= 'Updated CRPIX1, CRPIX2'
+
+			# Cut the image down to the requested size
+			new_cube = new_cube[:,new_cube.shape[1]/2-l_max_in/2:new_cube.shape[1]/2+l_max_in/2,
+									new_cube.shape[2]/2-l_max_in/2:new_cube.shape[2]/2+l_max_in/2]
+
+			# Mean the frames if requested
+			if args.combine_frames:
+				new_cube=np.nanmean(new_cube,axis=0)
 
 			graphic_nompi_lib.save_fits(psf_sub_filename, new_cube, target_dir=target_dir,  hdr=hdr, backend='pyfits')
 			graphic_nompi_lib.write_array2rdb(info_dir+os.sep+info_filename,new_info,header_keys)
@@ -301,31 +330,39 @@ else:
 
 
 			if not stack is None:
-				bigstack=np.zeros((stack.shape[0],l_max*2,l_max*2))
+				bigstack=np.zeros((stack.shape[0],l_max,l_max)) # ACC removed 2*
+
+				# We need to account for odd-sized arrays which need an extra pixel here
+				if (stack.shape[1] % 2) ==0:
+					extra_pix=0
+				else:
+					extra_pix=1
+
 				bigstack[:,
-				l_max-stack.shape[1]/2:l_max+stack.shape[1]/2,
-					l_max-stack.shape[2]/2:l_max+stack.shape[2]/2]=stack
+				bigstack.shape[1]/2-stack.shape[1]/2:bigstack.shape[1]/2+stack.shape[1]/2+extra_pix,
+					bigstack.shape[2]/2-stack.shape[2]/2:bigstack.shape[2]/2+stack.shape[2]/2+extra_pix]=stack
 				for fn in range(bigstack.shape[0]):
 					dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
+
 					if info_stack[s+fn,4]==-1 or info_stack[s+fn,5]==-1:
 						bigstack[fn]=np.NaN
 						continue
 					# Shift is given by (image centre position)-(star position)
 					if nofft==True: # Use interpolation
-						bigstack[fn]=ndimage.interpolation.shift(bigstack[fn], (stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5]), order=3, mode='constant', cval=np.NaN, prefilter=False)
+						shift_amount = (stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5])
+						bigstack[fn]=ndimage.interpolation.shift(bigstack[fn], shift_amount, order=3, mode='constant', cval=np.NaN, prefilter=False)
 					else: # Shift in Fourier space
-						# ACC fixed a bug in the following lines, which were meant to reduce the amplitude of the edges to 1/2 their measured value.
-						#  They did't work if the edge of the centred image is outside of the output array (which is the case for dithered data)
-						left_edge=np.ceil(l_max - info_stack[s+fn,4])
-						right_edge=np.floor(l_max - info_stack[s+fn,4]+stack.shape[1])
-						bottom_edge=np.ceil(l_max - info_stack[s+fn,5])
-						top_edge=np.floor(l_max - info_stack[s+fn,5]+stack.shape[2])
-						if (left_edge >0) & (right_edge < stack.shape[1]) & (bottom_edge > 0) & (top_edge <stack.shape[2]):
-							bigstack[fn,left_edge:right_edge,bottom_edge]=stack[fn,:,0]/2.
-							bigstack[fn,left_edge:right_edge,top_edge]=stack[fn,:,-1]/2.
-							bigstack[fn,left_edge,bottom_edge:top_edge]=stack[fn,0,:]/2.
-							bigstack[fn,right_edge,bottom_edge:top_edge]=stack[fn,-1,:]/2.
+						left_edge=np.round(l_max/2 - info_stack[s+fn,4])
+						right_edge=np.round(l_max/2 - info_stack[s+fn,4]+stack.shape[1])
+						bottom_edge=np.round(l_max/2 - info_stack[s+fn,5])
+						top_edge=np.round(l_max/2 - info_stack[s+fn,5]+stack.shape[2])
+						# if (left_edge >0) & (right_edge < bigstack.shape[1]) & (bottom_edge > 0) & (top_edge <bigstack.shape[2]):
+						# 	bigstack[fn,left_edge:right_edge,bottom_edge]=stack[fn,:,0]/2.
+						# 	bigstack[fn,left_edge:right_edge,top_edge]=stack[fn,:,-1]/2.
+						# 	bigstack[fn,left_edge,bottom_edge:top_edge]=stack[fn,0,:]/2.
+						# 	bigstack[fn,right_edge,bottom_edge:top_edge]=stack[fn,-1,:]/2.
 						bigstack[fn]=graphic_nompi_lib.fft_shift(bigstack[fn], stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5])
+					# Now turn all of the values that wrapped into NaNs.
 					# Due to a quirk of python's indexing, negative indexes wrap while those greater than the array size do not. So we need to be careful here not to NaN perfectly good data!
 					if left_edge >0:
 						bigstack[fn,:left_edge,:]=np.NaN
