@@ -293,6 +293,10 @@ def rough_centre(image,smooth_width=3.):
     # Get the x and y coordinates, then make the Gaussian kernel
     x,y=np.indices((smooth_width*4,smooth_width*4+1),dtype=np.float64)-smooth_width*2
     ker=np.exp(-(x**2 /(2*smooth_width**2) + (y**2 /(2*smooth_width**2))))
+
+    # Remove any NaNs
+    image = np.nan_to_num(image)
+
     # Use fftconvolve for the convolution
     smooth_image=signal.fftconvolve(image,ker,mode='same')
     # Take the maximum as the centre

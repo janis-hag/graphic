@@ -83,9 +83,15 @@ if rank==0:  # Master process
 			comm.send("over",dest =n+1)
 		sys.exit(1)
 
+	# Split dirlist into (nearly) equal parts and give them to the slaves
+	files_left = len(dirlist)
+	end=0
 	for n in range(nprocs):
-		start=int(n*np.floor(float(len(dirlist)/nprocs)))
-		end=int((n+1)*np.floor(float(len(dirlist)/nprocs)))
+
+		start = end
+		end = start + np.round(float(files_left)/(nprocs-n)).astype(np.int)
+		files_left -= (end-start)
+
 		if n == nprocs-1:
 			dirlist=dirlist[start:] # take the list to the end
 			startframe=start

@@ -101,16 +101,13 @@ def pca_multi_annular(all_vars):
 
 ###############
 
-def fft_rotate(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0,return_full=False):
+def fft_rotate(in_frame, alpha, pad=4,return_full=False):
     """
     3 FFT shear based rotation, following Larkin et al 1997
 
     in_frame: the numpy array which has to be rotated
     alpha: the rotation alpha in degrees
     pad: the padding factor
-    x1,x2: the borders of the original image in x
-    y1,y2: the borders of the original image in y
-
 
     Return the rotated array
     """
@@ -156,12 +153,7 @@ def fft_rotate(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0,return_full=False):
 
     # Replace part outside the image which are NaN by 0, and go into Fourier space.
     pad_frame=np.where(np.isnan(pad_frame),0.,pad_frame)
-    # This part causes problems when there are NaNs in the array... Why do we want 
-    #   to halve the edges anyway?
-#    pad_frame[px1-1,py1:py2]=in_frame[0,:]/2.
-#    pad_frame[px2,py1:py2]=in_frame[-1,:]/2.
-#    pad_frame[px1:px2,py1-1]=in_frame[:,0]/2.
-#    pad_frame[px1:px2,py2] =in_frame[:,-1]/2.
+
 
     ###############################
     # Rotation in Fourier space
@@ -204,7 +196,7 @@ def fft_rotate_multi(all_vars):
 
 ###############
 
-def define_annuli(npix,n_radii,arc_length,r_min):
+def define_annuli(npix,n_radii,arc_length,r_min,r_max='Default'):
     ''' Defines the annuli used for pca. The image is divided into these regions
     and the principal components are calculated for each region individually.
     npix is the number of pixels in the image. The image is assumed to be square!
@@ -215,8 +207,10 @@ def define_annuli(npix,n_radii,arc_length,r_min):
     n_radii=np.int(n_radii)
     arc_length=np.int(arc_length)
     r_min=np.int(r_min)
+    if r_max == 'Default':
+        r_max=np.sqrt(2)*npix/2
     
-    radii=np.linspace(r_min,np.sqrt(2)*npix/2,num=(n_radii+1))
+    radii=np.linspace(r_min,r_max,num=(n_radii+1))
 
     # Make maps of the distance from the origin and the angle in azimuth
     xarr=np.arange(0,npix)-npix/2
@@ -238,6 +232,9 @@ def define_annuli(npix,n_radii,arc_length,r_min):
         
         # Loop over the azimuthal segments
         n_azimuth=np.int(np.round(2*np.pi*meanrad/arc_length))
+        if n_azimuth <1: # make sure there is at least one segment...
+            n_azimuth =1
+
         for azimuth_ix in range(n_azimuth):
             # The min and max azimuth for this segment
             minaz=2*np.pi/n_azimuth*azimuth_ix-np.pi
@@ -289,7 +286,7 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
         print '  PCA subtracted cube saved as:',save_name
     
     if pc_name:
-        data={'principal_components':pcomps,'regions':None,'npix':initial_shape[1],
+        data={'principal_components':pcomps.astype(np.float32),'regions':None,'npix':initial_shape[1],
               'protection_angle':None}
         with open(pc_name,'w') as myf:
             pickle.dump(data,myf)
@@ -302,7 +299,7 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
 ###############
 
 def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
-                pc_name=None,threads=2):
+                pc_name=None,threads=2,r_max='Default'):
     ''' Performs a simple PCA reduction on the input datacube.
     Performs PCA in annular regions, using all frames at once (i.e. not 
     "smart-pca".
@@ -321,7 +318,7 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
     
     # Calculate the annular regions
     print('  Defining annuli')
-    regions,region_radii=define_annuli(initial_shape[1],n_annuli,arc_length,r_min=r_min)
+    regions,region_radii=define_annuli(initial_shape[1],n_annuli,arc_length,r_min=r_min,r_max=r_max)
             
     print('  Setting up arrays for multiprocessing')
     # Set up the pool and arrays for multiprocessing
@@ -356,7 +353,7 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
         print('  PCA subtracted cube saved as: '+save_name)
     
     if pc_name:
-        data={'principal_components':pcomps,'regions':regions,'npix':initial_shape[1],
+        data={'principal_components':pcomps.astype(np.float32),'regions':regions,'npix':initial_shape[1],
               'protection_angle':None}
         with open(pc_name,'w') as myf:
             pickle.dump(data,myf)
@@ -419,7 +416,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
         print '  PCA subtracted cube saved as:',save_name
 
     if pc_name:
-        data={'principal_components':pcomps,'regions':None,'npix':initial_shape[1],
+        data={'principal_components':pcomps.astype(np.float32),'regions':None,'npix':initial_shape[1],
               'protection_angle':protection_angle}
         with open(pc_name,'w') as myf:
             pickle.dump(data,myf)
@@ -430,7 +427,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
 ###############
 
 def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5,
-              pc_name=None,n_annuli=5,arc_length=50,r_min=5,threads=3):
+              pc_name=None,n_annuli=5,arc_length=50,r_min=5,threads=3,r_max='Default'):
     ''' Performs a smart PCA reduction on the input datacube, with PCA performed
     locally on annuli, using only frames that have a parallactic angle
     difference that is above some threshold, to minimize self-subtraction.
@@ -457,7 +454,7 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     
     # Calculate the annular regions
     print('  Defining annuli')
-    regions,region_radii=define_annuli(initial_shape[1],n_annuli,arc_length,r_min=r_min)
+    regions,region_radii=define_annuli(initial_shape[1],n_annuli,arc_length,r_min=r_min,r_max=r_max)
     
     # Check that the rotation is enough for the closest annuli
     min_radius=np.min(region_radii)
@@ -526,11 +523,11 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
         print('  PCA subtracted cube saved as: '+save_name)
 
     if pc_name:
-        data={'principal_components':pcomps,'regions':None,'npix':initial_shape[1],
+        data={'principal_components':pcomps.astype(np.float32),'regions':None,'npix':initial_shape[1],
               }
         with open(pc_name,'w') as myf:
             pickle.dump(data,myf)
-    return cube_out
+    return cube_out,pcomps
 
 ###############
 
@@ -581,13 +578,19 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     xradius=out_frame.shape[0]/2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
     yradius=out_frame.shape[1]/2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
     
+    # actually just take the maximum of these so the output is square
+    xradius=np.max([xradius,yradius])
+    yradius=xradius
+    
+    out_cube=out_cube[:,out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
+                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
     out_frame=out_frame[out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
                         out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
     
     if save_name:
         pyfits.writeto(save_name,out_frame,clobber=True)
         print 'Combined image saved as:',save_name
-    return out_frame
+    return out_cube
 
 ###############
 
@@ -619,6 +622,8 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
         all_vars.append(these_vars)
     out_cube=pool.map(fft_rotate_multi,all_vars)
     pool.close()
+    
+    out_cube = np.array(out_cube)
 
     # now sum into a final image
     if median_combine:
@@ -636,6 +641,13 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
     xradius=out_frame.shape[0]/2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
     yradius=out_frame.shape[1]/2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
     
+    # actually just take the maximum of these so the output is square
+    xradius=np.max([xradius,yradius])
+    yradius=xradius    
+
+
+    out_cube=out_cube[:,out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
+                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]    
     out_frame=out_frame[out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
                         out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
         
