@@ -129,7 +129,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 	Generate a dirlist and checks for file acces rights.
 	"""
 	# import glob
-	import string
+	## import string
 
 	dirlist=glob.glob(pattern+'*'+extension)
 
@@ -153,7 +153,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
 			dirlist[i]=None
 			continue
 		if not target_pattern==None:
-			if os.access(target_dir+os.sep+target_pattern+string.split(dirlist[i], os.sep)[-1], os.F_OK | os.R_OK): # Check if file exists
+			if os.access(target_dir+os.sep+target_pattern+dirlist[i].split(os.sep)[-1], os.F_OK | os.R_OK): # Check if file exists
 				print(dirlist[i]+' already processed.')
 				dirlist[i]=None
 				continue
@@ -192,7 +192,7 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 	add filename column
 	stack the tables
 	"""
-	import fnmatch, os, sys, string
+	import fnmatch, os, sys #, string
 	## import tables
 
 	if skipped==None:
@@ -211,9 +211,11 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-40:-5]+'*')
 			#print('info_filename',info_filename)
 		elif scexao:
-			info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
+			## info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
+			info_filename = fnmatch.filter(infolist,'*'+dirlist[i].split('_')[-1][:-5]+'*')
 		elif sphere:
-			info_filename = fnmatch.filter(infolist,'*'+'SPHER'+string.split(dirlist[i],'SPHER')[-1][:-5]+'*')
+			## info_filename = fnmatch.filter(infolist,'*'+'SPHER'+string.split(dirlist[i],'SPHER')[-1][:-5]+'*')
+			info_filename = fnmatch.filter(infolist,'*'+'SPHER'+dirlist[i].split('SPHER')[-1][:-5]+'*')
 		else: #ESO format
 			info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-28:-5]+'*')
 
@@ -224,7 +226,8 @@ def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere
 			elif sphere:
 				print("\n No centroids list found for "+dirlist[i][-40:-11])
 			elif scexao:
-				print("\n No centroids list found for "+string.split(dirlist[i],'_')[-1][:-5])
+				## print("\n No centroids list found for "+string.split(dirlist[i],'_')[-1][:-5])
+				print("\n No centroids list found for "+dirlist[i].split('_')[-1][:-5])
 			else:
 				print("\n No centroids list found for "+dirlist[i][-28:-5])
 			skip=skip+1
@@ -560,7 +563,7 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
 	from astropy import units as u
 	from astropy import coordinates
 	from astropy.time import Time
-	import string
+	## import string
 
 	## r2d = 180/pi
 	## d2r = pi/180
@@ -586,7 +589,8 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
 	parang_array=numpy.ones((len(times),3))
 
 	for i in xrange(len(times)):
-		times[i]=date+' '+string.split(times[i],' ')[0]
+		## times[i]=date+' '+string.split(times[i],' ')[0]
+		times[i]=date+' '+times[i].split(' ')[0]
 
 		obs_time=Time(times[i], format='iso', scale='utc', location=geo_coord)
 
@@ -666,7 +670,7 @@ def create_parang_list_sphere(hdr):
 	else:
 		delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
 ###########################
-	
+
 	#if 'ESO DET DITDELAY' in hdr.keys():
 	#	dit_delay=float(hdr['ESO DET DITDELAY'])
 	#else:
@@ -1256,9 +1260,10 @@ def dms2d(hms, sep):
 	"""
 	Converts time in DEGsepMsepS format to plain degrees
 	"""
-	from string import split
+	## from string import split
 
-	hms=split(hms, sep)
+	## hms=split(hms, sep)
+	hms=hms.split( sep)
 	if hms[0][0]=='-':
 		sign=-1.
 	else:
@@ -1271,9 +1276,10 @@ def hms2d(hms, sep):
 	"""
 	Converts time in HsepMsepS format to degrees
 	"""
-	from string import split
+	## from string import split
 
-	hms=split(hms, sep)
+	## hms=split(hms, sep)
+	hms=hms.split(sep)
 	if hms[0][0]=='-':
 		sign=-1.
 	else:
@@ -1286,9 +1292,10 @@ def hms2h(hms, sep):
 	"""
 	Converts time in HsepMsepS format to hours
 	"""
-	from string import split
+	## from string import split
 
-	hms=split(hms, sep)
+	## hms=split(hms, sep)
+	hms=hms.split(sep)
 	if hms[0][0]=='-':
 		sign=-1.
 	else:
@@ -1309,7 +1316,7 @@ def iprint(inter, text):
 	Prints debug text prepended by rank number
 
 	"""
-	import string
+	## import string
 	from sys import stdout
 
 	if inter:
@@ -1501,7 +1508,7 @@ def inject_FP_sphere(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, w
 		wavelen_m=wavelen*10**(-6) # microns*10**(-6)=meters
 	else:
 		print "error no wavelength found!"
-	
+
 	## waveLen_nyquist=1.3778#micron
 	## focal_scale_as_p_m=hdr['ESO TEL FOCU SCALE']*10**(3) #Focal scale (arcsec/mm)*10**(3)=(arcsec/m)
 	if 'ESO DET CHIP PXSPACE' in hdr.keys():
@@ -1727,7 +1734,7 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 
 	output: 2d numpy array containing the astro image with the companions added to it
 	"""
-	import math, string
+	import math #, string
 
 	## CH4 H 1% S 1.587 	0.0150 (0.94%) 	G0724 G0722
 	## CH4 H 1% Sp 	1.603 	0.0162 (1.01%) 	G0728 G0726
@@ -1756,14 +1763,16 @@ def inject_FP_nici(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
 
 	if 'CHANNEL' in hdr.keys():
 		if hdr['CHANNEL']=='BLUE':
-			band=string.split(hdr['FILTER_B'],'_')[0]
+			## band=string.split(hdr['FILTER_B'],'_')[0]
+			band=hdr['FILTER_B'].split('_')[0]
 			if band in filter_wavelength.keys():
 				wavelen_m=filter_wavelength[band]*10**(-6)
 			else:
 				print('Unknow filter: '+band)
 				wavelen_m=None
 		elif hdr['CHANNEL']=='RED':
-			band=string.split(hdr['FILTER_R'],'_')[0]
+			## band=string.split(hdr['FILTER_R'],'_')[0]
+			band=hdr['FILTER_R'].split('_')[0]
 			if band in filter_wavelength.keys():
 				wavelen_m=filter_wavelength[band]*10**(-6)
 			else:
@@ -2187,7 +2196,7 @@ def read_rdb(file, h=0, comment=None):
 	Output: content of the file in form of a list
 	"""
 
-	import string, os
+	import os, #string, os
 	# Check if file exists
 	if not os.access(file, os.R_OK):
 		return None
@@ -2218,12 +2227,13 @@ def read_rdb_rows(filename,refcol):
 	data = f.readlines()
 	f.close()
 
-	key = string.split(data[0][:-1],'\t')
+	## key = string.split(data[0][:-1],'\t')
+	key = data[0][:-1].split('\t')
 	iref = key.index(refcol)
 	output = {}
 
 	for line in data[2:]:
-		qq1 = string.split(line[:-1],'\t')
+		qq1 = line[:-1].split('\t')
 		qq2 = {}
 		for i in range(len(key)): qq2[key[i]] = qq1[i]
 		output[qq1[iref]] = qq2
@@ -2595,7 +2605,7 @@ def trim_overscan(cube):
 
 
 def write_array2rdb(filename,data,keys,s=''):
-	import string
+	## import string
 
 	if s=='':
 		for k in range(len(keys)):
@@ -2605,7 +2615,8 @@ def write_array2rdb(filename,data,keys,s=''):
 
 	f = open(filename, 'w')
 
-	head1 = string.join(keys,'\t')
+	## head1 = string.join(keys,'\t')
+	head1 = '\t'.join(keys)
 	head2 = ''
 	for i in head1:
 		if i=='\t': head2 = head2+'\t'
@@ -2631,7 +2642,7 @@ def write_rdb(filename,data,keys,s=''):
 	'''
 	s is used for string formating
 	'''
-	import string
+	## import string
 
 	if s=='':
 		for k in range(len(keys)):
@@ -2642,7 +2653,8 @@ def write_rdb(filename,data,keys,s=''):
 
 	f = open(filename, 'w')
 
-	head1 = string.join(keys,'\t')
+	## head1 = string.join(keys,'\t')
+	head1 = '\t'.join(keys)
 	head2 = ''
 	for i in head1:
 		if i=='\t': head2 = head2+'\t'
@@ -2665,7 +2677,7 @@ def write_log(runtime, log_file, comments=None, nprocs=0):
 	from subprocess import Popen, PIPE
 	"""
 	from datetime import datetime
-	import string
+	## import string
 	from subprocess import Popen, PIPE
 	import sys
 
@@ -2677,7 +2689,9 @@ def write_log(runtime, log_file, comments=None, nprocs=0):
 	p=Popen(["ps","-o", "cmd=","-p",str(os.getpid())], stdout=PIPE)
 	out, err = p.communicate()
 	f = open(log_file, 'aw')
-	f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
+	## f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
+	f.write(''.zfill(80).replace('0','-')+'\n')
+
 	if nprocs>0:
 		f.write('mpirun -n '+str(nprocs)+' '+str(out))
 	if not comments==None:
@@ -2688,7 +2702,9 @@ def write_log(runtime, log_file, comments=None, nprocs=0):
 			f.write(comments)
 		else:
 			print('Unknown '+type(comments)+': '+str(comments))
-	f.write(string.join(sys.argv)+'\n')
+	## f.write(string.join(sys.argv)+'\n')
+	## f.write(sys.argv.join()+'\n')
+	f.write(' '.join(sys.argv)+'\n')
 	f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
 	f.close()
 
@@ -2699,21 +2715,24 @@ def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
 	from subprocess import Popen, PIPE
 	"""
 	from datetime import datetime
-	import string
+	## import string
 	from subprocess import Popen, PIPE
 	import sys
 
 	if 'ESO OBS TARG NAME' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		## log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		log_file=log_file+"_"+hdr['ESO OBS TARG NAME'].replace(' ','')+"_"+str(__version__)+".log"
 	elif 'OBJECT' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+		## log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+		log_file=log_file+"_"+hdr['OBJECT'].replace(' ','')+"_"+str(__version__)+".log"
 	else:
 		log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
 
 	p=Popen(["ps","-o", "cmd=","-p",str(os.getpid())], stdout=PIPE)
 	out, err = p.communicate()
 	f = open(log_file, 'aw')
-	f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
+	## f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
+	f.write(''.zfill(80).replace('0','-')+'\n')
 	if nprocs>0:
 		f.write('mpirun -n '+str(nprocs)+' '+str(out))
 	if not comments is None:
@@ -2724,7 +2743,8 @@ def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
 			f.write(comments)
 		else:
 			print('Unknown '+type(comments)+': '+str(comments))
-	f.write(string.join(sys.argv)+'\n')
+	## f.write(string.join(sys.argv)+'\n')
+	f.write(' '.join(sys.argv)+'\n')
 	f.write('Job finished on: '+datetime.isoformat(datetime.today())[:-7]+'. Total time: '+humanize_time(runtime)+'\n')
 	f.close()
 
@@ -2735,11 +2755,11 @@ def fix_naco_bad_cols(cube):
     We can get rid of the if/elif/else statements by working on cube.T, but this should always work fine '''
 
     if cube.ndim==3:
-        cols=np.arange(0,cube.shape[2]/2,8)+3        
+        cols=np.arange(0,cube.shape[2]/2,8)+3
         d1=0
         d2=cube.shape[1]/2
         cube[:,d1:d2,cols]=(cube[:,d1:d2,cols+1]+cube[:,d1:d2,cols-1])/2
-        
+
     elif cube.ndim==2:
         cols=np.arange(cube.shape[1]/2,8)+3
         d1=0
@@ -2747,7 +2767,7 @@ def fix_naco_bad_cols(cube):
         cube[d1:d2,cols]=(cube[d1:d2,cols+1]+cube[d1:d2,cols-1])/2
     else:
         raise ValueError("The input cube to fix_bad_cols has the wrong dimensions: "+str(cube.ndim))
-        
+
     return cube
 
 def make_twilight_flat(flat_cube,quality_flag):
@@ -2757,27 +2777,27 @@ def make_twilight_flat(flat_cube,quality_flag):
     '''
     # Find the average values in each image
     meds=np.median(flat_cube,axis=(1,2))
-    
+
     # Subtract off the "darkest" frame and calculate the average flux difference of each frame
     flat_cube-=flat_cube[meds==np.min(meds)]
     flux_diffs=np.median(flat_cube,axis=(1,2))
 
     # Clear the dark frame to remove any warnings from the rest of the code (we wont use it anyway)
     flat_cube[meds==np.min(meds)]=1
-    
+
     # Normalise them by their average. This will print a warning for the frame that was used as a dark...
     flat_cube=np.array([flat_cube[ix]/np.median(flat_cube[ix]) for ix in range(len(meds))])
-        
+
     # Turn nans to 1s
     # flat_cube[np.isnan(flat_cube)]=1.
-    
+
     # do a flux-weighted mean to get the final flat field
     weights=flux_diffs/np.sum(flux_diffs)
     flat=np.dot(flat_cube.T,weights).T
-    
+
     # And normalise it
     flat/=np.median(flat)
-    
+
     return flat,flux_diffs
 
-    
+
