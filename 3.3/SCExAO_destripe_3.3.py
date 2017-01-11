@@ -120,10 +120,55 @@ def verticalmed(flux, flat, r_ex=0):
 
 	return [oddstripe, evenstripe]
 
+def horizontal(flux, stripe, minx=0, xdist=4):
+
+    """
+    Function horizontal takes three arguments:
+    1.  A 2048 x 2048 array of flux values
+    2.  The stripe to correct (0 - 31)
+
+    Optional arguments:
+    3.  x pixel from which to start counting (default = 0)
+    4.  Width of x pixel range to be used (default = 4)
+
+    horizontal finds the best-fit difference (bias) between two stripes.
+    It then subtracts that bias from the first stripe supplied.
+    """
+
+    dimy, dimx = flux.shape
+    row = stripe * 64
+
+    ##################################################################
+    # Even/odd rows are read in opposite directions
+    ##################################################################
+
+    diffdist_l = flux[row:row + 64, minx:minx + xdist]
+    diffdist_r = flux[row:row + 64, dimx - xdist - minx:dimx - minx]
+
+    diffdist = np.hstack((diffdist_l, diffdist_r))
+
+    ##################################################################
+    # Gaussian data ==> use mean.  Exclude > nsig sigma outliers as bad
+    # pixels.  Loop over the data niter times to get a good guess.
+    ##################################################################
+
+    mu = 0
+    nsig = 3
+    niter = 4
+    sig = 1e4
+    for i in range(niter):
+        pts = np.extract(np.abs(diffdist - mu) < nsig * sig, diffdist)
+        mu = np.mean(pts)
+        sig = np.std(pts)
+
+    for i in range(row, row + 64):
+        flux[i] -= mu
+
+    return flux
+
 
 def destripe(flux,flat, r_ex=0, header=None):
 
-	oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
 
 	sub_coef =1.
 
@@ -136,6 +181,19 @@ def destripe(flux,flat, r_ex=0, header=None):
 	else:
 		ncoadd = 1
 
+	##############################################################
+	# Horizontal destripe
+	##############################################################
+
+	for stripe in range(32):
+		horizontal(flux, stripe)
+
+	##############################################################
+	# Calculate and subtract the vertical pattern.
+	##############################################################
+
+	oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
+
 	for i in range(1, 33, 2):
 		flux[64 * i:64 * i + 64] -= oddstripe * sub_coef
 		flux[64 * i - 64:64 * i] -= evenstripe * sub_coef
@@ -145,10 +203,10 @@ def destripe(flux,flat, r_ex=0, header=None):
 	# flatfield them
 	##############################################################
 
-		flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
+	flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 
-		flux[flux < -1000] = 0
-		flux[flux > 5e4 * ncoadd] = np.nan
+	flux[flux < -1000] = 0
+	flux[flux > 5e4 * ncoadd] = np.nan
 	## else:
 		## flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 

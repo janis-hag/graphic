@@ -2196,7 +2196,7 @@ def read_rdb(file, h=0, comment=None):
 	Output: content of the file in form of a list
 	"""
 
-	import os, #string, os
+	import os
 	# Check if file exists
 	if not os.access(file, os.R_OK):
 		return None
