@@ -118,10 +118,10 @@ def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
 				#spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
 				dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcentre,ycentre,new_cluster.size]))
 				spot_ary=numpy.array([xcentre,ycentre,new_cluster.size])
-			if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
-				check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+			if  check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]==0:
+				check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]=tot_lum #Add a point on the checking image
 			else:
-				check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+				check_ima[int(numpy.round(xcentre))+1,int(numpy.round(ycentre))+1]=tot_lum
 				print "Double detection"
 			cl_cnt=cl_cnt+1
 	else:
@@ -156,10 +156,10 @@ def cluster_search(image, thres_coef, min, max, x_i, y_i, d=0):
 						#spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
 						dprint(d>0,'Found bigger spot, old: '+str(spot_ary)+', new: '+str([xcentre,ycentre,new_cluster.size]))
 						spot_ary=numpy.array([xcentre,ycentre,new_cluster.size])
-					if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
-						check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+					if  check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]==0:
+						check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]=tot_lum #Add a point on the checking image
 					else:
-						check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+						check_ima[int(numpy.round(xcentre))+1,int(numpy.round(ycentre))+1]=tot_lum
 						print "Double detection"
 					cl_cnt=cl_cnt+1
 			else: continue
@@ -232,10 +232,10 @@ def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
 			#check if it is the first spot
 			if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
 			else: spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
-			if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
-				check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+			if  check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]==0:
+				check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]=tot_lum #Add a point on the checking image
 			else:
-				check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+				check_ima[int(numpy.round(xcentre))+1,int(numpy.round(ycentre))+1]=tot_lum
 				print "Double detection"
 			cl_cnt=cl_cnt+1
 	else:
@@ -266,10 +266,10 @@ def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
 					#check if it is the first spot
 					if spot_ary is None: spot_ary=numpy.array([xcentre,ycentre,new_cluster.size]) # initialise
 					else: spot_ary=numpy.vstack((spot_ary,[xcentre,ycentre,new_cluster.size]))
-					if  check_ima[numpy.round(xcentre),numpy.round(ycentre)]==0:
-						check_ima[numpy.round(xcentre),numpy.round(ycentre)]=tot_lum #Add a point on the checking image
+					if  check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]==0:
+						check_ima[int(numpy.round(xcentre)),int(numpy.round(ycentre))]=tot_lum #Add a point on the checking image
 					else:
-						check_ima[numpy.round(xcentre)+1,numpy.round(ycentre)+1]=tot_lum
+						check_ima[int(numpy.round(xcentre))+1,int(numpy.round(ycentre))+1]=tot_lum
 						print "Double detection"
 					cl_cnt=cl_cnt+1
 			else: continue

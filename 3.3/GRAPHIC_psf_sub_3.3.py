@@ -181,23 +181,22 @@ if rank==0:
 	naxis1=0
 	naxis2=0
 
-	dirlist=glob.glob(pattern+'*.fits')
-	dirlist.sort() # Sort the list alphabetically
-	if len(dirlist)<1:
+	## dirlist=glob.glob(pattern+'*.fits')
+	## dirlist.sort() # Sort the list alphabetically
+	dirlist=graphic_nompi_lib.create_dirlist(pattern, target_dir='.', extension='.fits')
+	if len(dirlist) is None:
 		print("No files found")
 		for n in range(nprocs-1):
 			comm.send("over",dest =n+1)
 		sys.exit(1)
-	else:
-		print("Found "+str(len(dirlist))+" cubes.")
 
-	# Check values in dirlist and remove dodgy files.
-	for i in range(len(dirlist)):
-		if not os.access(dirlist[i], os.F_OK | os.R_OK): # Check if file exists
-			## print("")
-			print(str(rank)+': Error, cannot access: '+dirlist[i])
-			dirlist[i]=None
-			continue
+	## # Check values in dirlist and remove dodgy files.
+	## for i in range(len(dirlist)):
+		## if not os.access(dirlist[i], os.F_OK | os.R_OK): # Check if file exists
+			print("")
+			## print(str(rank)+': Error, cannot access: '+dirlist[i])
+			## dirlist[i]=None
+			## continue
 
 	# Clean dirlist of discarded values:
 	dirlist.sort()
@@ -210,8 +209,10 @@ if rank==0:
 
 	print("Found "+str(len(dirlist))+" files.")
 
-	infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
-	infolist.sort() # Sort the list alphabetically
+	infolist=graphic_nompi_lib.create_dirlist(info_dir+os.sep+'*'+info_pattern, target_dir=info_dir, extension='.rdb')
+
+	## infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
+	## infolist.sort() # Sort the list alphabetically
 	print("Found "+str(len(infolist))+" info files.")
 
 	cube_list, dirlist, skipped=graphic_nompi_lib.create_megatable(dirlist, infolist, skipped, keys=header_keys, nici=nici, sphere=sphere, scexao=scexao, fit=fit)
@@ -226,13 +227,13 @@ if rank==0:
 
 	print("")
 
-	# Clean dirlist of discarded values:
-	dirlist.sort() # Put all the None at the beginning
-	for i in range(len(dirlist)):
-		if dirlist[0] is None:
-			dirlist.pop(0)
-			skipped=skipped+1
-		else: break
+	## # Clean dirlist of discarded values:
+	## dirlist.sort() # Put all the None at the beginning
+	## for i in range(len(dirlist)):
+		## if dirlist[0] is None:
+			## dirlist.pop(0)
+			## skipped=skipped+1
+		## else: break
 
 	if skipped>0:
 		print(" Skipped "+str(skipped)+" cubes.")
@@ -255,7 +256,7 @@ if rank==0:
 				l=graphic_nompi_lib.get_max_dim(cube_list['info'][i][len(cube_list['info'][i])/2,4], cube_list['info'][i][len(cube_list['info'][i])/2,5], hdulist[0].header['NAXIS1'], cube_list['info'][i][:,11])
 				if l>l_max: l_max=l
 		graphic_mpi_lib.dprint(d>1, 'l_max: '+str(l_max))
-		l_max=np.floor(l_max)
+		l_max=int(np.floor(l_max))
 
 	time_treshold=0
 
@@ -409,6 +410,9 @@ if rank==0:
 
 				p1=p0
 				#Check if it's worth reading the cube
+				######################
+				# Format of the valid list. For each (n,cn) doublet, there is a list of valid frames for that specific cube number (cn).
+				############
 				valid[(n+1,cn)]=np.where((np.abs(cube_list['info'][cn][:,11]-p0)>alpha) & (np.abs(cube_list['info'][cn][:,10]-t0)<ctmax) & np.not_equal(cube_list['info'][cn][:,6],-1))[0] #(not cube_list['info'][cn][:,2]<0))]
 				## valid_rotation[(n+1,cn)]=np.where(np.abs(cube_list['info'][cn][:,11]-p0)>alpha)[0]
 				## valid_time[(n+1,cn)]=np.where(np.abs(cube_list['info'][cn][:,10]-t0)<ctmax)[0]
@@ -452,12 +456,15 @@ if rank==0:
 			if not len(valid.keys())==0:
 				sample=fmax/len(valid.keys())
 				for j,k in valid.keys():
+					print(sample, fmax, len(valid.keys()), len(valid[(j,k)]))
+					print(cubes[k].shape, valid[(j,k)])
 					if len(valid[(j,k)])<sample:
 						stack[si:si+len(valid[(j,k)])]=cubes[k][valid[(j,k)]]
 						si+=len(valid[(j,k)])
 						cube_count+=1
 					else:
 						# Could add PCA step here
+						print(si, sample, j, k)
 						stack[si:si+sample]=cubes[k][random.sample(valid[(j,k)],sample)]
 						si+=sample
 						cube_count=cube_count+1
@@ -767,10 +774,10 @@ else:
 						## if np.floor(l_max - info_stack[s+fn,5]+0.5+stack_shape[2])>0:
 							## bigstack[fn,:,np.floor(l_max - info_stack[s+fn,5]+0.5+stack_shape[2]):]=np.NaN
 					if 2*l_max>stack_shape[1]:
-						bigstack[fn,:np.ceil(l_max - info_stack[s+fn,4]-0.5),:]=np.NaN
-						bigstack[fn,np.floor(l_max - info_stack[s+fn,4]+0.5+stack_shape[1]):,:]=np.NaN
-						bigstack[fn,:,:np.ceil(l_max - info_stack[s+fn,5]-0.5)]=np.NaN
-						bigstack[fn,:,np.floor(l_max - info_stack[s+fn,5]+0.5+stack_shape[2]):]=np.NaN
+						bigstack[fn,:int(np.ceil(l_max - info_stack[s+fn,4]-0.5)),:]=np.NaN
+						bigstack[fn,int(np.floor(l_max - info_stack[s+fn,4]+0.5+stack_shape[1])):,:]=np.NaN
+						bigstack[fn,:,:int(np.ceil(l_max - info_stack[s+fn,5]-0.5))]=np.NaN
+						bigstack[fn,:,int(np.floor(l_max - info_stack[s+fn,5]+0.5+stack_shape[2])):]=np.NaN
 				if 2*l_max<stack_shape[1]:
 					bigstack=smallstack.copy()
 					del smallstack

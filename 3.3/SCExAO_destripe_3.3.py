@@ -29,7 +29,7 @@ pattern=args.pattern
 flat_file=args.flat_file
 badpix=args.badpix
 
-def verticalmed(flux, flat, r_ex=0):
+def verticalmed(flux, flat, min_flux, r_ex=0):
 
 	"""
 	Function verticalmed takes two arguments:
@@ -58,6 +58,9 @@ def verticalmed(flux, flat, r_ex=0):
 	y = np.arange(dimy)
 	x, y = np.meshgrid(x, y)
 
+	## np.where(flux<min_flux, np.nan, flux)
+
+
 	if r_ex > 0:
 		r_ok = ((x - dimx / 2)**2 + (y - dimy / 2)**2) > r_ex**2
 
@@ -65,6 +68,8 @@ def verticalmed(flux, flat, r_ex=0):
 		flux2[:] = flux
 		np.putmask(flux2, np.logical_not(r_ok), np.nan)
 	else:
+		## flux2=np.where(flat<min_flux, np.nan, flux)
+		## flat=np.where(flat<min_flux, np.nan, flat)
 		flux2 = flux
 
 	###############################################################
@@ -167,7 +172,7 @@ def horizontal(flux, stripe, minx=0, xdist=4):
     return flux
 
 
-def destripe(flux,flat, r_ex=0, header=None):
+def destripe(flux,flat, r_ex=0, header=None, min_flux=10000.):
 
 
 	sub_coef =1.
@@ -185,30 +190,33 @@ def destripe(flux,flat, r_ex=0, header=None):
 	# Horizontal destripe
 	##############################################################
 
-	for stripe in range(32):
-		horizontal(flux, stripe)
+	## for stripe in range(32):
+	for stripe in range(8,32):
+		flux=horizontal(flux, stripe)
 
 	##############################################################
 	# Calculate and subtract the vertical pattern.
 	##############################################################
 
-	oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
+	## flux=np.where(flat<min_flux, np.nan, flux)
+	## flat=np.where(flat<min_flux, np.nan, flat)
 
-	for i in range(1, 33, 2):
-		flux[64 * i:64 * i + 64] -= oddstripe * sub_coef
-		flux[64 * i - 64:64 * i] -= evenstripe * sub_coef
+	## oddstripe, evenstripe = verticalmed(flux, flat, min_flux, r_ex=r_ex)
+
+	## for i in range(1, 33, 2):
+		## flux[64 * i:64 * i + 64] -= oddstripe * sub_coef
+		## flux[64 * i - 64:64 * i] -= evenstripe * sub_coef
 
 	##############################################################
 	# Four rows on each edge are reference pixels--don't
 	# flatfield them
 	##############################################################
 
-	flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
+	## flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 
-	flux[flux < -1000] = 0
-	flux[flux > 5e4 * ncoadd] = np.nan
-	## else:
-		## flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
+	## flux[flux < -1000] = 0
+	## flux[flux > 5e4 * ncoadd] = np.nan
+
 
 	return flux
 

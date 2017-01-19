@@ -39,7 +39,7 @@ parser.add_argument('--pattern', action="store", dest="pattern",  default='*', h
 ## parser.add_argument('--info_pattern', action="store", dest="info_pattern", required=True, help='Info filename pattern')
 parser.add_argument('--info_dir', action="store", dest="info_dir",  default='cube-info', help='Info directory')
 parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
-parser.add_argument('--naxis2', action="store", dest="naxis2", default=0, type=int, help='The size of the of frames. No frame trimming if not set.')
+parser.add_argument('--naxis2', action="store", dest="naxis2", default=0, type=int, help='The size of the single frames. No frame trimming if not set.')
 parser.add_argument('--naxis3', action="store", dest="naxis3", default=4, type=int, help='The number of frames per cube')
 parser.add_argument('-nofft', dest='nofft', action='store_const',
 					const=True, default=False,
