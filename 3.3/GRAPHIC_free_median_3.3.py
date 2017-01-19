@@ -102,7 +102,12 @@ if rank==0:
 		if stack is None:
 			# Create frame stack
 			stack=cube
+		elif len(stack.shape)==2: # Actually working with frames instead of cubes
+			stack=np.concatenate((stack[np.newaxis,...],cube[np.newaxis]), axis=0)
+		elif len(cube.shape)==2: # Add frames, not cubes
+			stack=np.concatenate((stack,cube[np.newaxis]), axis=0)
 		else:
+			print(stack.shape,cube.shape)
 			stack=np.concatenate((stack,cube), axis=0)
 	if stack is None:
 		print("No cubes found to generate median.")

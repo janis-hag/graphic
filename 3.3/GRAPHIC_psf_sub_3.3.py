@@ -193,7 +193,7 @@ if rank==0:
 	## # Check values in dirlist and remove dodgy files.
 	## for i in range(len(dirlist)):
 		## if not os.access(dirlist[i], os.F_OK | os.R_OK): # Check if file exists
-			print("")
+			## print("")
 			## print(str(rank)+': Error, cannot access: '+dirlist[i])
 			## dirlist[i]=None
 			## continue
@@ -456,15 +456,12 @@ if rank==0:
 			if not len(valid.keys())==0:
 				sample=fmax/len(valid.keys())
 				for j,k in valid.keys():
-					print(sample, fmax, len(valid.keys()), len(valid[(j,k)]))
-					print(cubes[k].shape, valid[(j,k)])
 					if len(valid[(j,k)])<sample:
 						stack[si:si+len(valid[(j,k)])]=cubes[k][valid[(j,k)]]
 						si+=len(valid[(j,k)])
 						cube_count+=1
 					else:
 						# Could add PCA step here
-						print(si, sample, j, k)
 						stack[si:si+sample]=cubes[k][random.sample(valid[(j,k)],sample)]
 						si+=sample
 						cube_count=cube_count+1
