@@ -528,22 +528,22 @@ def create_parang_scexao(hdr):
 
 	## mjdstart=float(hdr['MJD-OBS'])
 
-	if 'P_TRMODE' in hdr.keys() and hdr['P_TRMODE']=='ADI':
+	## if 'P_TRMODE' in hdr.keys() and hdr['P_TRMODE']=='ADI':
 		## parang_array=numpy.array([obs_time.mjd,r2d*arctan(f1/f2)])
-		pa=-rad2deg(arctan2(-f1,f2))
-		if coord.dec.deg > geo_coord.latitude.deg:
-			pa = ((pa + 360) % 360)
+	pa=-rad2deg(arctan2(-f1,f2))
+	if coord.dec.deg > geo_coord.latitude.deg:
+		pa = ((pa + 360) % 360)
 
-		## pa = pa + 180
-		parang_array=numpy.array([obs_time.mjd,pa ])
+	## pa = pa + 180
+	parang_array=numpy.array([obs_time.mjd,pa ])
 
-	else:
-		if 'ARCFILE' in hdr.keys():
-			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
-		else:
-			print('Data does not seem to be taken in pupil tracking.')
+	## else:
+		## if 'ARCFILE' in hdr.keys():
+			## print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
+		## else:
+			## print('Data does not seem to be taken in pupil tracking.')
 
-		parang_array=numpy.array([mjdstart,0])
+		## parang_array=numpy.array([mjdstart,0])
 
 	return parang_array
 
@@ -927,21 +927,21 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 		## py1=(pad*naxis/2.)-(in_frame.shape[1]/2)+y1
 		## py2=(pad*naxis/2.)-(in_frame.shape[1]/2)+y2
 		## print(pad, in_frame.shape, x1, y1)
-		px1=(pad*in_frame.shape[0]/2)-x1
-		px2=(pad*in_frame.shape[0]/2)+x1
-		py1=(pad*in_frame.shape[1]/2)-y1
-		py2=(pad*in_frame.shape[1]/2)+y1
+		px1=int((pad*in_frame.shape[0]/2)-x1)
+		px2=int((pad*in_frame.shape[0]/2)+x1)
+		py1=int((pad*in_frame.shape[1]/2)-y1)
+		py2=int((pad*in_frame.shape[1]/2)+y1)
 	pad_frame=np.ones((in_frame.shape[0]*pad,in_frame.shape[1]*pad))*np.NaN
 	## pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
 	## pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
 	pad_mask=np.ones((pad_frame.shape), dtype=bool)
 	pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame
+		int(((pad-1)/2.)*in_frame.shape[0]):int(((pad+1)/2.)*in_frame.shape[0]),
+		int(((pad-1)/2.)*in_frame.shape[1]):int(((pad+1)/2.)*in_frame.shape[1])]=in_frame
 	## pad_mask=np.ones((in_frame.shape[0]*pad,in_frame.shape[1]*pad))*np.NaN
 	pad_mask[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=np.where(np.isnan(in_frame),True,False)
+		int(((pad-1)/2.)*in_frame.shape[0]):int(((pad+1)/2.)*in_frame.shape[0]),
+		int(((pad-1)/2.)*in_frame.shape[1]):int(((pad+1)/2.)*in_frame.shape[1])]=np.where(np.isnan(in_frame),True,False)
 	# Rotate the mask, to know what part is actually the image
 	pad_mask=ndimage.interpolation.rotate(pad_mask, np.rad2deg(-alpha_rad),reshape=False, order=0, mode='constant', cval=True, prefilter=False)
 	## print(pad_mask)

@@ -706,7 +706,7 @@ else:
 			# Receive info table used for recentreing
 			info_stack=comm.bcast(None,root=0)
 			if d >2:
-				print(str(rank)+" received info_stack: "+str(info_stack))
+				print(str(rank)+" received info_stack with shape "+str(info_stack.shape)+": "+str(info_stack))
 
 			# Receive number of first frame in cube
 			s=comm.recv(source=0)
@@ -719,7 +719,7 @@ else:
 				if stack is None:
 					print(str(rank)+" received stack: "+str(stack))
 				else:
-					print(str(rank)+" received stack, shape="+str(stack.shape))
+					print(str(rank)+" received stack, shape="+str(stack.shape)+' info_stack.shape='+str(info_stack.shape))
 
 
 			if not (stack is None or len(stack.shape)<3):
@@ -742,7 +742,7 @@ else:
 				stack_shape=stack.shape
 				del stack
 				for fn in range(bigstack.shape[0]):
-					graphic_mpi_lib.dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
+					graphic_mpi_lib.dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape)+' chunk started at: '+str(s))
 					if info_stack[s+fn,4]==-1 or info_stack[s+fn,5]==-1 or info_stack[s+fn,6]==-1:
 						bigstack[fn]=np.NaN
 						continue
