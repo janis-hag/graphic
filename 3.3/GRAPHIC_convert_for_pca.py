@@ -40,6 +40,8 @@ if rank==0:
 	sys.stdout.flush()
 
 	# Check that the output directory exists, and make it if needed
+	if not output_dir.endswith(os.sep):
+		output_dir+=os.sep
 	dir_exists=os.access(output_dir, os.F_OK)
 	if not dir_exists:
 		os.mkdir(output_dir)
@@ -59,7 +61,7 @@ if rank==0:
 
 		for line in lines:
 			parallactic_angle=line.strip().split()[11]
-			if ((not "parallactic_angle" in parallactic_angle) and (not "---" in parallactic_angle)):
+			if ((not "paralactic_angle" in parallactic_angle) and (not "---" in parallactic_angle)):
 				parallactic_angle_vec=np.append(parallactic_angle_vec,parallactic_angle)
 	
 	# Write the output file with all of the frames in the cube
