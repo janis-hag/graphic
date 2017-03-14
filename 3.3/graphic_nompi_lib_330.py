@@ -381,11 +381,11 @@ def create_parang_list_naco(hdr):
 
 	if ('ESO TEL ROT ALTAZTRACK' in hdr.keys() and hdr['ESO TEL ROT ALTAZTRACK']==True) or (hdr['HIERARCH ESO DPR TECH'] =='IMAGE,JITTER,CUBE,PT'):
 
-		pa = -r2d*arctan2(-f1,f2)
-		if dec_deg > geolat_deg:
-			pa = ((pa + 360) % 360)
+		pa = -r2d*arctan2(-f1,f2)+ROT_PT_OFF
+		# if dec_deg > geolat_deg:
+		pa = ((pa + 360) % 360)
 
-		parang_array=numpy.array([0,mjdstart,pa+ROT_PT_OFF])
+		parang_array=numpy.array([0,mjdstart,pa])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
 
 		for i in range(1,hdr['NAXIS3']):
@@ -646,8 +646,26 @@ def create_parang_list_sphere(hdr):
 		print('WARNING: Unknown instrument in create_parang_list_sphere: '+str(detector))
 
 	try:
-		ra_deg = float(hdr['RA'])
-		dec_deg = float(hdr['DEC'])
+		# Get the correct RA and Dec from the header
+		actual_ra = hdr['HIERARCH ESO INS4 DROT2 RA']
+		actual_dec = hdr['HIERARCH ESO INS4 DROT2 DEC']
+		
+		# These values were in weird units: HHMMSS.ssss
+		actual_ra_hr = np.floor(actual_ra/10000.)
+		actual_ra_min = np.floor(actual_ra/100. - actual_ra_hr*100.)
+		actual_ra_sec = (actual_ra - actual_ra_min*100. - actual_ra_hr*10000.)
+		
+		ra_deg = (actual_ra_hr + actual_ra_min/60. + actual_ra_sec/60./60.) * 360./24.
+		
+		# the sign makes this complicated, so remove it now and add it back at the end
+		sgn = np.sign(actual_dec)
+		actual_dec *= sgn
+		
+		actual_dec_deg = np.floor(actual_dec/10000.)
+		actual_dec_min = np.floor(actual_dec/100. - actual_dec_deg*100.)
+		actual_dec_sec = (actual_dec - actual_dec_min*100. - actual_dec_deg*10000.)
+		
+		dec_deg = (actual_dec_deg + actual_dec_min/60. + actual_dec_sec/60./60.)*sgn
 
 		geolat_deg=float(hdr['ESO TEL GEOLAT'])
 		geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
@@ -658,7 +676,6 @@ def create_parang_list_sphere(hdr):
 		geolat_deg=0
 		geolat_rad=0
 
-	#dit=hdr['ESO DET SEQ1 REALDIT']
 	######################ajouter par Seb
 	from astropy.time import Time
 	date_start=hdr['DATE-OBS']
@@ -669,14 +686,8 @@ def create_parang_list_sphere(hdr):
 		delta_dit=0
 	else:
 		delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
-###########################
-
-	#if 'ESO DET DITDELAY' in hdr.keys():
-	#	dit_delay=float(hdr['ESO DET DITDELAY'])
-	#else:
-		## sys.stdout.write('\n Warning! No HIERARCH ESO DET DITDELAY keyword found, using 0. Is it ADI?\n')
-		## sys.stdout.flush()
-	#	dit_delay=0
+    ###########################
+	
 
 	try:
 		ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
@@ -695,6 +706,15 @@ def create_parang_list_sphere(hdr):
 		pa = -r2d*arctan2(-f1,f2)
 
 		pa = pa +offset
+
+		# Also correct for the derotator issues that were fixed on 12 July 2016 (MJD = 57581)
+		if hdr['MJD-OBS'] < 57581:
+			alt = hdr['ESO TEL ALT']
+	        drot_begin = hdr['ESO INS4 DROT2 BEGIN']
+	        correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
+	        pa += correction
+	        print('  Correcting for SPHERE time reference issue affecting data before 12 July 2016')
+
 		pa = ((pa + 360) % 360)
 		parang_array=numpy.array([0,mjdstart,pa])
 		## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
@@ -709,6 +729,14 @@ def create_parang_list_sphere(hdr):
 			pa = -r2d*arctan2(-f1,f2)
 
 			pa=pa+offset
+
+			# Also correct for the derotator issues that were fixed on 12 July 2016 (MJD = 57581)
+			if hdr['MJD-OBS'] < 57581:
+				alt = hdr['ESO TEL ALT']
+		        drot_begin = hdr['ESO INS4 DROT2 BEGIN']
+		        correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
+		        pa += correction
+
 			pa = ((pa + 360) % 360)
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
 			parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,pa]))

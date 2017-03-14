@@ -16,11 +16,16 @@ parser = argparse.ArgumentParser(description='Detection of the star center for c
 parser.add_argument('--pattern', action="store", dest="pattern",  default="cl_nomed_SPHER*STAR_CENTER", help='cubes to apply the star centering')
 parser.add_argument('-science_waffle', dest='science_waffle', action='store_const', const=True, default=False, help='Switch to science frame with waffle (usually for high precision astrometry)')
 parser.add_argument('-ifs', dest='ifs', action='store_const', const=True, default=False, help='Switch for IFS data')
+parser.add_argument('--lowpass_r',dest='lowpass_r',action='store',type=int,default=50,help='Radius of low pass filter to apply (in pixels) prior to the rough guess of the centre. Default 50.')
+parser.add_argument('--manual_rough_centre',dest='manual_rough_centre',action='store',type=int,nargs='+',default=-1,help='Rough position of star behind coronagraph. Use this to overwrite the rough centring before the waffle positions are measured.')
+
 
 
 args = parser.parse_args()
 pattern=args.pattern
 science_waffle=args.science_waffle
+lowpass_r = args.lowpass_r
+manual_rough_centre = args.manual_rough_centre
 
 if rank==0:
         
@@ -101,7 +106,7 @@ if rank==0:
             e=(im_simulated-im)
             return np.asarray(np.real(e)).reshape(-1)
 
-    def star_center(key_word,science_waffle=False,ifs=False):
+    def star_center(key_word,science_waffle=False,ifs=False,lowpass_r=50,manual_rough_centre=-1):
             """
             Determine the star position behind the coronograph using the waffle positions and computing a levenberg-marquardt fit of a 
             moffat profile on the waffle. We calculate the star position taking the gravity center of the waffles.
@@ -126,7 +131,7 @@ if rank==0:
                 if cube_waffle.ndim >2: #if it is a cube we take the median over frames
                     sys.stdout.write('More than one frame found, taking the mean')
                     sys.stdout.flush()
-                    cube_waffle=np.median(cube_waffle,axis=0) #taking the median
+                    cube_waffle=np.nanmedian(cube_waffle,axis=0) #taking the median
                 size_cube=1
             
             # Work out how many wavelength channels there are
@@ -160,10 +165,16 @@ if rank==0:
                     
                     
                     #rough approximation of the center by detection of the max after a low pass filter
-                    low_pass_im=low_pass(im_waffle,50,2,100)
+                    low_pass_im=low_pass(im_waffle,lowpass_r,2,100)
                     
-                    center=np.array(scipy.ndimage.measurements.center_of_mass(np.nan_to_num(low_pass_im)))
-                    center=[int(round(center[1])),int(round(center[0]))]
+                    if manual_rough_centre == -1:
+                        # center=np.array(scipy.ndimage.measurements.center_of_mass(np.nan_to_num(low_pass_im)))
+                        center =np.where(low_pass_im == np.max(low_pass_im))
+                        center=[int(round(center[1])),int(round(center[0]))]
+                    else:
+                        print('')
+                        print('  Using manual rough centre position: '+str(manual_rough_centre[0])+' '+str(manual_rough_centre[1]))
+                        center = manual_rough_centre
                 
                     #cut the image to find the center faster
                     if ifs:
@@ -294,9 +305,9 @@ if rank==0:
             f=open('star_center.txt','a')
             f.write(allfiles+' \n')
             f.close()
-            star_center(allfiles,science_waffle,ifs=args.ifs)
+            star_center(allfiles,science_waffle,ifs=args.ifs,lowpass_r=lowpass_r,manual_rough_centre=manual_rough_centre)
     else:
-        star_center(pattern+'*',ifs=args.ifs)
+        star_center(pattern+'*',ifs=args.ifs,lowpass_r=lowpass_r,manual_rough_centre=manual_rough_centre)
 
     sys.stdout.write("Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
     sys.stdout.write("\n")
