@@ -710,10 +710,10 @@ def create_parang_list_sphere(hdr):
 		# Also correct for the derotator issues that were fixed on 12 July 2016 (MJD = 57581)
 		if hdr['MJD-OBS'] < 57581:
 			alt = hdr['ESO TEL ALT']
-	        drot_begin = hdr['ESO INS4 DROT2 BEGIN']
-	        correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
-	        pa += correction
-	        print('  Correcting for SPHERE time reference issue affecting data before 12 July 2016')
+			drot_begin = hdr['ESO INS4 DROT2 BEGIN']
+			correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
+			pa += correction
+			print('  Correcting for SPHERE time reference issue affecting data before 12 July 2016')
 
 		pa = ((pa + 360) % 360)
 		parang_array=numpy.array([0,mjdstart,pa])
@@ -733,9 +733,9 @@ def create_parang_list_sphere(hdr):
 			# Also correct for the derotator issues that were fixed on 12 July 2016 (MJD = 57581)
 			if hdr['MJD-OBS'] < 57581:
 				alt = hdr['ESO TEL ALT']
-		        drot_begin = hdr['ESO INS4 DROT2 BEGIN']
-		        correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
-		        pa += correction
+				drot_begin = hdr['ESO INS4 DROT2 BEGIN']
+				correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
+				pa += correction
 
 			pa = ((pa + 360) % 360)
 			## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
