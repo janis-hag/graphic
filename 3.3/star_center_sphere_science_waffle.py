@@ -18,7 +18,7 @@ parser.add_argument('-science_waffle', dest='science_waffle', action='store_cons
 parser.add_argument('-ifs', dest='ifs', action='store_const', const=True, default=False, help='Switch for IFS data')
 parser.add_argument('--lowpass_r',dest='lowpass_r',action='store',type=int,default=50,help='Radius of low pass filter to apply (in pixels) prior to the rough guess of the centre. Default 50.')
 parser.add_argument('--manual_rough_centre',dest='manual_rough_centre',action='store',type=int,nargs='+',default=-1,help='Rough position of star behind coronagraph. Use this to overwrite the rough centring before the waffle positions are measured.')
-
+parser.add_argument('--ignore_frame', dest='ignore_frame', type=float, nargs='+',required=False,help='ds9 number of frames for bad frames to be ignored')
 
 
 args = parser.parse_args()
@@ -26,9 +26,16 @@ pattern=args.pattern
 science_waffle=args.science_waffle
 lowpass_r = args.lowpass_r
 manual_rough_centre = args.manual_rough_centre
+ignore_frame=args.ignore_frame
 
 if rank==0:
-        
+    try:
+        ignore_frame
+        ignore_frame=np.array(ignore_frame)
+        bad_frame=True
+    except:
+        print "no bad frame to ignore"
+    
     def twoD_Gaussian((x,y), amplitude, xo, yo, sigma_x, sigma_y,theta):
         ''' Returns a 2D gaussian function
         (x,y): the 2D coordinate arrays
@@ -121,15 +128,25 @@ if rank==0:
                 size_cube=np.shape(cube_waffle)[0]
             else:
                 count=0
-                for allfiles in glob.iglob(key_word):
+                filenames=glob.glob(key_word)
+                filenames_sorted=np.sort(filenames)
+                print filenames_sorted
+                for allfiles in filenames_sorted:
                     if count==0:
                         cube_waffle,hdr=pyfits.getdata(allfiles, header=True)
+                        print "hellooooooooo!"
                     else:
                         temp,hdr=pyfits.getdata(allfiles, header=True)
                         cube_waffle=np.append(cube_waffle,temp,axis=0)
                     count+=1
+                if bad_frame:
+                    sys.stdout.write('bad frame to be deleted '+str(ignore_frame)+'\n')
+                    sys.stdout.flush()
+                    cube_waffle=np.delete(cube_waffle,ignore_frame-1,axis=0)
+                    star_center_bad_frame_deleted_filename='STAR_CENTER_cube_bad_frame_del.fits'
+                    pyfits.writeto(star_center_bad_frame_deleted_filename,cube_waffle,header=hdr)
                 if cube_waffle.ndim >2: #if it is a cube we take the median over frames
-                    sys.stdout.write('More than one frame found, taking the mean')
+                    sys.stdout.write('More than one frame found, taking the median \n')
                     sys.stdout.flush()
                     cube_waffle=np.nanmedian(cube_waffle,axis=0) #taking the median
                 size_cube=1
