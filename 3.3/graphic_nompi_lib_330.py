@@ -686,7 +686,7 @@ def create_parang_list_sphere(hdr):
 		delta_dit=0
 	else:
 		delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
-    ###########################
+	###########################
 	
 
 	try:
@@ -758,6 +758,7 @@ def create_parang_list_sphere(hdr):
 		delta_parang = parang_array[-1,2]-parang_array[0,2]
 		if np.abs(expected_delta_parang - delta_parang) > 1.:
 			print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
+
 	except:
 		pass
 	return parang_array
@@ -909,26 +910,34 @@ def fft_3shear_rotate(in_frame, alpha,x1,x2,y1,y2):
 		((pad*naxis)/2.)-in_frame.shape[0]/2:((pad*naxis)/2.)+in_frame.shape[0]/2,
 		((pad*naxis)/2.)-in_frame.shape[1]/2:((pad*naxis)/2.)+in_frame.shape[1]/2]).copy()
 
-def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
+def fft_3shear_rotate_pad(in_frame, alpha, pad=4, return_full = False):
 	"""
 	3 FFT shear based rotation, following Larkin et al 1997
 
 	in_frame: the numpy array which has to be rotated
 	alpha: the rotation alpha in degrees
 	pad: the padding factor
-	x1,x2: the borders of the original image in x
-	y1,y2: the borders of the original image in y
 
+	The following options were removed because they didn't work:
+		x1,x2: the borders of the original image in x
+		y1,y2: the borders of the original image in y
+
+	One side effect of this program is that the image gains two columns and two rows.
+	This is necessary to avoid problems with the different choice of centre between
+	GRAPHIC and numpy
 
 	Return the rotated array
 	"""
-	import numpy as np
-	from scipy import ndimage
-
+	
 	#################################################
 	# Check alpha validity and correcting if needed
 	#################################################
 	alpha=1.*alpha-360*np.floor(alpha/360)
+
+	# We need to add some extra rows since np.rot90 has a different definition of the centre
+	temp = np.zeros((in_frame.shape[0]+3,in_frame.shape[1]+3))+0.
+	temp[1:in_frame.shape[0]+1,1:in_frame.shape[1]+1]=in_frame
+	in_frame = temp
 
 	# FFT rotation only work in the -45:+45 range
 	if alpha > 45 and alpha < 135:
@@ -943,59 +952,33 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 	else:
 		alpha_rad=-np.deg2rad(alpha)
 
+		 # Remove one extra row
+	in_frame = in_frame[:-1,:-1]
+
 	###################################
 	# Preparing the frame for rotation
 	###################################
-	## naxis=None
-	if x1>0:
-		## naxis=x2-x1
-		## print(naxis,x1,x2,y1,y2)
-		## px1=(pad*naxis/2.)-(in_frame.shape[0]/2)+x1
-		## px2=(pad*naxis/2.)-(in_frame.shape[0]/2)+x2
-		## py1=(pad*naxis/2.)-(in_frame.shape[1]/2)+y1
-		## py2=(pad*naxis/2.)-(in_frame.shape[1]/2)+y2
-		## print(pad, in_frame.shape, x1, y1)
-		px1=(pad*in_frame.shape[0]/2)-x1
-		px2=(pad*in_frame.shape[0]/2)+x1
-		py1=(pad*in_frame.shape[1]/2)-y1
-		py2=(pad*in_frame.shape[1]/2)+y1
+
+	# Calculate the position that the input array will be in the padded array to simplify
+	#  some lines of code later 
+	px1=np.int(((pad-1)/2.)*in_frame.shape[0])
+	px2=np.int(((pad+1)/2.)*in_frame.shape[0])
+	py1=np.int(((pad-1)/2.)*in_frame.shape[1])
+	py2=np.int(((pad+1)/2.)*in_frame.shape[1])
+
+	# Make the padded array	
 	pad_frame=np.ones((in_frame.shape[0]*pad,in_frame.shape[1]*pad))*np.NaN
-	## pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
-	## pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
 	pad_mask=np.ones((pad_frame.shape), dtype=bool)
-	pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame
-	## pad_mask=np.ones((in_frame.shape[0]*pad,in_frame.shape[1]*pad))*np.NaN
-	pad_mask[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=np.where(np.isnan(in_frame),True,False)
+	pad_frame[px1:px2,py1:py2]=in_frame
+	pad_mask[px1:px2,py1:py2]=np.where(np.isnan(in_frame),True,False)
+	
 	# Rotate the mask, to know what part is actually the image
-	pad_mask=ndimage.interpolation.rotate(pad_mask, np.rad2deg(-alpha_rad),reshape=False, order=0, mode='constant', cval=True, prefilter=False)
-	## print(pad_mask)
+	pad_mask=ndimage.interpolation.rotate(pad_mask, np.rad2deg(-alpha_rad),
+		  reshape=False, order=0, mode='constant', cval=True, prefilter=False)
+
 	# Replace part outside the image which are NaN by 0, and go into Fourier space.
 	pad_frame=np.where(np.isnan(pad_frame),0.,pad_frame)
-	if x1==0:
-		pad_frame[
-			((pad-1)/2.)*in_frame.shape[0]-1,
-			((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame[0,:]/2.
-		pad_frame[
-			((pad+1)/2.)*in_frame.shape[0],
-			((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame[-1,:]/2.
-		pad_frame[
-			((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-			((pad-1)/2.)*in_frame.shape[1]-1]=in_frame[:,0]/2.
-		pad_frame[
-			((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-			((pad+1)/2.)*in_frame.shape[1]] =in_frame[:,-1]/2.
-	elif x1>0:
-		## print(x1,px1)
-		## print(pad_frame.shape)
-		pad_frame[px1,py1:py2]=pad_frame[px1,py1:py2]/2.
-		pad_frame[px2-1,py1:py2]=pad_frame[px2-1,py1:py2]/2.
-		pad_frame[px1:px2,py1]=pad_frame[px1:px2,py1]/2.
-		pad_frame[px1:px2,py2-1]=pad_frame[px1:px2,py2-1]/2.
-	#pad_frame=np.fftpack.fftshift(np.fftpack.fft2(np.where(np.isnan(pad_frame),0.,pad_frame)))
+
 
 	###############################
 	# Rotation in Fourier space
@@ -1008,24 +991,23 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4,x1=0,x2=0,y1=0,y2=0):
 
 	X=np.arange(-pad_frame.shape[0]/2.,pad_frame.shape[0]/2.)#/pad_frame.shape[0]
 
-	pad_x=fftpack.ifft((fftpack.fft(pad_frame, axis=0,overwrite_x=True).T*np.exp(a*((M*N).T*X).T)).T, axis=0,overwrite_x=True)
-	pad_xy=fftpack.ifft(fftpack.fft(pad_x,axis=1,overwrite_x=True)*np.exp(b*(M*X).T*N), axis=1,overwrite_x=True)
-	pad_xyx=fftpack.ifft((fftpack.fft(pad_xy, axis=0,overwrite_x=True).T*np.exp(a*((M*N).T*X).T)).T,axis=0,overwrite_x=True)
+	pad_x=fftpack.ifft((fftpack.fft(pad_frame, axis=0,overwrite_x=True).T*
+		np.exp(a*((M*N).T*X).T)).T, axis=0,overwrite_x=True)
+	pad_xy=fftpack.ifft(fftpack.fft(pad_x,axis=1,overwrite_x=True)*
+		np.exp(b*(M*X).T*N), axis=1,overwrite_x=True)
+	pad_xyx=fftpack.ifft((fftpack.fft(pad_xy, axis=0,overwrite_x=True).T*
+		np.exp(a*((M*N).T*X).T)).T,axis=0,overwrite_x=True)
 
 	# Go back to real space
 	# Put back to NaN pixels outside the image.
 
 	pad_xyx[pad_mask]=np.NaN
 
-	## if x1==0:
-	return np.real(pad_xyx[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]).copy()
-	## else:
-		## return np.real(pad_xyx[
-			## ((pad*naxis)/2.)-in_frame.shape[0]/2:((pad*naxis)/2.)+in_frame.shape[0]/2,
-			## ((pad*naxis)/2.)-in_frame.shape[1]/2:((pad*naxis)/2.)+in_frame.shape[1]/2]).copy()
-		## return np.real(pad_xyx[px1:px2,py1:py2]).copy()
+
+	if return_full:
+		return np.real(pad_xyx).copy()
+	else:
+		return np.real(pad_xyx[px1:px2,py1:py2]).copy()
 
 def fft_rotate(frame, angle):
 	# Rotate a mask, to know what part is actually the image
@@ -2602,16 +2584,16 @@ def shift_diff_interpol_nowin(shift, rw, sw ):
 	return diff_im.flatten()
 
 def sort_nicely( l ):
-    """
-    Sort the given iterable in the way that humans expect.
+	"""
+	Sort the given iterable in the way that humans expect.
 
 	Source from http://blog.codinghorror.com/sorting-for-humans-natural-sort-order/
-    """
-    import re
+	"""
+	import re
 
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
-    return sorted(l, key = alphanum_key)
+	convert = lambda text: int(text) if text.isdigit() else text
+	alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+	return sorted(l, key = alphanum_key)
 
 def trim_overscan(cube):
 	"""
@@ -2778,54 +2760,54 @@ def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
 
 
 def fix_naco_bad_cols(cube):
-    ''' Fix the new bad columns on the NACO detector by averaging the neighbouring
-    columns.
-    We can get rid of the if/elif/else statements by working on cube.T, but this should always work fine '''
+	''' Fix the new bad columns on the NACO detector by averaging the neighbouring
+	columns.
+	We can get rid of the if/elif/else statements by working on cube.T, but this should always work fine '''
 
-    if cube.ndim==3:
-        cols=np.arange(0,cube.shape[2]/2,8)+3
-        d1=0
-        d2=cube.shape[1]/2
-        cube[:,d1:d2,cols]=(cube[:,d1:d2,cols+1]+cube[:,d1:d2,cols-1])/2
+	if cube.ndim==3:
+		cols=np.arange(0,cube.shape[2]/2,8)+3
+		d1=0
+		d2=cube.shape[1]/2
+		cube[:,d1:d2,cols]=(cube[:,d1:d2,cols+1]+cube[:,d1:d2,cols-1])/2
 
-    elif cube.ndim==2:
-        cols=np.arange(cube.shape[1]/2,8)+3
-        d1=0
-        d2=cube.shape[0]/2
-        cube[d1:d2,cols]=(cube[d1:d2,cols+1]+cube[d1:d2,cols-1])/2
-    else:
-        raise ValueError("The input cube to fix_bad_cols has the wrong dimensions: "+str(cube.ndim))
+	elif cube.ndim==2:
+		cols=np.arange(cube.shape[1]/2,8)+3
+		d1=0
+		d2=cube.shape[0]/2
+		cube[d1:d2,cols]=(cube[d1:d2,cols+1]+cube[d1:d2,cols-1])/2
+	else:
+		raise ValueError("The input cube to fix_bad_cols has the wrong dimensions: "+str(cube.ndim))
 
-    return cube
+	return cube
 
 def make_twilight_flat(flat_cube,quality_flag):
-    '''Turns a 3D cube of twilight flat frames into a single flat field, by subtracting
-    the frame with the lowest value, then taking a flux-weighted mean of the rest
-    Returns the flat and the flux differences used to weight the input frames
-    '''
-    # Find the average values in each image
-    meds=np.median(flat_cube,axis=(1,2))
+	'''Turns a 3D cube of twilight flat frames into a single flat field, by subtracting
+	the frame with the lowest value, then taking a flux-weighted mean of the rest
+	Returns the flat and the flux differences used to weight the input frames
+	'''
+	# Find the average values in each image
+	meds=np.median(flat_cube,axis=(1,2))
 
-    # Subtract off the "darkest" frame and calculate the average flux difference of each frame
-    flat_cube-=flat_cube[meds==np.min(meds)]
-    flux_diffs=np.median(flat_cube,axis=(1,2))
+	# Subtract off the "darkest" frame and calculate the average flux difference of each frame
+	flat_cube-=flat_cube[meds==np.min(meds)]
+	flux_diffs=np.median(flat_cube,axis=(1,2))
 
-    # Clear the dark frame to remove any warnings from the rest of the code (we wont use it anyway)
-    flat_cube[meds==np.min(meds)]=1
+	# Clear the dark frame to remove any warnings from the rest of the code (we wont use it anyway)
+	flat_cube[meds==np.min(meds)]=1
 
-    # Normalise them by their average. This will print a warning for the frame that was used as a dark...
-    flat_cube=np.array([flat_cube[ix]/np.median(flat_cube[ix]) for ix in range(len(meds))])
+	# Normalise them by their average. This will print a warning for the frame that was used as a dark...
+	flat_cube=np.array([flat_cube[ix]/np.median(flat_cube[ix]) for ix in range(len(meds))])
 
-    # Turn nans to 1s
-    # flat_cube[np.isnan(flat_cube)]=1.
+	# Turn nans to 1s
+	# flat_cube[np.isnan(flat_cube)]=1.
 
-    # do a flux-weighted mean to get the final flat field
-    weights=flux_diffs/np.sum(flux_diffs)
-    flat=np.dot(flat_cube.T,weights).T
+	# do a flux-weighted mean to get the final flat field
+	weights=flux_diffs/np.sum(flux_diffs)
+	flat=np.dot(flat_cube.T,weights).T
 
-    # And normalise it
-    flat/=np.median(flat)
+	# And normalise it
+	flat/=np.median(flat)
 
-    return flat,flux_diffs
+	return flat,flux_diffs
 
 
