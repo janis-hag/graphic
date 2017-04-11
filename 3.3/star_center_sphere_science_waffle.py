@@ -81,17 +81,6 @@ if rank==0:
         im_bis=np.real(pyfftw.interfaces.scipy_fftpack.ifft2(f_bas,threads=threads))
         
         return im_bis
-
-    def moffat(size,A,alpha,beta):
-            """
-            Produce a 2D moffat profile with an image of size "size", an amplitude A, and the two parameters alpha and beta
-            """
-            x=np.arange(-size/2.,size/2.)
-            y=x
-            X,Y=np.meshgrid(x,y)
-            r=np.sqrt(X**2+Y**2)
-            mof=A*np.power(1+(r/alpha)**2,-beta)
-            return mof
             
     def moffat3(size,S0,A,x0,y0,alpha1,alpha2,beta,theta):
 	    x=np.arange(-size/2.,size/2.)
@@ -132,27 +121,6 @@ if rank==0:
 	    e=np.sum((im_simulated-im)**2)
 	    
 	    return e
-
-    def error(par,data):
-            """
-            error function for the fit of a moffat profile on a psf in an image. The parameters of the fit are par and the data
-            are the image data[0], and the median of the entire image (not calculated here in because we use a sub image to make the fit
-            faster)
-            """
-            im=data[0]
-            med=data[1]
-            size=np.shape(im)[0]
-            A1=par[0]
-            alpha1=par[1]
-            beta1=par[2]
-            center1=[par[3],par[4]]
-            moffat1=moffat(size,A1,alpha1,beta1)
-            
-            moffat1=graphic_nompi_lib.fft_shift(moffat1,center1[1]-size/2.,center1[0]-size/2.)
-
-            im_simulated=(moffat1)+med
-            e=(im_simulated-im)
-            return np.asarray(np.real(e)).reshape(-1)
 
     def star_center(key_word,science_waffle=False,ifs=False,lowpass_r=50,manual_rough_centre=-1):
             """
@@ -333,17 +301,8 @@ if rank==0:
                         
                         mof_init=moffat3(20,paramsinitial[0],paramsinitial[1],paramsinitial[2],paramsinitial[3],paramsinitial[4],paramsinitial[5],paramsinitial[6],paramsinitial[7])
                         mof=moffat3(20,res.x[0],res.x[1],res.x[2],res.x[3],res.x[4],res.x[5],res.x[6],res.x[7])
-                        
-                        """pyfits.writeto(str(channel_ix)+"_spot"+str(i)+".fits",im_temp)
-                        pyfits.writeto(str(channel_ix)+"_spot"+str(i)+"fit_init.fits",mof_init)
-                        pyfits.writeto(str(channel_ix)+"_spot"+str(i)+"fit.fits",mof)
-                        pyfits.writeto(str(channel_ix)+"_spot"+str(i)+"residu.fits",im_temp-mof)"""
-            
             
                     sys.stdout.write('\n')
-                    """print "par_vec",par_vec
-                    print "max_index_vec1",max_index_vec1
-                    print "center",center"""
                     center_spot1=np.array([center[0]+max_index_vec1[1]-np.shape(low_pass_im)[1]/2.+par_vec[1]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[0]-np.shape(low_pass_im)[0]/2.+par_vec[2]-np.shape(im_temp)[0]/2.])
 		    center_spot2=np.array([center[0]+max_index_vec1[3]-np.shape(low_pass_im)[1]/2.+par_vec[4]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[2]-np.shape(low_pass_im)[0]/2.+par_vec[5]-np.shape(im_temp)[0]/2.])
         	    center_spot3=np.array([center[0]+max_index_vec1[5]-np.shape(low_pass_im)[1]/2.+par_vec[7]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[4]-np.shape(low_pass_im)[0]/2.+par_vec[8]-np.shape(im_temp)[0]/2.])
