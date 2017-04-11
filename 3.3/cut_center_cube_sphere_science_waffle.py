@@ -275,11 +275,9 @@ if rank==0:
         for wav in range(n_wav):
             
             if science_waffle:
-                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-0.5-center[wav,:,0]-dithering_x,
-                            np.shape(cube)[-2]/2.-0.5-center[wav,:,1]-dithering_y)
+                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-center[wav,:,0]-dithering_x,np.shape(cube)[-2]/2.-center[wav,:,1]-dithering_y)
             else:
-                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-0.5-center[wav,0]-dithering_x,
-                            np.shape(cube)[-2]/2.-0.5-center[wav,1]-dithering_y)
+                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-center[wav,0]-dithering_x,np.shape(cube)[-2]/2.-center[wav,1]-dithering_y)
 
         # find the position of the NaN mask after translation of the image.
         # IF science_waffle we use the first frame as the position will change
