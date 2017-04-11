@@ -18,6 +18,7 @@ from gaussfit_330 import fitgaussian
 from scipy import ndimage
 #import astropy.io.fits as pyfits
 from astropy.io import fits
+import pyfftw
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
@@ -2360,113 +2361,229 @@ def save_fits(filename, img, **keywords):
 		## img.verify(option='silentfix')
 		img.writeto(target_dir + os.sep +filename,output_verify=verify)
 
+def scale_flux(reference_image,scaled_image,r_int=30,r_ext=80):
+    ''' Calculate the factor needed to scale the flux to best subtract the PSF
+    r_int and r_ext are the interior and exterior radii of the donut shaped mask used to calculate the flux ratio.
+    '''
 
-def sdi(im1_3d,im2_3d,lambda1,lambda2,additional):
-	"""
-	take im as an image and rescale it (make it bigger) by a factor lambda1/lambda2
-	input: im=the image to rescale, lambda1= the wavelength of the first filter, lambda2= the wavelength of the second filter,
-	mask_apodisation= apodisation matrix for the fourier transform so we don't add high frequency when we come back to the image plan
-	output: im2= image with more pixels (2*nbr_pix) but with the same proportions than im,
-	im3= image rescaled and with the same number of pixels than im
-	"""
+    # Make a donut shaped mask
+    l=np.shape(reference_image)[1]
+    x=np.arange(-l/2.,l/2.)
+    y=np.arange(-l/2.,l/2.)
+    X,Y=np.meshgrid(x,y)
+    R1=np.sqrt(X**2+Y**2)
+    donut=np.where(R1>r_int,1,np.nan)
+    donut=np.where(R1>r_ext,np.nan,donut)
+    
+    # Calculate the ratio of mean flux in the donut in each image
+   # flux_factors = np.nanmean(reference_image*donut,axis=(1,2))/np.nanmean(scaled_image*donut,axis=(1,2))
+    # flux_factor = np.nanmedian((reference_image/scaled_image)*donut,axis=(1,2))
+    # flux_factor = np.nanmedian((reference_image/scaled_image)*donut)
+    flux_factor = np.nanmean((reference_image*donut)/(scaled_image*donut))
+    
+    return flux_factor
 
-	## import numpy as np
-	## import scipy
-	## from scipy import fftpack
-	## import pylab as py
-	## import time
-	## import pyfftw
-	## import multiprocessing
+def rescale_image(im1_3d,x,y):
+    ''' Rescales an image using Fourier transforms
+    im1_3d: Input image cube to be scaled
+    x: the factor of rescaling on x direction of the input cube
+    y: the factor of rescaling on y direction of the input cube
+    
+    if x==1 -> no rescaling on x direction
+    if x>1 -> streching of im1_3d in x direction by factor x
+    if x<1 -> compression of im1_3d in x direction by factor x
+    '''
+    
+    
+    print "\n"
+    print "factor of rescaling in x direction:",x
+    print "factor of rescaling in y direction:",y,"\n"
+    
+    # Find the NaNs in the image
+    mask_nan=np.where(np.isnan(im1_3d),0,1.)
+    im1_3d=np.nan_to_num(im1_3d).astype(float)
+    
+    shape=np.shape(im1_3d)
+    
+    #"0 padding in the image plan to make the images in a power of 2 shape"
+    if (pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.!=0:
+        #nbr_pix=np.int(round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(lambda2/lambda1)))/(lambda2/lambda1)))
+        nbr_pix_x=np.int(round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(x)))/(x)))
+        nbr_pix_y=np.int(round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(y)))/(y)))
+        mat=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1],nbr_pix)))
+        mat2=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1]+2*nbr_pix,nbr_pix)))
+        im1_3d=np.append(mat,im1_3d,axis=2)
+        im1_3d=np.append(im1_3d,mat,axis=2)
+        im1_3d=np.transpose(np.append(np.transpose(im1_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
+        im1_3d=np.transpose(np.append(mat2,np.transpose(im1_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
+    
+        # and the NaN Mask        
+        mask_nan=np.append(mat,mask_nan,axis=2)
+        mask_nan=np.append(mask_nan,mat,axis=2)
+        mask_nan=np.transpose(np.append(np.transpose(mask_nan,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
+        mask_nan=np.transpose(np.append(mat2,np.transpose(mask_nan,axes=(0,2,1)),axis=2),axes=(0,2,1))
+    shape_bis=np.shape(im1_3d)
+    
+    
+    #FFT the data
+    pyfftw.interfaces.cache.enable()
+    pyfftw.interfaces.cache.set_keepalive_time(30)
+    
+    # "fourier transforming the cube"
+    fft_3d=pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
+    fft_nan_mask = pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
+    for i in range(shape_bis[0]):
+        fft_3d[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(im1_3d[i,:,:], planner_effort='FFTW_MEASURE', threads=4))
+        fft_nan_mask[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(mask_nan[i,:,:], planner_effort='FFTW_MEASURE', threads=4))
+    
+    
+    # "0 padding in fourier space to rescale images"
+    nbr_pix_x=int((int((x)*np.shape(im1_3d)[2])-np.shape(im1_3d)[2])/2.)
+    nbr_pix_y=int((int((y)*np.shape(im1_3d)[1])-np.shape(im1_3d)[1])/2.)
+    
+    if nbr_pix_x == 0: #don't do anything on x axis
+        
+        #if nbr_pix_y==0 we don't do anything either on y axis
+        if nbr_pix_y > 0:
+            # Make some arrays of zeros to append to the data
+            mat_y=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix_y)))
+            # Add them at the start and end
+            fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
+            fft_3d=np.transpose(np.append(mat_y,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
+            # And the NaN mask
+            fft_nan_mask=np.transpose(np.append(np.transpose(fft_nan_mask,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
+            fft_nan_mask=np.transpose(np.append(mat_y,np.transpose(fft_nan_mask,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
+        elif nbr_pix_y < 0:
+            # Or remove pixels in Fourier space to rescale the image
+            fft_3d = fft_3d[:,-nbr_pix_y:nbr_pix_y,:]
+            fft_nan_mask = fft_nan_mask[:,-nbr_pix_y:nbr_pix_y,:]
+    
+    elif nbr_pix_x > 0:
+        # Make some arrays of zeros to append to the data
+        mat_x=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix_x)))
+        # Add them at the start and end
+        fft_3d=np.append(mat_x,fft_3d,axis=2) # add zeros to the start of dim 2
+        fft_3d=np.append(fft_3d,mat_x,axis=2) # add zeros to the end of dim 2
+        # And the NaN mask
+        fft_nan_mask=np.append(mat_x,fft_nan_mask,axis=2) # add zeros to the start of dim 2
+        fft_nan_mask=np.append(fft_nan_mask,mat_x,axis=2) # add zeros to the end of dim 2
+        
+        #if nbr_pix_y==0 we don't do anything on y axis
+        if nbr_pix_y > 0:
+            # Make some arrays of zeros to append to the data
+            mat_y=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1]+2*nbr_pix_x,nbr_pix_y)))
+            # Add them at the start and end
+            fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
+            fft_3d=np.transpose(np.append(mat_y,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
+            # And the NaN mask
+            fft_nan_mask=np.transpose(np.append(np.transpose(fft_nan_mask,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
+            fft_nan_mask=np.transpose(np.append(mat_y,np.transpose(fft_nan_mask,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
+        elif nbr_pix_y < 0:
+            fft_3d = fft_3d[:,-nbr_pix_y:nbr_pix_y,:]
+            fft_nan_mask = fft_nan_mask[:,-nbr_pix_y:nbr_pix_y,:]
+    
+    elif nbr_pix_x < 0:
+        
+        #if nbr_pix_y==0 we don't do anything on y axis
+        if nbr_pix_y > 0:
+            # Make some arrays of zeros to append to the data
+            mat_y=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix_y))) 
+            # Add them at the start and end
+            print "np.shape(fft_3d)",np.shape(fft_3d)
+            print "np.shape(mat_y)",np.shape(mat_y)
+            fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
+            fft_3d=np.transpose(np.append(mat_y,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
+            # And the NaN mask
+            fft_nan_mask=np.transpose(np.append(np.transpose(fft_nan_mask,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
+            fft_nan_mask=np.transpose(np.append(mat_y,np.transpose(fft_nan_mask,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
+        elif nbr_pix_y < 0:
+            # Or remove pixels in Fourier space to rescale the image
+            fft_3d = fft_3d[:,-nbr_pix_y:nbr_pix_y,:]
+            fft_nan_mask = fft_nan_mask[:,-nbr_pix_y:nbr_pix_y,:]
+            
+        # remove pixels in Fourier space to rescale the image
+        fft_3d = fft_3d[:,:,-nbr_pix_x:nbr_pix_x]
+        fft_nan_mask = fft_nan_mask[:,:,-nbr_pix_x:nbr_pix_x]
+    
+    
+    # "preparing the inverse fourier transform"
+    #with fftw
+    im1_3d_rescale=pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
+    nan_mask_rescale = pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
+    
+    # "inverse fourier transforming the cube"
+    for i in range(np.shape(fft_3d)[0]):
+        im1_3d_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_3d[i,:,:]), planner_effort='FFTW_MEASURE', threads=4)
+        nan_mask_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_nan_mask[i,:,:]), planner_effort='FFTW_MEASURE', threads=4)
+    im1_3d_rescale=np.real(im1_3d_rescale)
+    
+    nan_mask_rescale = np.real(nan_mask_rescale)
+    
+    #looking of the minimum and maximum index in x and y direction to resize image as the initial shape
+    min_y = abs(np.int( np.shape(im1_3d_rescale)[1]/2.-shape[1]/2. ))
+    max_y = np.int( np.shape(im1_3d_rescale)[1]/2.+shape[1]/2. )
+    min_x = abs(np.int( np.shape(im1_3d_rescale)[2]/2.-shape[2]/2. ))
+    max_x = np.int( np.shape(im1_3d_rescale)[2]/2.+shape[2]/2. )
+    
+    if nbr_pix_x >= 0:
+        # Cut the nan_mask and cube to the right size
+        im1_3d_rescale_cut=im1_3d_rescale[:, :, min_x:max_x]
+        nan_mask_rescale = nan_mask_rescale[:, :, min_x:max_x]
+        
+        # Cut the nan mask and turn it back into NaNs
+        if nbr_pix_y >= 0:
+            # Cut the nan_mask and cube to the right size
+            im1_3d_rescale_cut=im1_3d_rescale_cut[:, min_y:max_y, :]
+            nan_mask_rescale = nan_mask_rescale[:, min_y:max_y, :]
+        else:
+            #creating an empty cube and fill it at the good position with the image
+            out_cube = np.zeros(shape)*np.NaN
+            out_nan = np.zeros(shape)*np.NaN
+            # Cut the nan mask and turn it back into NaNs
+            out_nan[:, min_y:max_y, :] = nan_mask_rescale
+            nan_mask_rescale = out_nan
+            # Cut the image
+            out_cube[:, min_y:max_y, :] = im1_3d_rescale_cut
+            im1_3d_rescale_cut = out_cube
+            
+        mask_nan = np.where(nan_mask_rescale < 0.5*np.nanmax(nan_mask_rescale),np.nan,1.)
+            
+    else:
+        if nbr_pix_y >= 0:
+            # Cut the nan_mask and cube to the right size
+            im1_3d_rescale_cut=im1_3d_rescale[:, min_y:max_y, :]
+            nan_mask_rescale = nan_mask_rescale[:, min_y:max_y, :]
+            
+            #creating an empty cube and fill it at the good position with the image
+            out_cube = np.zeros(shape)*np.NaN
+            out_nan = np.zeros(shape)*np.NaN
+            # Cut the nan mask and turn it back into NaNs
+            out_nan[:, :, min_x:max_x] = nan_mask_rescale
+            nan_mask_rescale = out_nan
+            mask_nan = np.where(nan_mask_rescale < 0.5*np.nanmax(nan_mask_rescale),np.nan,1.)
+            # Cut the image
+            out_cube[:, :, min_x:max_x] = im1_3d_rescale_cut
+            im1_3d_rescale_cut = out_cube
+        else:
+            
+            im1_3d_rescale_cut=np.copy(im1_3d_rescale)
+            #creating an empty cube and fill it at the good position with the image
+            out_cube = np.zeros(shape)*np.NaN
+            out_nan = np.zeros(shape)*np.NaN
+            
+            # Cut the nan mask and turn it back into NaNs
+            out_nan[:,  min_y:max_y, min_x:max_x] = nan_mask_rescale
+            nan_mask_rescale = out_nan
+            mask_nan = np.where(nan_mask_rescale < 0.5*np.nanmax(nan_mask_rescale),np.nan,1.)
+            # Cut the image
+            out_cube[:,  min_y:max_y, min_x:max_x] = im1_3d_rescale_cut
+            im1_3d_rescale_cut = out_cube
+    
+    # Multiply by the NaN mask to add the NaNs back in
+    im1_3d_rescale_cut = im1_3d_rescale_cut*mask_nan
+    
+    return im1_3d_rescale_cut
 
-	THREAD_NUM=1
-
-	## print "scaling the cube..."
-	mask_nan=np.where(np.isnan(im1_3d),np.nan,1.)
-
-	im1_3d=np.nan_to_num(im1_3d).astype(float)
-
-	l=256 #2xl is the size of the inner part of the image taken to calculate the flux ratio between the to filters
-	nbr_pix=int(l*lambda1/lambda2-l)
-	flux_factor1=np.mean(im2_3d[:,np.shape(im2_3d)[1]/2.-l-nbr_pix:np.shape(im2_3d)[1]/2.+l+nbr_pix,np.shape(im2_3d)[2]/2.-l-nbr_pix:np.shape(im2_3d)[2]/2.+l+nbr_pix])/np.mean(im1_3d[:,np.shape(im1_3d)[1]/2.-l:np.shape(im1_3d)[1]/2.+l,np.shape(im1_3d)[2]/2.-l:np.shape(im1_3d)[2]/2.+l])
-	im1_3d=im1_3d*flux_factor1
-
-	t01 = time.time()
-
-	shape=np.shape(im1_3d)
-
-	## print "0 padding in the image plan to make the images in a power of 2 shape"
-	if (pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.!=0:
-		nbr_pix=round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(lambda1/lambda2)))/(lambda1/lambda2))
-		mat=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1],nbr_pix)))
-		mat2=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1]+2*nbr_pix,nbr_pix)))
-		im1_3d=np.append(mat,im1_3d,axis=2)
-		im1_3d=np.append(im1_3d,mat,axis=2)
-		im1_3d=np.transpose(np.append(np.transpose(im1_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
-		im1_3d=np.transpose(np.append(mat2,np.transpose(im1_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
-	shape_bis=np.shape(im1_3d)
-
-	## print "preparing the fourier transform"
-	t0 = time.time()
-
-	#with fftw
-	pyfftw.interfaces.cache.enable()
-	pyfftw.interfaces.cache.set_keepalive_time(30)
-	test = pyfftw.n_byte_align_empty((shape_bis[1],shape_bis[2]), 16, 'complex128')
-	test = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(test, planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
-	## print "time of the process:  ",time.time()-t0
-	## print "fourier transforming the cube"
-	t0 = time.time()
-	fft_3d=pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
-	for i in range(shape_bis[0]):
-		fft_3d[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(im1_3d[i,:,:], planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
-
-	#with scipy.fftpack
-	#fft_3d=fftpack.fftshift(fftpack.fft2(im1_3d))
-	## print "time of the process:  ",time.time()-t0
-
-	#print "apodising the cube "
-	#mask_apodisation=apodisation(np.shape(fft_3d)[1],np.shape(fft_3d)[1]/10.)
-	#fft_3d=fft_3d*mask_apodisation # apodisation des haute frequence en cas d image avec mauvais pixels ou haute frequences
-
-	## print "0 padding in fourier space to rescale images"
-	nbr_pix=int((int((lambda1/lambda2)*np.shape(im1_3d)[1])-np.shape(im1_3d)[1])/2.)
-	mat=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix)))
-	mat2=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1]+2*nbr_pix,nbr_pix)))
-	fft_3d=np.append(mat,fft_3d,axis=2)
-	fft_3d=np.append(fft_3d,mat,axis=2)
-	fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
-	fft_3d=np.transpose(np.append(mat2,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
-
-	## print "preparing the inverse fourier transform"
-	t0 = time.time()
-
-	#with fftw
-	test = pyfftw.n_byte_align_empty((np.shape(fft_3d)[1],np.shape(fft_3d)[2]), 16, 'complex128')
-	test = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(test, planner_effort='FFTW_MEASURE', threads=THREAD_NUM))
-	## print "time of the process:  ",time.time()-t0
-	## print "inverse fourier transforming the cube"
-	t0 = time.time()
-	im1_3d_rescale=pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
-	for i in range(np.shape(fft_3d)[0]):
-		im1_3d_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_3d[i,:,:]), planner_effort='FFTW_MEASURE', threads=THREAD_NUM)
-	im1_3d_rescale=np.real(im1_3d_rescale)
-
-	#with scipy.fftpack
-	#im1_3d_rescale=np.real(fftpack.ifft2(fftpack.ifftshift(fft_3d)))
-	## print "time of the process:  ",time.time()-t0
-	flux_factor=(np.shape(fft_3d)[1]*np.shape(fft_3d)[2])/(float(shape_bis[1]*shape_bis[2]))
-	im1_3d_rescale=im1_3d_rescale*flux_factor
-
-	im1_3d_rescale_cut=im1_3d_rescale[:,np.shape(im1_3d_rescale)[1]/2.-shape[1]/2.:np.shape(im1_3d_rescale)[1]/2.+shape[1]/2.,np.shape(im1_3d_rescale)[2]/2.-shape[2]/2.:np.shape(im1_3d_rescale)[2]/2.+shape[2]/2.]
-	im1_3d_rescale_cut=im1_3d_rescale_cut*mask_nan
-
-	im_3d_subtracted=im1_3d_rescale_cut-im2_3d
-	## print "end of scaling"
-	## print "total time of the rescaling:  ",time.time()-t01
-	if additional==True:
-		return im_3d_subtracted,im1_3d_rescale_cut
-	else:
-		return im_3d_subtracted
 
 def shift_diff(shift, rw, shift_im ,x_start, x_end, y_start, y_end,R):
 	"""

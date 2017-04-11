@@ -1,172 +1,148 @@
 #!/usr/bin/python
-"""
-Janis Hagelberg <janis.hagelberg@unige.ch>
-
-This program is part of GRAPHIC, the
-Geneva Reduction and Analysis Pipeline for High-contrast Imaging of Companions.
-
-This step is to perform SDI subtraction on each single frame.
-
-If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
-"""
-__version__='3.3'
-__subversion__='0'
-
-## import numpy, scipy, pyfits, glob, shutil, os, sys, time, fnmatch, tables, argparse, string
-import numpy, scipy, glob, shutil, os, sys, time, fnmatch, argparse, string
-import graphic_nompi_lib_330
-import graphic_mpi_lib_330
-from mpi4py import MPI
-from scipy import ndimage
+import numpy as np
+import scipy, time, glob, sys, os, shutil
+from scipy import fftpack
+import pylab as py
+import pyfftw
+import multiprocessing
 import astropy.io.fits as pyfits
-import GRAPHIC_sphere_tables
+from mpi4py import MPI
+import graphic_nompi_lib_330 as graphic_nompi_lib
+import argparse
 
-nprocs = MPI.COMM_WORLD.Get_size()
 rank   = MPI.COMM_WORLD.Get_rank()
-procnm = MPI.Get_processor_name()
-comm = MPI.COMM_WORLD
 
 target_dir = "."
-backup_dir = "prev"
-
-iterations = 1
-coefficient = 0.95
-
-parser = argparse.ArgumentParser(description='Performs SDI subtraction using two cubes.')
-parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
-parser.add_argument('--pattern_right', action="store", dest="pattern_right",  default='right_*', help='Filename pattern for right cubes')
-parser.add_argument('--pattern_left', action="store", dest="pattern_left",  default='left_*', help='Filename pattern for left cubes')
-parser.add_argument('-noinfo', dest='no_info', action='store_const',
-				   const=False, default=True,
-				   help='Ignore info files')
-parser.add_argument('--info_dir', action="store", dest="info_dir",  default='cube-info', help='Info directory')
-## parser.add_argument('--info_type', action="store", dest="info_type",  default='rdb', help='Info directory')
-parser.add_argument('--info_pattern', action="store", dest="info_pattern", default='all_info', help='Info filename pattern')
-parser.add_argument('-s', dest='stat', action='store_const',
-				   const=True, default=False,
-				   help='Print benchmarking statistics')
-parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
-## parser.add_argument('-hdf5', dest='hdf5', action='store_const',
-				   ## const=True, default=False,
-				   ## help='Switch to use HDF5 tables')
-parser.add_argument('-nofit', dest='fit', action='store_const',
-				   const=False, default=True,
-				   help='Do not use PSF fitting values.')
+parser = argparse.ArgumentParser(description='Apply the sdi algorythm on SPHERE (for now only for IRDIS) data and produce sdi_* cubes')
+parser.add_argument('--pattern', action="store", dest="pattern",  default="left*SCIENCE_DBI", help='cubes to apply the sdi')
+parser.add_argument('-additional', action="store_const", dest="additional", const=True,  default=False, help='if True produce in addition a cube of the left image rescaled (the one used to do the subtraction with right image)')
+parser.add_argument('--info_pattern', action="store", dest="info_pattern",
+                    default='all_info', help='Info filename pattern.')
+parser.add_argument('--info_dir', action="store", dest="info_dir",
+                    default='cube-info', help='Info directory')
+parser.add_argument('--r_int', action="store", dest="r_int",  default=30, type=int, help='Interior radius (in pixels) for the area used to calculate the flux ratio between the cubes')
+parser.add_argument('--r_ext', action="store", dest="r_ext",  default=80, type=int, help='Exterior radius (in pixels) for the area used to calculate the flux ratio between the cubes')
 
 
 args = parser.parse_args()
-d=args.d
-pattern_right=args.pattern_right
-pattern_left=args.pattern_left
-filter_size=args.size
-info_dir=args.info_dir
-## info_type=args.info_type
-info_pattern=args.info_pattern
-stat=args.stat
-log_file=args.log_file
-## hdf5=args.hdf5
-fit=args.fit
+additional = args.additional
+pattern = args.pattern
+info_pattern = args.info_pattern
+info_dir = args.info_dir
+r_int = args.r_int
+r_ext = args.r_ext
 
-skipped=0
 
-t_init=MPI.Wtime()
-target_pattern="mfs"+str(window_size)
-
-header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
-	'frame_num', 'frame_time', 'paralactic_angle']
 
 if rank==0:
-	graphic_nompi_lib_330.print_init()
 
-	dirlist_right=graphic_nompi_lib_330.create_dirlist(pattern_right,target_dir=target_dir,target_pattern=target_pattern+"_")
-	dirlist_left=graphic_nompi_lib_330.create_dirlist(pattern_left,target_dir=target_dir,target_pattern=target_pattern+"_")
-	if dirlist_right==None or dirlist_left==None:
-		print("No files found. Check --pattern option!")
-		for n in range(nprocs-1):
-			comm.send(None,dest =n+1)
-		sys.exit(1)
+    t0=MPI.Wtime()
+    print("beginning of sdi:")
 
-	if args.no_info:
-		infolist=glob.glob(info_dir+os.sep+info_pattern+'*.rdb')
-		infolist.sort() # Sort the list alphabetically
-		if len(infolist)<2:
-			print("No info files found, check your --info_pattern and --info_dir options.")
-			for n in range(nprocs-1):
-				comm.send(None,dest =n+1)
-		cube_list_right, dirlist_right=graphic_nompi_lib_330.create_megatable(dirlist_right,infolist,keys=header_keys,nici=nici,fit=fit)
-		cube_list_left, dirlist_left=graphic_nompi_lib_330.create_megatable(dirlist_left,infolist,keys=header_keys,nici=nici,fit=fit)
-		comm.bcast(cube_list_right, root=0)
-		comm.bcast(cube_list_left, root=0)
+    length=0
 
-	start_right,dirlist_right=graphic_mpi_lib_330.send_dirlist(dirlist_right)
-	comm.bcast(dirlist_left, root=0)
+    sys.stdout.write('Application du sdi sur:')
+    sys.stdout.write('\n')
+    #for allfiles in glob.iglob(key_word):
+    for allfiles in glob.iglob(pattern+'*'):
+        sys.stdout.write(allfiles)
+        sys.stdout.write('\n')
+        sys.stdout.write(allfiles.replace('left','right'))
+        sys.stdout.write('\n')
+        length+=1
+    sys.stdout.flush()
 
+    count=1
 
-	# Create directory to store reduced data
-	if not os.path.isdir(target_dir):
-		os.mkdir(target_dir)
+    # Loop through the cubes and run SDI
+    for allfiles in glob.iglob(pattern+'*'):
+        sys.stdout.write('\n')
+        sys.stdout.write('\r Cube ' + str(count) + '/' + str(length))
+        sys.stdout.flush()
 
-if not rank==0:
-	if args.no_info:
-		cube_list_right=comm.bcast(None, root=0)
-		cube_list_left=comm.bcast(None, root=0)
+        # Load the cubes
+        cube_left,hdr_l=pyfits.getdata(allfiles,header=True)
+        cube_right,hdr_r=pyfits.getdata(allfiles.replace('left','right'),header=True)
+        
+        # Work out the wavelengths and which cube we want to rescale
+        # For H23 and K12, the right channel has the absorption
+        # For Y23 and J23, the left channel has the absorption
+        if hdr_l["HIERARCH ESO INS COMB IFLT "]=='DB_H23':
+            reference_lambda=1588.8
+            scaled_lambda=1667.1
+            reference_cube = cube_left
+            scaled_cube = cube_right
 
-	dirlist_right=comm.recv(source = 0)
-	if dirlist_right==None:
-		sys.exit(1)
-	start_right=int(comm.recv(source = 0))
+            # And some header params
+            hdr = hdr_l
+            rescaled_channel_name = 'right'
 
-	dirlist_left=comm.bcast(None, root=0)
+        elif hdr_l["HIERARCH ESO INS COMB IFLT "]=='DB_K12':
+            reference_lambda=2102.5
+            scaled_lambda=2255
+            reference_cube = cube_left
+            scaled_cube = cube_right
 
+            # And some header params
+            hdr = hdr_l
+            rescaled_channel_name = 'right'
 
-t0=MPI.Wtime()
+        elif hdr_l["HIERARCH ESO INS COMB IFLT "]=='DB_Y23':
+            scaled_lambda=1025.8
+            reference_lambda=1080.2
+            reference_cube = cube_right
+            scaled_cube = cube_left
 
+            # And some header params
+            hdr = hdr_r
+            rescaled_channel_name = 'left'
 
-for i in range(len(dirlist_right)):
-	targetfile_right=target_pattern+"_"+dirlist_right[i]
-	targetfile_left=target_pattern+"_"+str.replace(dirlist_right[i],'right', 'left')
+        elif hdr_l["HIERARCH ESO INS COMB IFLT "]=='DB_J23':
+            scaled_lambda=1189.5
+            reference_lambda=1269.8
+            reference_cube = cube_right
+            scaled_cube = cube_left
 
-	# Check if left counterpart exists.
-	if not str.replace(dirlist_right[i],'right', 'left') in dirlist_left:
-		print(str.replace(dirlist_right[i],'right', 'left')+' not found. Skipping.')
-		continue
-	else left_file=str.replace(dirlist_right[i],'right', 'left')
+            # And some header params
+            hdr = hdr_r
+            rescaled_channel_name = 'left'
 
-	##################################################################
-	#
-	# Read cube header and data
-	#
-	##################################################################
+        if count==1:
+            sys.stdout.write('\n')
+            sys.stdout.write('filter: ' + hdr_l["HIERARCH ESO INS COMB IFLT "])
+            sys.stdout.flush()
 
-	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist_right)+start)+"] "+dirlist_right[i]+" Remaining time: "+graphic_lib_330.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
-	cube_right,header_right=pyfits.getdata(dirlist_right[i], header=True)
-	cube_left,header_left=pyfits.getdata(left_file, header=True)
+        # Rescale all of the cubes to the reference wavelength
+        rescaled_cube = graphic_nompi_lib.rescale_image(scaled_cube,reference_lambda/scaled_lambda,reference_lambda/scaled_lambda)
 
+        # Work out the flux scaling factor needed to best subtract the PSF
+        flux_factor = graphic_nompi_lib.scale_flux(reference_cube,rescaled_cube,r_int=r_int,r_ext=r_ext)
+        hdr['HIERARCH GC SDI Flux rescaling:']=flux_factor # Save it in the header
+        hdr['HIERARCH GC SDI Channel rescaled:']= rescaled_channel_name
 
-	if args.no_info:
-		all_info_right=cube_list_right['info'][cube_list_right['cube_filename'].index(dirlist_right[i])]
-		all_info_left=cube_list_left['info'][cube_list_left['cube_filename'].index(left_file)]
+        # Now do the subtraction
+        sdi_cube = reference_cube - flux_factor*rescaled_cube
+        sys.stdout.write('\n')
+        sys.stdout.write('  Scaling flux of '+rescaled_channel_name+' cube by '+str(flux_factor))
+        sys.stdout.flush()
 
-	## lambda1=1667.1
-	## lambda2=1588.8
+        # Write it out
+        pyfits.writeto(allfiles.replace('left','sdi'),sdi_cube,header=hdr,clobber=True)
 
-	lambdas=sphere_tables.sdi_wavelength(header_right)
+        if additional:
+            scaled_cube_output_name = allfiles.replace('left',rescaled_channel_name+'_rescale')
+            pyfits.writeto(scaled_cube_output_name,rescaled_cube,header=hdr,clobber=True)
+        
+        count+=1
 
-	im_subtracted=graphic_nompi_lib_330.sdi(cube_left,cube_right,lambdas['left'],lambdas['right'],additional=False)
+    # Copy the info files
+    for allfiles in glob.iglob(info_dir+'/'+info_pattern+'*'):
+        shutil.copyfile(allfiles,allfiles.replace('left','sdi'))
 
-	## header["HIERARCH GC MEDIAN FILTER SIZE"]=(window_size, "")
-	header["HIERARCH GC SPH SDI"]=( __version__+'.'+__subversion__, "")
-	header["HIERARCH GC SPH SDI WAVELENGHT"]=(str(translate).translate(None,'{}\''),"")
-
-	graphic_nompi_lib_330.save_fits(targetfile, cube, hdr=header,backend='pyfits')
-
-print(str(rank)+": Total time: "+graphic_nompi_lib_330.humanize_time((MPI.Wtime()-t0)))
-
-if rank==0:
-	if 'ESO OBS TARG NAME' in header.keys():
-		log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-	else:
-		log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-
-	graphic_nompi_lib_330.write_log((MPI.Wtime()-t_init),log_file, comments=None)
-sys.exit(0)
+    sys.stdout.write('\n')
+    print("Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
+    print("sdi finished")
+    sys.exit(0)
+    ##sys.exit(0)
+else:
+    sys.exit(0)
