@@ -1,7 +1,8 @@
 #!/usr/bin/python
 import numpy as np
 import pyfits, scipy, glob, sys, os
-from kapteyn import kmpfit
+#from kapteyn import kmpfit
+from scipy.optimize import minimize
 from scipy import ndimage,signal,fftpack
 import pyfftw
 import multiprocessing
@@ -91,6 +92,46 @@ if rank==0:
             r=np.sqrt(X**2+Y**2)
             mof=A*np.power(1+(r/alpha)**2,-beta)
             return mof
+            
+    def moffat3(size,S0,A,x0,y0,alpha1,alpha2,beta,theta):
+	    x=np.arange(-size/2.,size/2.)
+	    y=x
+	    X,Y=np.meshgrid(x,y)
+	    theta_rad=np.pi*theta/180.
+	    alpha1=float(alpha1)
+	    alpha2=float(alpha2)
+	    #alpha=fwhm/(2*np.sqrt(2.**(1./beta)-1.))
+	    a=(np.cos(theta_rad)/alpha1)**2+(np.sin(theta_rad)/alpha2)**2
+	    b=(np.sin(theta_rad)/alpha1)**2+(np.cos(theta_rad)/alpha2)**2
+	    c=2*np.sin(theta_rad)*np.cos(theta_rad)*(1./alpha1**2-1/alpha2**2)
+	    
+	    mof=S0+A*(np.power(1+(a*(X-x0)**2+b*(Y-y0)**2+c*(X-x0)*(Y-y0)),-float(beta)))
+    
+	    return mof
+    
+    def error3(par,im):
+	    """
+	    error function for the fit of a moffat profile on a psf in an image. The parameters of the fit are par and the data
+	    are the image data[0], and the median of the entire image (not calculated here in because we use a sub image to make the fit
+	    faster)
+	    """
+	    
+	    size=np.shape(im)[0]
+	    S0=float(par[0])
+	    A1=float(par[1])
+	    x01=float(par[2])
+	    y01=float(par[3])
+	    fwhm1=float(par[4])
+	    fwhm2=float(par[5])
+	    beta1=float(par[6])
+	    theta1=float(par[7])
+	    
+	    moffat1=moffat3(size,S0,A1,x01,y01,fwhm1,fwhm2,beta1,theta1)
+	    
+	    im_simulated=moffat1
+	    e=np.sum((im_simulated-im)**2)
+	    
+	    return e
 
     def error(par,data):
             """
@@ -134,7 +175,6 @@ if rank==0:
                 for allfiles in filenames_sorted:
                     if count==0:
                         cube_waffle,hdr=pyfits.getdata(allfiles, header=True)
-                        print "hellooooooooo!"
                     else:
                         temp,hdr=pyfits.getdata(allfiles, header=True)
                         cube_waffle=np.append(cube_waffle,temp,axis=0)
@@ -144,7 +184,7 @@ if rank==0:
                     sys.stdout.flush()
                     cube_waffle=np.delete(cube_waffle,ignore_frame-1,axis=0)
                     star_center_bad_frame_deleted_filename='STAR_CENTER_cube_bad_frame_del.fits'
-                    pyfits.writeto(star_center_bad_frame_deleted_filename,cube_waffle,header=hdr)
+                    pyfits.writeto(star_center_bad_frame_deleted_filename,cube_waffle,header=hdr,clobber=True)
                 if cube_waffle.ndim >2: #if it is a cube we take the median over frames
                     sys.stdout.write('More than one frame found, taking the median \n')
                     sys.stdout.flush()
@@ -271,25 +311,51 @@ if rank==0:
                         Prim_y=max_index_vec1[2*i]
                         #cutting the image just around the waffle to make the fit faster
                         im_temp=im_donut[int(Prim_y)-10:int(Prim_y)+10,int(Prim_x)-10:int(Prim_x)+10]
-                        Prim_x_temp=Prim_x-int(Prim_x)+10
-                        Prim_y_temp=Prim_y-int(Prim_y)+10
+                        Prim_x_temp=np.shape(im_temp)[0]/2.
+                        Prim_y_temp=np.shape(im_temp)[0]/2.
                         
-                        paramsinitial=[np.max(im_donut),5,5,Prim_x_temp,Prim_y_temp]
-                        fitobj = kmpfit.Fitter(residuals=error, data=(im_temp,med))
-                        fitobj.fit(params0=paramsinitial)
-                        par_vec_temp=np.copy(fitobj.params)
-                        par_vec_temp[3]=par_vec_temp[3]+int(Prim_x)-10
-                        par_vec_temp[4]=par_vec_temp[4]+int(Prim_y)-10
-                        par_vec=np.append(par_vec,par_vec_temp)
-                        par_init=np.append(par_init,paramsinitial)
-                        err_leastsq_vec=np.append(err_leastsq_vec,fitobj.stderr)
+                        #test in which quadrant to initiate the angle
+			if ((Prim_x<center[0]) & (Prim_y<center[1])) or ((Prim_x>center[0]) & (Prim_y>center[1])):
+				theta_init=-40
+			else:
+				theta_init=40
+                        
+                        paramsinitial=[np.nanmedian(im_temp),np.nanmax(im_temp),0.1,0.1,7,9,7,theta_init]
+                        #fitobj = kmpfit.Fitter(residuals=error, data=(im_temp,med))
+                        #fitobj.fit(params0=paramsinitial)
+                        res = minimize(error3,paramsinitial, args=(im_temp), method='nelder-mead')
+                        par_vec_temp=np.copy(res.x)[1:4]
+			par_vec_temp[1]=par_vec_temp[1]+10#+int(Prim_x)#-10
+			par_vec_temp[2]=par_vec_temp[2]+10#+int(Prim_y)#-10
+			par_vec=np.append(par_vec,par_vec_temp)
+			par_init=np.append(par_init,paramsinitial)
+                        #err_leastsq_vec=np.append(err_leastsq_vec,fitobj.stderr)
+                        
+                        mof_init=moffat3(20,paramsinitial[0],paramsinitial[1],paramsinitial[2],paramsinitial[3],paramsinitial[4],paramsinitial[5],paramsinitial[6],paramsinitial[7])
+                        mof=moffat3(20,res.x[0],res.x[1],res.x[2],res.x[3],res.x[4],res.x[5],res.x[6],res.x[7])
+                        
+                        """pyfits.writeto(str(channel_ix)+"_spot"+str(i)+".fits",im_temp)
+                        pyfits.writeto(str(channel_ix)+"_spot"+str(i)+"fit_init.fits",mof_init)
+                        pyfits.writeto(str(channel_ix)+"_spot"+str(i)+"fit.fits",mof)
+                        pyfits.writeto(str(channel_ix)+"_spot"+str(i)+"residu.fits",im_temp-mof)"""
             
             
                     sys.stdout.write('\n')
+                    """print "par_vec",par_vec
+                    print "max_index_vec1",max_index_vec1
+                    print "center",center"""
+                    center_spot1=np.array([center[0]+max_index_vec1[1]-np.shape(low_pass_im)[1]/2.+par_vec[1]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[0]-np.shape(low_pass_im)[0]/2.+par_vec[2]-np.shape(im_temp)[0]/2.])
+		    center_spot2=np.array([center[0]+max_index_vec1[3]-np.shape(low_pass_im)[1]/2.+par_vec[4]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[2]-np.shape(low_pass_im)[0]/2.+par_vec[5]-np.shape(im_temp)[0]/2.])
+        	    center_spot3=np.array([center[0]+max_index_vec1[5]-np.shape(low_pass_im)[1]/2.+par_vec[7]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[4]-np.shape(low_pass_im)[0]/2.+par_vec[8]-np.shape(im_temp)[0]/2.])
+        	    center_spot4=np.array([center[0]+max_index_vec1[7]-np.shape(low_pass_im)[1]/2.+par_vec[10]-np.shape(im_temp)[0]/2.,center[1]+max_index_vec1[6]-np.shape(low_pass_im)[0]/2.+par_vec[11]-np.shape(im_temp)[0]/2.])
                     #determination of the star position with a "gravity center" determination of the waffles
-                    center_star=[(par_vec[3]+par_vec[8]+par_vec[13]+par_vec[18])/4.,(par_vec[4]+par_vec[9]+par_vec[14]+par_vec[19])/4.]
-                    star_center=np.array(center)-np.array([l/2.,l/2.])+np.array(center_star)
+                    center_star=[np.mean(np.array([center_spot1[0],center_spot2[0],center_spot3[0],center_spot4[0]])),np.mean(np.array([center_spot1[1],center_spot2[1],center_spot3[1],center_spot4[1]]))]
+		    star_center=np.array(center_star)
                     
+                    print "spot 1 center (x,y): (",center_spot1[0],",",center_spot1[1],")"
+		    print "spot 2 center (x,y): (",center_spot2[0],",",center_spot2[1],")"
+		    print "spot 3 center (x,y): (",center_spot3[0],",",center_spot3[1],")"
+		    print "spot 4 center (x,y): (",center_spot4[0],",",center_spot4[1],")"
                 
                     if ifs:
                         channel_name='wavelength_'+str(channel_ix)
