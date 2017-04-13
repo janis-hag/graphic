@@ -936,7 +936,7 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4, return_full = False):
 	alpha=1.*alpha-360*np.floor(alpha/360)
 
 	# We need to add some extra rows since np.rot90 has a different definition of the centre
-	temp = np.zeros((in_frame.shape[0]+3,in_frame.shape[1]+3))+0.
+	temp = np.zeros((in_frame.shape[0]+3,in_frame.shape[1]+3))+np.nan
 	temp[1:in_frame.shape[0]+1,1:in_frame.shape[1]+1]=in_frame
 	in_frame = temp
 
@@ -2383,6 +2383,28 @@ def scale_flux(reference_image,scaled_image,r_int=30,r_ext=80):
     
     return flux_factor
 
+def put_image_into_another_image(input_array,output_array):
+    ''' Takes one array and inserts a second one into it, in a way that the centres
+    of both arrays are the same. If one array is too big, it will be cropped at the edges.
+    This probably only works if both arrays are even sized.
+    
+    This works for arrays larger than 2D by centring the last two dimenions only
+    '''
+    
+    # What is the minimum size of each axis of the arrays
+    min_xsz = int(np.min([output_array.shape[-1],input_array.shape[-1]]))
+    min_ysz = int(np.min([output_array.shape[-2],input_array.shape[-2]]))
+    
+    # Centred on the middle of each array, take a min_ysz x min_xsz region from one
+    #  array and put it into the other
+    # The ... means we apply this to only the last two dimensions
+    output_array[...,output_array.shape[-2]/2-min_ysz/2:output_array.shape[-2]/2+min_ysz/2,
+                     output_array.shape[-1]/2-min_xsz/2:output_array.shape[-1]/2+min_xsz/2] = \
+             input_array[...,input_array.shape[-2]/2-min_ysz/2:input_array.shape[-2]/2+min_ysz/2,
+                     input_array.shape[-1]/2-min_xsz/2:input_array.shape[-1]/2+min_xsz/2]
+
+    return output_array
+
 def rescale_image(im1_3d,x,y):
     ''' Rescales an image using Fourier transforms
     im1_3d: Input image cube to be scaled
@@ -2394,7 +2416,6 @@ def rescale_image(im1_3d,x,y):
     if x<1 -> compression of im1_3d in x direction by factor x
     '''
     
-    
     print "\n"
     print "factor of rescaling in x direction:",x
     print "factor of rescaling in y direction:",y,"\n"
@@ -2405,25 +2426,15 @@ def rescale_image(im1_3d,x,y):
     
     shape=np.shape(im1_3d)
     
-    #"0 padding in the image plan to make the images in a power of 2 shape"
-    if (pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.!=0:
-        #nbr_pix=np.int(round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(lambda2/lambda1)))/(lambda2/lambda1)))
-        nbr_pix_x=np.int(round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(x)))/(x)))
-        nbr_pix_y=np.int(round(((pow(2, np.ceil(np.log(np.shape(im1_3d)[1])/np.log(2)))-np.shape(im1_3d)[1])/2.+np.shape(im1_3d)[1]/2.*(1-(y)))/(y)))
-        mat=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1],nbr_pix)))
-        mat2=np.zeros(((np.shape(im1_3d)[0],np.shape(im1_3d)[1]+2*nbr_pix,nbr_pix)))
-        im1_3d=np.append(mat,im1_3d,axis=2)
-        im1_3d=np.append(im1_3d,mat,axis=2)
-        im1_3d=np.transpose(np.append(np.transpose(im1_3d,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
-        im1_3d=np.transpose(np.append(mat2,np.transpose(im1_3d,axes=(0,2,1)),axis=2),axes=(0,2,1))
+    # Make the image in a power of 2 shape
+    next_power_of_2_y = int(pow(2, np.ceil(np.log(shape[-2])/np.log(2))))
+    next_power_of_2_x = int(pow(2, np.ceil(np.log(shape[-1])/np.log(2))))
+    temp_image = np.zeros([im1_3d.shape[0],next_power_of_2_y,next_power_of_2_x])
+    temp_nan_image = 1*temp_image
+    im1_3d = put_image_into_another_image(im1_3d,temp_image)
+    mask_nan = put_image_into_another_image(mask_nan,temp_nan_image)
     
-        # and the NaN Mask        
-        mask_nan=np.append(mat,mask_nan,axis=2)
-        mask_nan=np.append(mask_nan,mat,axis=2)
-        mask_nan=np.transpose(np.append(np.transpose(mask_nan,axes=(0,2,1)),mat2,axis=2),axes=(0,2,1))
-        mask_nan=np.transpose(np.append(mat2,np.transpose(mask_nan,axes=(0,2,1)),axis=2),axes=(0,2,1))
     shape_bis=np.shape(im1_3d)
-    
     
     #FFT the data
     pyfftw.interfaces.cache.enable()
@@ -2441,70 +2452,16 @@ def rescale_image(im1_3d,x,y):
     nbr_pix_x=int((int((x)*np.shape(im1_3d)[2])-np.shape(im1_3d)[2])/2.)
     nbr_pix_y=int((int((y)*np.shape(im1_3d)[1])-np.shape(im1_3d)[1])/2.)
     
-    if nbr_pix_x == 0: #don't do anything on x axis
-        
-        #if nbr_pix_y==0 we don't do anything either on y axis
-        if nbr_pix_y > 0:
-            # Make some arrays of zeros to append to the data
-            mat_y=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix_y)))
-            # Add them at the start and end
-            fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
-            fft_3d=np.transpose(np.append(mat_y,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
-            # And the NaN mask
-            fft_nan_mask=np.transpose(np.append(np.transpose(fft_nan_mask,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
-            fft_nan_mask=np.transpose(np.append(mat_y,np.transpose(fft_nan_mask,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
-        elif nbr_pix_y < 0:
-            # Or remove pixels in Fourier space to rescale the image
-            fft_3d = fft_3d[:,-nbr_pix_y:nbr_pix_y,:]
-            fft_nan_mask = fft_nan_mask[:,-nbr_pix_y:nbr_pix_y,:]
+    # Make an array with the right number of pixels to scale the image
+    rescaled_fft = np.zeros((im1_3d.shape[0],im1_3d.shape[1]+2*nbr_pix_y,im1_3d.shape[2]+2*nbr_pix_x),dtype=fft_3d.dtype)
+    rescaled_nan_mask = 1*rescaled_fft
+    # Put the FFT array into the new rescaled array (and do the same for the nan_mask)
+    rescaled_fft = put_image_into_another_image(fft_3d,rescaled_fft)
+    rescaled_nan_mask = put_image_into_another_image(fft_nan_mask,rescaled_nan_mask)
     
-    elif nbr_pix_x > 0:
-        # Make some arrays of zeros to append to the data
-        mat_x=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix_x)))
-        # Add them at the start and end
-        fft_3d=np.append(mat_x,fft_3d,axis=2) # add zeros to the start of dim 2
-        fft_3d=np.append(fft_3d,mat_x,axis=2) # add zeros to the end of dim 2
-        # And the NaN mask
-        fft_nan_mask=np.append(mat_x,fft_nan_mask,axis=2) # add zeros to the start of dim 2
-        fft_nan_mask=np.append(fft_nan_mask,mat_x,axis=2) # add zeros to the end of dim 2
-        
-        #if nbr_pix_y==0 we don't do anything on y axis
-        if nbr_pix_y > 0:
-            # Make some arrays of zeros to append to the data
-            mat_y=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1]+2*nbr_pix_x,nbr_pix_y)))
-            # Add them at the start and end
-            fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
-            fft_3d=np.transpose(np.append(mat_y,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
-            # And the NaN mask
-            fft_nan_mask=np.transpose(np.append(np.transpose(fft_nan_mask,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
-            fft_nan_mask=np.transpose(np.append(mat_y,np.transpose(fft_nan_mask,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
-        elif nbr_pix_y < 0:
-            fft_3d = fft_3d[:,-nbr_pix_y:nbr_pix_y,:]
-            fft_nan_mask = fft_nan_mask[:,-nbr_pix_y:nbr_pix_y,:]
-    
-    elif nbr_pix_x < 0:
-        
-        #if nbr_pix_y==0 we don't do anything on y axis
-        if nbr_pix_y > 0:
-            # Make some arrays of zeros to append to the data
-            mat_y=np.zeros(((np.shape(fft_3d)[0],np.shape(fft_3d)[1],nbr_pix_y))) 
-            # Add them at the start and end
-            print "np.shape(fft_3d)",np.shape(fft_3d)
-            print "np.shape(mat_y)",np.shape(mat_y)
-            fft_3d=np.transpose(np.append(np.transpose(fft_3d,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
-            fft_3d=np.transpose(np.append(mat_y,np.transpose(fft_3d,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
-            # And the NaN mask
-            fft_nan_mask=np.transpose(np.append(np.transpose(fft_nan_mask,axes=(0,2,1)),mat_y,axis=2),axes=(0,2,1)) # add zeros to the end of dim 1
-            fft_nan_mask=np.transpose(np.append(mat_y,np.transpose(fft_nan_mask,axes=(0,2,1)),axis=2),axes=(0,2,1)) # add zeros to the start of dim 1
-        elif nbr_pix_y < 0:
-            # Or remove pixels in Fourier space to rescale the image
-            fft_3d = fft_3d[:,-nbr_pix_y:nbr_pix_y,:]
-            fft_nan_mask = fft_nan_mask[:,-nbr_pix_y:nbr_pix_y,:]
-            
-        # remove pixels in Fourier space to rescale the image
-        fft_3d = fft_3d[:,:,-nbr_pix_x:nbr_pix_x]
-        fft_nan_mask = fft_nan_mask[:,:,-nbr_pix_x:nbr_pix_x]
-    
+    # Rename the variables
+    fft_3d = rescaled_fft
+    fft_nan_mask = rescaled_nan_mask
     
     # "preparing the inverse fourier transform"
     #with fftw
@@ -2519,65 +2476,16 @@ def rescale_image(im1_3d,x,y):
     
     nan_mask_rescale = np.real(nan_mask_rescale)
     
-    #looking of the minimum and maximum index in x and y direction to resize image as the initial shape
-    min_y = abs(np.int( np.shape(im1_3d_rescale)[1]/2.-shape[1]/2. ))
-    max_y = np.int( np.shape(im1_3d_rescale)[1]/2.+shape[1]/2. )
-    min_x = abs(np.int( np.shape(im1_3d_rescale)[2]/2.-shape[2]/2. ))
-    max_x = np.int( np.shape(im1_3d_rescale)[2]/2.+shape[2]/2. )
+    # Make an array with the same size as the original image
+    im1_3d_rescale_cut = np.zeros(shape,dtype=im1_3d_rescale.dtype)
+    nan_mask_rescale_cut = np.zeros(shape)
     
-    if nbr_pix_x >= 0:
-        # Cut the nan_mask and cube to the right size
-        im1_3d_rescale_cut=im1_3d_rescale[:, :, min_x:max_x]
-        nan_mask_rescale = nan_mask_rescale[:, :, min_x:max_x]
-        
-        # Cut the nan mask and turn it back into NaNs
-        if nbr_pix_y >= 0:
-            # Cut the nan_mask and cube to the right size
-            im1_3d_rescale_cut=im1_3d_rescale_cut[:, min_y:max_y, :]
-            nan_mask_rescale = nan_mask_rescale[:, min_y:max_y, :]
-        else:
-            #creating an empty cube and fill it at the good position with the image
-            out_cube = np.zeros(shape)*np.NaN
-            out_nan = np.zeros(shape)*np.NaN
-            # Cut the nan mask and turn it back into NaNs
-            out_nan[:, min_y:max_y, :] = nan_mask_rescale
-            nan_mask_rescale = out_nan
-            # Cut the image
-            out_cube[:, min_y:max_y, :] = im1_3d_rescale_cut
-            im1_3d_rescale_cut = out_cube
-            
-        mask_nan = np.where(nan_mask_rescale < 0.5*np.nanmax(nan_mask_rescale),np.nan,1.)
-            
-    else:
-        if nbr_pix_y >= 0:
-            # Cut the nan_mask and cube to the right size
-            im1_3d_rescale_cut=im1_3d_rescale[:, min_y:max_y, :]
-            nan_mask_rescale = nan_mask_rescale[:, min_y:max_y, :]
-            
-            #creating an empty cube and fill it at the good position with the image
-            out_cube = np.zeros(shape)*np.NaN
-            out_nan = np.zeros(shape)*np.NaN
-            # Cut the nan mask and turn it back into NaNs
-            out_nan[:, :, min_x:max_x] = nan_mask_rescale
-            nan_mask_rescale = out_nan
-            mask_nan = np.where(nan_mask_rescale < 0.5*np.nanmax(nan_mask_rescale),np.nan,1.)
-            # Cut the image
-            out_cube[:, :, min_x:max_x] = im1_3d_rescale_cut
-            im1_3d_rescale_cut = out_cube
-        else:
-            
-            im1_3d_rescale_cut=np.copy(im1_3d_rescale)
-            #creating an empty cube and fill it at the good position with the image
-            out_cube = np.zeros(shape)*np.NaN
-            out_nan = np.zeros(shape)*np.NaN
-            
-            # Cut the nan mask and turn it back into NaNs
-            out_nan[:,  min_y:max_y, min_x:max_x] = nan_mask_rescale
-            nan_mask_rescale = out_nan
-            mask_nan = np.where(nan_mask_rescale < 0.5*np.nanmax(nan_mask_rescale),np.nan,1.)
-            # Cut the image
-            out_cube[:,  min_y:max_y, min_x:max_x] = im1_3d_rescale_cut
-            im1_3d_rescale_cut = out_cube
+    # Put the rescaled image into the array we just created
+    im1_3d_rescale_cut = put_image_into_another_image(im1_3d_rescale,im1_3d_rescale_cut)
+    nan_mask_rescale_cut = put_image_into_another_image(nan_mask_rescale,nan_mask_rescale_cut)
+    
+    # Convert the NaN mask back into NaNs
+    mask_nan = np.where(nan_mask_rescale_cut < 0.5*np.nanmax(nan_mask_rescale_cut),np.nan,1.)
     
     # Multiply by the NaN mask to add the NaNs back in
     im1_3d_rescale_cut = im1_3d_rescale_cut*mask_nan
