@@ -15,7 +15,7 @@ import numpy, os, shutil, sys, glob, math
 import numpy as np
 ## from scipy.signal import correlate2d
 from gaussfit_330 import fitgaussian
-from scipy import ndimage
+from scipy import ndimage,signal
 #import astropy.io.fits as pyfits
 from astropy.io import fits
 import pyfftw
@@ -2836,3 +2836,37 @@ def make_twilight_flat(flat_cube,quality_flag):
 	return flat,flux_diffs
 
 
+def low_pass(image, r, order, cut_off,threads=4):
+        """
+        Low pass filter of an image by fourier transform. Use fftw
+        """
+        # Remove NaNs from image
+        nan_mask = np.isnan(image)
+        image=np.nan_to_num(image).astype(float)
+        
+        # Shift to Fourier plane
+        fft=fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(image,threads=threads))
+        # Set up the coordinate and distance arrays
+        l=np.shape(image)[1]
+        x=np.arange(-l/2,l/2)
+        y=np.arange(-l/2,l/2)
+        X,Y=np.meshgrid(x,y)
+        R = np.sqrt(X**2 + Y**2)
+        R_ent=np.round(R).astype(int) #partie entiere
+        
+        # Use a Butterworth filter
+        B,A=signal.butter(order,cut_off/(l/2.)-r/(l/2.))
+        z=np.zeros(l)
+        z[0]=1.
+        zf=signal.lfilter(B,A,z)
+        fft_zf=fftpack.fftshift(fftpack.fft(zf))
+        fft_zf = np.append(fft_zf[int(l/2.):l],np.zeros(l/2))
+        
+        F_bas=np.zeros((l,l))+0j
+        F_bas=np.where(R_ent<l/2.,np.abs(fft_zf[R_ent]),F_bas)
+        f_bas=fftpack.ifftshift(fft*F_bas)
+        im_bis=np.real(fftpack.ifft2(f_bas,threads=threads))
+        
+        im_bis[nan_mask] = np.nan
+        
+        return im_bis
