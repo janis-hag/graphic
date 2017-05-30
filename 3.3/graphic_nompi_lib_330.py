@@ -413,6 +413,7 @@ def create_parang_list_naco(hdr):
 					pa=hdr['HIERARCH ESO ADA POSANG']	
 					parang_array=numpy.array([0,mjdstart,pa])
 					parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
+				print parang_array[0]
 				return parang_array
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
