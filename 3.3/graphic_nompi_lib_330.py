@@ -411,6 +411,7 @@ def create_parang_list_naco(hdr):
 			else:
 				for i in range(1,1): #NAXIS3=1 for none cube mode
 					pa=hdr['HIERARCH ESO ADA POSANG']	
+					parang_array=numpy.array([0,mjdstart,pa])
 					parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
 				return parang_array
 		else:
@@ -418,6 +419,7 @@ def create_parang_list_naco(hdr):
 			print ('Take the keyword [HIERARCH ESO ADA POSANG] for Position angle.')
 			for i in range(1,1): #NAXIS3=1 for none cube mode
 				pa=hdr['HIERARCH ESO ADA POSANG']	
+				parang_array=numpy.array([0,mjdstart,pa])
 				parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
 			return parang_array
 
