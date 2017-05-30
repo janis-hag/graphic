@@ -406,7 +406,13 @@ def create_parang_list_naco(hdr):
 	else:
 		if 'ARCFILE' in hdr.keys():
 			print(hdr['ARCFILE']+' does not seem to be taken in pupil tracking.')
-			return np.zeros((hdr['NAXIS3'],10))
+			if 'NAXIS3' in hdr.keys():
+				return np.zeros((hdr['NAXIS3'],10))
+			else:
+				for i in range(1,1): #NAXIS3=1 for none cube mode
+					pa=hdr['HIERARCH ESO ADA POSANG']	
+					parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
+				return parang_array
 		else:
 			print('Data does not seem to be taken in pupil tracking.')
 			print ('Take the keyword [HIERARCH ESO ADA POSANG] for Position angle.')
