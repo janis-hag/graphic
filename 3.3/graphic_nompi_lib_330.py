@@ -424,6 +424,26 @@ def create_parang_list_naco(hdr):
 				parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
 			return parang_array
 
+def create_parang_list_nirc2(hdr):
+	"""
+	Reads the header and creates an array giving the paralactic angle for each frame,
+	taking into account the inital derotator position.
+
+	The columns of the output array contains:
+	frame_number, frame_time, paralactic_angle
+	"""
+
+	from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
+	import dateutil.parser
+
+	mjdstart=float(hdr['MJD-OBS'])
+
+	pa = hdr['PARANG'] + hdr['ROTPPOSN'] - hdr['EL'] - hdr['INSTANGL']
+	pa = ((pa + 360) % 360)
+
+	parang_array=numpy.array([0,mjdstart,pa])
+	return parang_array
+
 
 def create_parang_list_nici(hdr):
 	"""
@@ -1069,19 +1089,20 @@ def fft_rotate_pad(in_frame, angle):
 
 def fft_shift(in_frame, dx, dy):
 	f_frame=fft.fft2(in_frame)
-	N=fft.fftfreq(in_frame.shape[0])
-	v=numpy.exp(-2j*numpy.pi*dx*N)
-	u=numpy.exp(-2j*numpy.pi*dy*N)
+	Nx=fft.fftfreq(in_frame.shape[0])
+	Ny=fft.fftfreq(in_frame.shape[1])
+	v=numpy.exp(-2j*numpy.pi*dx*Nx)
+	u=numpy.exp(-2j*numpy.pi*dy*Ny)
 	f_frame=f_frame*u
 	f_frame=(f_frame.T*v).T
 
 	return numpy.real(fft.ifft2(f_frame))
 
-def fft_shift_fpad(in_frame, dx, dy, pad=4.):
+def fft_shift_fpad(in_frame, dx, dy, pad=4):
 	f_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad),dtype=complex)
 	f_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=fftpack.fftshift(fftpack.fft2(in_frame.astype(float)))
+		((pad-1)/2)*in_frame.shape[0]:((pad+1)/2)*in_frame.shape[0],
+		((pad-1)/2)*in_frame.shape[1]:((pad+1)/2)*in_frame.shape[1]]=fftpack.fftshift(fftpack.fft2(in_frame.astype(float)))
 	del in_frame
 	N=fftpack.fftfreq(f_frame.shape[0])
 	v=np.ones((f_frame.shape))*np.exp(-2j*numpy.pi*dx*pad*N)
@@ -1099,34 +1120,33 @@ def fft_shift_fpad(in_frame, dx, dy, pad=4.):
 	return numpy.real(fftpack.ifft2(f_frame)).reshape((M/pad,pad,N/pad,pad)).mean(3).mean(1)
 	## return numpy.real(fftpack.ifft2(f_frame))
 
-def fft_shift_pad(in_frame, dx, dy):
-	pad=4.
+def fft_shift_pad(in_frame, dx, dy,pad=4):
 	pad_frame=np.zeros((in_frame.shape[0]*pad,in_frame.shape[1]*pad))
 	pad_mask=pad_frame==0 # Ugly way to create a boolean mask, should be changed
 	pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame
+		((pad-1)/2)*in_frame.shape[0]:((pad+1)/2)*in_frame.shape[0],
+		((pad-1)/2)*in_frame.shape[1]:((pad+1)/2)*in_frame.shape[1]]=in_frame
 	## pad_mask=np.ones((in_frame.shape[0]*pad,in_frame.shape[1]*pad))*np.NaN
 	pad_mask[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=np.where(np.isnan(in_frame),True,False)
+		((pad-1)/2)*in_frame.shape[0]:((pad+1)/2)*in_frame.shape[0],
+		((pad-1)/2)*in_frame.shape[1]:((pad+1)/2)*in_frame.shape[1]]=np.where(np.isnan(in_frame),True,False)
 	# Shift the mask, to know what part is actually the image
 	pad_mask=ndimage.interpolation.shift(pad_mask, (dx,dy) , mode='constant', cval=True, prefilter=False)
 	## print(pad_mask)
 	# Replace part outside the image which are NaN by 0, and go into Fourier space.
 	pad_frame=np.where(np.isnan(pad_frame),0.,pad_frame)
 	pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]-1,
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame[0,:]/2.
+		((pad-1)/2)*in_frame.shape[0]-1,
+		((pad-1)/2)*in_frame.shape[1]:((pad+1)/2)*in_frame.shape[1]]=in_frame[0,:]/2.
 	pad_frame[
-		((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]=in_frame[-1,:]/2.
+		((pad+1)/2)*in_frame.shape[0],
+		((pad-1)/2)*in_frame.shape[1]:((pad+1)/2)*in_frame.shape[1]]=in_frame[-1,:]/2.
 	pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]-1]=in_frame[:,0]/2.
+		((pad-1)/2)*in_frame.shape[0]:((pad+1)/2)*in_frame.shape[0],
+		((pad-1)/2)*in_frame.shape[1]-1]=in_frame[:,0]/2.
 	pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad+1)/2.)*in_frame.shape[1]]=in_frame[:,-1]/2.
+		((pad-1)/2)*in_frame.shape[0]:((pad+1)/2)*in_frame.shape[0],
+		((pad+1)/2)*in_frame.shape[1]]=in_frame[:,-1]/2.
 	f_frame=np.fft.fft2(pad_frame)
 	N=np.fft.fftfreq(pad_frame.shape[0])
 	v=np.exp(-2j*numpy.pi*dx*N)
@@ -1137,8 +1157,8 @@ def fft_shift_pad(in_frame, dx, dy):
 	pad_frame=numpy.real(fft.ifft2(f_frame))
 	pad_frame[pad_mask]=np.NaN
 	pad_frame=pad_frame[
-		((pad-1)/2.)*in_frame.shape[0]:((pad+1)/2.)*in_frame.shape[0],
-		((pad-1)/2.)*in_frame.shape[1]:((pad+1)/2.)*in_frame.shape[1]]
+		((pad-1)/2)*in_frame.shape[0]:((pad+1)/2)*in_frame.shape[0],
+		((pad-1)/2)*in_frame.shape[1]:((pad+1)/2)*in_frame.shape[1]]
 	return pad_frame
 
 
@@ -2107,10 +2127,10 @@ def nanmask_cube(x0, y0,cube_in, R, d):
 
 	# Cut window in first frame and broadcast
 	# Defined edges
-	xs=numpy.ceil(x0-R)
-	xe=numpy.floor(x0+R)
-	ys=numpy.ceil(y0-R)
-	ye=numpy.floor(y0+R)
+	xs=numpy.int(numpy.ceil(x0-R))
+	xe=numpy.int(numpy.floor(x0+R))
+	ys=numpy.int(numpy.ceil(y0-R))
+	ye=numpy.int(numpy.floor(y0+R))
 
 	# Check if window limits not out of bounds
 	if x0-R < 0:
