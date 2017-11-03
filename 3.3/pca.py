@@ -302,7 +302,7 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
     cube,hdr = pyfits.getdata(image_file,header=True)
     initial_shape=cube.shape
     cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
-    cube_out=0*cube
+    cube_out = np.zeros(cube.shape)+np.NaN
     
     # Calculate the annular regions
     print('  Defining annuli')
@@ -326,7 +326,7 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
     pool.close()
     
     # Reorder it all
-    cube_out=0*cube
+    cube_out=np.zeros(cube.shape)+np.NaN
     pcomps=np.zeros((n_modes,cube.shape[1]))
     for region_ix,region in enumerate(regions):
         cube_out[:,region]=pca_output[region_ix][0]
@@ -376,7 +376,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
     except:
         parangs=pyfits.getdata(parang_file)
     
-    cube_out=0*cube # this should preserve the NaNs
+    cube_out=np.zeros(cube.shape)+np.NaN
     
     # Set the NaNs to zero and restore them later
     nan_mask=np.isnan(cube)
@@ -424,7 +424,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
 
 def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5,
               pc_name=None,n_annuli=5,arc_length=50,r_min=5,threads=3,r_max='Default',
-              min_reference_frames=5):
+              min_reference_frames=5,silent=False,hdr=None):
     ''' Performs a smart PCA reduction on the input datacube, with PCA performed
     locally on annuli, using only frames that have a parallactic angle
     difference that is above some threshold, to minimize self-subtraction.
@@ -432,10 +432,16 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     
     pc_name is the name of the file that the principal components will be saved (as a pickle file)
     '''
-    print('Running smart annular PCA')
+    if not silent:
+        print('Running smart annular PCA')
     
     # Load the datacube and make it 2d
-    cube,hdr = pyfits.getdata(image_file,header=True)
+    if isinstance(image_file,str):
+        cube,hdr = pyfits.getdata(image_file,header=True)
+    else:
+        cube = image_file # assume that the cube was the input if it was not a filename
+        hdr = pyfits.Header()
+        image_file=''
     initial_shape=cube.shape
     # cube = cube.astype(np.float32) # We don't need this much precision, and this saves RAM
     cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
@@ -444,14 +450,15 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     except:
         parangs=pyfits.getdata(parang_file)
     
-    cube_out=0*cube # this should preserve the NaNs
+    cube_out=np.zeros(cube.shape)+np.NaN
     
     # Set the NaNs to zero and restore them later
     nan_mask=np.isnan(cube)
     cube[nan_mask]=0.
     
     # Calculate the annular regions
-    print('  Defining annuli')
+    if not silent:
+        print('  Defining annuli')
     regions,region_radii=define_annuli(initial_shape[1],n_annuli,arc_length,r_min=r_min,r_max=r_max)
     
     # Calculate which reference frames to use for each frame in the cube
@@ -464,12 +471,13 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
             n_good_frames.append(np.sum(region_frames))
     
     # Check that the rotation is enough for the closest annuli
-    print('  Minimum of: '+str(np.min(n_good_frames))+' frames per annuli')
-    print('  Using '+str(n_modes)+' modes, '+str(n_fwhm)+' FWHM protection angle,')
-    print('  '+str(fwhm)+' pix FWHM, '+str(n_annuli)+' annuli, '+str(arc_length)+' pix arc length,')
-    print('  minimum and maximum radii of '+str(r_min)+' and '+str(r_max)+' pix')
+    if not silent:
+        print('  Minimum of: '+str(np.min(n_good_frames))+' frames per annuli')
+        print('  Using '+str(n_modes)+' modes, '+str(n_fwhm)+' FWHM protection angle,')
+        print('  '+str(fwhm)+' pix FWHM, '+str(n_annuli)+' annuli, '+str(arc_length)+' pix arc length,')
+        print('  minimum and maximum radii of '+str(r_min)+' and '+str(r_max)+' pix')
     
-    if np.min(n_good_frames) < n_modes:
+    if (np.min(n_good_frames) < n_modes) and not silent:
         print(' WARNING: some annuli have less available frames than the requested number of modes to subtract')
         if np.min(n_good_frames) ==0:
             # What rotation do we need to get at least one frame
@@ -480,11 +488,12 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
             
     # Set up the pool and arrays for the loop
     pool=Pool(processes=threads)
-    cube_out=0*cube
+    cube_out = np.zeros(cube.shape)+np.NaN
     t_start=time.time()
 #    pcomps=np.zeros((n_modes,cube.shape[0],cube.shape[1]))
 
-    print('Setting up arrays for the loop')
+    if not silent:
+        print('Setting up arrays for the loop')
     # Set up arrays for the loop
     global region_cube
     region_cube=[]
@@ -500,7 +509,8 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
         'cube_region':cube_region}
         all_vars.append(these_vars)  
     
-    print('  Starting loop over regions in image')
+    if not silent:
+        print('  Starting loop over regions in image')
     # Now let multiprocessing do it all
     pca_output=pool.map(pca_multi_annular,all_vars,chunksize=1)
 
@@ -514,8 +524,9 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     #    pca_output=pca_multi_annular(these_vars)
     #    cube_out[ix]=pca_output[0]
 
-    print('  Done! Took '+str((time.time()-t_start)/60)+' mins')
-    print('  Reordering the output')
+    if not silent:
+        print('  Done! Took '+str((time.time()-t_start)/60)+' mins')
+        print('  Reordering the output')
     # Reorder it all and store in the output arrays
     # It is n_regions by n_frames
     for ix in range(len(pca_output)):
@@ -525,7 +536,8 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
 
         pca_output[ix]=[]
         
-    print('  Reordered output') 
+    if not silent:
+        print('  Reordered output') 
     
     cube_out[nan_mask]=np.nan
     # Make the cube 3d again
@@ -533,8 +545,8 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
 
     # Now cut it to r_max (if applicable)
     if (r_max < initial_shape[1]/2.) and (r_max < initial_shape[2]/2.):
-        cube_out = cube_out[:,cube_out.shape[1]/2-r_max:cube_out.shape[1]/2+r_max,
-                              cube_out.shape[2]/2-r_max:cube_out.shape[2]/2+r_max]
+        cube_out = cube_out[:,np.int(cube_out.shape[1]/2-r_max):np.int(cube_out.shape[1]/2+r_max),
+                              np.int(cube_out.shape[2]/2-r_max):np.int(cube_out.shape[2]/2+r_max)]
     if save_name:
 
         # Make a header to store the reduction parameters
@@ -544,7 +556,8 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
                   min_reference_frames=min_reference_frames)
         
         pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
-        print('  PCA subtracted cube saved as: '+save_name)
+        if not silent:
+            print('  PCA subtracted cube saved as: '+save_name)
 
     return cube_out
 
@@ -581,7 +594,7 @@ def make_pca_header(pca_type,n_modes,hdr=None,n_fwhm='',fwhm='',n_annuli='',
 ###############
 
 def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
-                 median_combine=False,return_cube=True):
+                 median_combine=False,return_cube=True,silent=False):
     '''Derotates and mean-combines a cube. Uses FFT derotation '''
     
     #Load the image
@@ -599,14 +612,15 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     out_cube=np.zeros(cube.shape*np.array([1,2,2]))+np.nan # assuming pad=2 in fft_rotate
     t_start=time.time()
 
-    print 'Starting image derotation'
+    if not silent:
+        print('Starting image derotation')
     # Loop through the images
     for ix in range(cube.shape[0]):
         in_frame=cube[ix]
         derot_frame=graphic_nompi_lib.fft_3shear_rotate_pad(in_frame,-parangs[ix], pad=2,return_full=True)
         out_cube[ix]=derot_frame
         
-        if (ix % 20) ==19:
+        if ((ix % 20) ==19) and not silent:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
             print '  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining'
         
@@ -637,7 +651,8 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     
     if save_name:
         pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
-        print 'Combined image saved as:',save_name
+        if not silent:
+            print 'Combined image saved as:',save_name
     if return_cube:
         return out_cube
 
@@ -646,7 +661,7 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
 ###############
 
 def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
-               threads=2,median_combine=False,return_cube=True):
+               threads=2,median_combine=False,return_cube=True,hdr=None,silent=False):
     '''Derotates and mean-combines a cube. Uses FFT derotation.
     This module is optimized for parallel computing on a single node using multiprocessing'''
     
@@ -655,14 +670,15 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
         cube, hdr = pyfits.getdata(image_file,header=True)
     else: # assume it is already a cube
         cube=image_file
-        hdr = pyfits.Header()
+
     # Load the parangs
     try:
         parangs=np.loadtxt(parang_file)
     except:
         parangs=pyfits.getdata(parang_file)
     
-    print 'Starting image derotation'
+    if not silent:
+        print('Starting image derotation')
     
     # Initialize the pool and the list of variables needed
     pool=Pool(processes=threads)
@@ -680,9 +696,10 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
         out_cube[ix] = imap_pool.next()
 
 
+    pool.close()
+     
     # Old way
     # out_cube=pool.map(fft_rotate_multi,all_vars)
-    # pool.close()
     # out_cube = np.array(out_cube,copy=False)
 
     # now sum into a final image
@@ -718,7 +735,9 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
         
     if save_name:
         pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
-        print 'Combined image saved as:',save_name
+        if not silent:
+            print('Combined image saved as:',save_name)
+    
     if return_cube:
         return out_cube
 

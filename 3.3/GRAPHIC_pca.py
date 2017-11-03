@@ -87,6 +87,8 @@ if rank==0:
 		n_modes = np.int(n_modes*n_frames)
 		print('  Taking n_modes as a fraction of the total frames')
 		print('  i.e. '+str(n_modes))
+	else:
+		n_modes = np.int(n_modes)
 
 	# Convert min_reference_frames to an integer if it is a fraction of the available modes
 	if (min_reference_frames < 1) and (min_reference_frames > 0):
@@ -94,7 +96,9 @@ if rank==0:
 		min_reference_frames = np.int(min_reference_frames*n_frames)
 		print('  Taking min_reference_frames as a fraction of the total frames')
 		print('  i.e. '+str(min_reference_frames))
-
+	else:
+		min_reference_frames = np.int(min_reference_frames)
+	
 	#########
 	# Everything below here should be automatic
 	#########
