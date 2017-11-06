@@ -2819,25 +2819,39 @@ def write_log_hdr(runtime, log_file, hdr, comments=None, nprocs=0):
 
 
 def fix_naco_bad_cols(cube):
-	''' Fix the new bad columns on the NACO detector by averaging the neighbouring
-	columns.
-	We can get rid of the if/elif/else statements by working on cube.T, but this should always work fine '''
+    ''' Fix the new bad columns on the NACO detector by averaging the neighbouring 4
+    columns.
+    Bad columns are detected by considering the top and bottom half of the detector separately.
+    And columns with standard deviation = 0 will be marked as bad.'''
+    
+    # Consider the top half and bottom half of the detectors separately
+    for x_ix in range(2):
+        x1 = x_ix*cube.shape[-2]/2
+        x2 = (x_ix+1)*cube.shape[-2]/2
+        
+        # Take the maximum of each column
+        dims_to_collapse = tuple(ix for ix in range(cube.ndim -1))
+        max_col = np.max(cube[...,x1:x2,:],axis=dims_to_collapse)
+        
+        # The bad columns appear to always have the same value
+        # Several ways to detect them...
+        # The variation is zero
+        variation_along_col = np.std(cube[...,x1:x2,:],axis = dims_to_collapse)
+        bad_cols = np.where(variation_along_col == 0)[0]
+        # Or look at the actual value
+        # bad_cols = np.where(max_col == 32768)[0]
 
-	if cube.ndim==3:
-		cols=np.arange(0,cube.shape[2]/2,8)+3
-		d1=0
-		d2=cube.shape[1]/2
-		cube[:,d1:d2,cols]=(cube[:,d1:d2,cols+1]+cube[:,d1:d2,cols-1])/2
+        # Now fix them by replacing with the average of the 4 neighbouring columns.
+        cube[...,x1:x2,bad_cols] = np.nan
+        for col in bad_cols:
+            # Make sure the indices dont become negative
+            ix1 = np.max([col-2,0])
+            ix2 = np.min([col+2,cube.shape[-1]])
+            
+            cube[...,x1:x2,col] = np.nanmean(cube[...,x1:x2,ix1:ix2],axis=(-1))
+            
+    return cube
 
-	elif cube.ndim==2:
-		cols=np.arange(cube.shape[1]/2,8)+3
-		d1=0
-		d2=cube.shape[0]/2
-		cube[d1:d2,cols]=(cube[d1:d2,cols+1]+cube[d1:d2,cols-1])/2
-	else:
-		raise ValueError("The input cube to fix_bad_cols has the wrong dimensions: "+str(cube.ndim))
-
-	return cube
 
 def make_twilight_flat(flat_cube,quality_flag):
 	'''Turns a 3D cube of twilight flat frames into a single flat field, by subtracting
