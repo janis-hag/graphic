@@ -79,7 +79,7 @@ if rank==0:
 	# Check that the output directory exists and create it if necessary
 	dir_exists=os.access(output_dir, os.F_OK)
 	if not dir_exists:
-		os.mkdir(output_dir)
+		os.makedirs(output_dir)
 
 	# Now convert n_modes to an integer if it is a fraction of the available modes
 	if (n_modes < 1) and (n_modes > 0):
