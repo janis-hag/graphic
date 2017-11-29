@@ -68,7 +68,7 @@ if rank==0:
 				parallactic_angle_vec=np.append(parallactic_angle_vec,parallactic_angle)
 
 	if collapse_cube:
-		master_cube = np.mean(master_cube,axis=0)
+		master_cube = np.nanmean(master_cube,axis=0)
 	
 	# Write the output file with all of the frames in the cube
 	# If there's only 1 file, just copy it rather than saving it with pyfits
