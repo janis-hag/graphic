@@ -90,6 +90,7 @@ fp_name = wdir+save_dir+'fake_planets.fits'
 fp_pca_name = wdir+save_dir+'fake_planets_pca.fits'
 fp_derot_name = wdir+save_dir+'fake_planets_derot.fits'
 throughput_file = wdir+save_dir+'throughput.txt'
+all_throughput_file = wdir+save_dir+'all_throughputs.txt'
 contrast_im_file = wdir+save_dir+'contrast_im.fits'
 contrast_file = wdir+save_dir+'contrast.txt'
 snr_map_file = wdir+save_dir+'snr_map.fits'
@@ -108,7 +109,7 @@ parangs_rad = parangs_deg*np.pi/180.
 
 # Get the PCA params from the header
 pca_type = header['HIERARCH GC PCA TYPE']
-n_modes = header['HIERARCH GC PCA NMODES']
+n_modes = np.int(header['HIERARCH GC PCA NMODES'])
 n_fwhm = header['HIERARCH GC PCA NFWHM']
 fwhm = header['HIERARCH GC PCA FWHM']
 n_annuli = header['HIERARCH GC PCA NANNULI']
@@ -116,7 +117,7 @@ arc_length = header['HIERARCH GC PCA ARCLENGTH']
 pca_r_min = header['HIERARCH GC PCA RMIN']
 pca_r_max = header['HIERARCH GC PCA RMAX']
 pca_input_file = header['HIERARCH GC PCA INPUTFILE']
-min_reference_frames = header['HIERARCH GC PCA MINREFFRAMES']
+min_reference_frames = np.int(header['HIERARCH GC PCA MINREFFRAMES'])
 
 if pca_r_max =='Default':
     pca_r_max = np.sqrt(2)*cube.shape[-1]/2
@@ -180,6 +181,7 @@ for ix in range(n_throughput):
 # Now average over the repetitions and save it out
 all_throughputs=np.array(all_throughputs)
 measured_throughputs = np.mean(all_throughputs,axis=0)
+np.savetxt(all_throughput_file,all_throughputs) # File with all of the individual values
 np.savetxt(throughput_file,[inject_radii,measured_throughputs])
     
 # Correct the PSF for ND filters etc
@@ -199,12 +201,21 @@ else:
 psf_frame *= flux_factor
 print('Multiplying the flux frame by:'+str(flux_factor))
 
+# Apply some cosmetics to the image and flux frame before measuring the contrast
+graphic_contrast_lib.prepare_detection_image(image_file,save_name=contrast_im_file,
+                         smooth_image_length=smooth_image_length,
+                         median_filter_length=median_filter_length)
+# Apply the same smoothing to the flux frame (but keep in memory rather than saving it)
+# However, DON'T apply the median filter, since that would reduce the flux of the PSF much
+# more than the image, due to the high SNR
+psf_frame = graphic_contrast_lib.prepare_detection_image(psf_frame,
+                         smooth_image_length=smooth_image_length)
+
 # Calculate the contrast
-graphic_contrast_lib.contrast_curve(image_file,psf_frame,
-       r_min=pca_r_min,r_max=r_max,fwhm=fwhm,smooth_image_length=smooth_image_length,
-       plate_scale=plate_scale,median_filter_length=median_filter_length,
-       save_im =contrast_im_file,self_subtraction_file=throughput_file,
-       save_contrast = contrast_file,n_radii=n_radii,save_noise = noise_file)
+graphic_contrast_lib.contrast_curve(contrast_im_file,psf_frame,
+       r_min=pca_r_min,r_max=r_max,fwhm=fwhm,plate_scale=plate_scale,
+       self_subtraction_file=throughput_file,save_contrast = contrast_file,
+       n_radii=n_radii,save_noise = noise_file,mad=True,robust_sigma=False)
        
 # Make a signal-to-noise map
 graphic_contrast_lib.snr_map(contrast_im_file,noise_file,

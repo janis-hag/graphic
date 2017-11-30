@@ -7,10 +7,10 @@ Some modules for calculating contrast curves
 
 import numpy as np
 import astropy.io.fits as pf
-import glob,time,bottleneck,scipy
+import bottleneck,scipy
 import matplotlib.pyplot as plt
 import os
-#from center import fft_shift
+
 from graphic_nompi_lib_330 import fft_shift
 from scipy import signal,stats,interpolate
 
@@ -42,9 +42,9 @@ def measure_flux(image,radius=3,centre='Default'):
 
 ###############
 
-def aperture_photometry(image,radius=3,centre='Default'):
+def aperture_photometry(image,radius=3,centre='Default',mean=False):
     ''' Performs aperture photometry on a point source in an image.
-    It takes the total flux from a circle of radius "radius" centred on "centre"
+    It takes the total flux from a circle of a given radius and centre
     Position is measured from the centre of the image, in pixels'''
     
     if centre =='Default':
@@ -56,10 +56,25 @@ def aperture_photometry(image,radius=3,centre='Default'):
     xx,yy=np.meshgrid(xarr,yarr)
     pix_dist_map=np.sqrt(xx**2+yy**2)
     
+    # How much of each pixel is within the aperture?    
+    fraction = (radius+0.5) - pix_dist_map
+    fraction[fraction<0] = 0
+    fraction[fraction>1] = 1
+    
+    # Diagnostic plots
+#    plt.clf()
 #    plt.imshow(pix_dist_map)
+#    plt.imshow(fraction)
+#    plt.colorbar()
+    
+    # How close is the area enclosed by "fraction" to the area of the circle?
+#    print np.sum(fraction),np.pi*radius**2
     
     # Take the total
-    flux=np.nansum(image[pix_dist_map<=radius])
+    if mean:
+        flux = np.nansum(image*fraction/np.nansum(fraction))
+    else:
+        flux = np.nansum(image*fraction)
     
     return flux
         
@@ -92,8 +107,12 @@ def median_flux(image,radius=3,centre='Default'):
 
 ###############
 
-def noise_vs_radius(image,n_radii,r_min,fwhm,r_max='Default'):
-    ''' Calculate the 1-sigma noise in an image as a function of radius'''
+def noise_vs_radius(image,n_radii,r_min,fwhm,r_max='Default',mad=True,
+                    robust_sigma=False):
+    ''' Calculate the 1-sigma noise in an image as a function of radius.
+    mad = median absolute deviation instead of standard deviation
+    robust_sigma = use a robust estimator of the standard deviation
+    '''
     
     
     # Pixel distance map that we will use later
@@ -105,7 +124,6 @@ def noise_vs_radius(image,n_radii,r_min,fwhm,r_max='Default'):
     if r_max == 'Default':
         r_max = npix/2.-fwhm/2.
 
-    
     # Get the arrays ready
     detec_r=np.linspace(r_min,r_max,n_radii) # the mean radii of each annulus
     noise=np.zeros(n_radii)   
@@ -122,9 +140,149 @@ def noise_vs_radius(image,n_radii,r_min,fwhm,r_max='Default'):
         vals=image[pix]
     
         # What is the scatter of these pixels?
-        std=np.nanstd(vals)
-        noise[r]=std
+        if mad:
+            std = 1.4826 * np.nanmedian(np.abs(vals-np.nanmedian(vals)))
+        elif robust_sigma:
+            std = robust_std(vals)
+        else:
+            std = np.nanstd(vals)
+        noise[r] = std
     
+    return noise,detec_r
+
+###############
+
+###############
+    
+def robust_std(x):
+    ''' '''
+    y = x.flatten()
+    n = len(y)
+    y.sort()
+    ind_qt1 = int(round((n+1)/4.))
+    ind_qt3 = int(round((n+1)*3/4.))
+    IQR = y[ind_qt3]- y[ind_qt1]
+    lowFense = y[ind_qt1] - 1.5*IQR
+    highFense = y[ind_qt3] + 1.5*IQR
+    ok = (y>lowFense)*(y<highFense)
+    yy=y[ok]
+    return yy.std(dtype='double')
+
+###############
+
+###############
+    
+def noise_vs_radius_apertures(image,n_radii,r_min,fwhm,r_max='Default',
+                              reps = 10,plot=False,mad=True,robust_sigma=False):
+    ''' Calculate the 1-sigma noise in an image as a function of radius.
+    This is done by calculating the average flux within a number of small FWHM wide 
+    circles at the same radius. The noise is estimated from the standard deviations
+    of these mean fluxes.
+    robust_sigma: Use a robust estimator of the standard deviation that ignores outliers.
+    
+    '''
+    
+    # Pixel distance map that we will use later
+    npix=np.min(image.shape)
+    xarr=np.arange(0,npix)-npix/2
+    xx,yy=np.meshgrid(xarr,xarr)
+    pix_dist_map = np.sqrt(xx**2 + yy**2)
+    
+    if r_max == 'Default':
+        r_max = npix/2.-fwhm/2.
+
+    # Get the arrays ready
+    detec_r=np.linspace(r_min,r_max,n_radii) # the mean radii of each annulus
+    noise=np.zeros(n_radii)
+    
+    circle_diam = fwhm # Might want to change this later
+    
+    plotim = 0*image
+
+    # Let's fix the NaNs here to save time later    
+    nan_mask = np.isnan(image)
+    image = np.nan_to_num(image)
+    
+    # Loop through annuli
+    for r in np.arange(n_radii):
+        
+        # To speed up the next for-loop,
+        # only consider the pixels within this annulus
+        annulus_pix = (pix_dist_map < (detec_r[r]+circle_diam+1)) & \
+            (pix_dist_map > (detec_r[r]-circle_diam-1))
+        xx_annulus = xx[annulus_pix]
+        yy_annulus = yy[annulus_pix]
+        image_annulus = image[annulus_pix]
+        
+        # How many circles can we fit within this annulus?
+        n_circles = np.int(np.floor(2*np.pi*detec_r[r] / (circle_diam)))
+        
+        # Repeat the calculation several times with different apertures
+        # to smooth out the contrast curve
+        noise_reps = np.zeros(reps)
+        all_noise_reps = np.zeros((reps,n_circles))
+        for rep in range(reps):
+        
+            # Loop over circles to calculate the stddev of each
+            # offset the first one by a random angle
+            azimuth_offset = np.random.uniform(low=0,high=2*np.pi)
+            noise_circles = np.zeros((n_circles))
+            for circle_ix in range(n_circles):
+                
+                circle_x = detec_r[r] * np.sin(circle_ix* 2*np.pi/n_circles + azimuth_offset)
+                circle_y = detec_r[r] * np.cos(circle_ix* 2*np.pi/n_circles + azimuth_offset)
+                
+                # What is the distance from the circle centre?
+                circ_dist_map = np.sqrt((xx_annulus-circle_x)**2 + (yy_annulus-circle_y)**2)
+                                
+                ## What is the fraction of each pixel that is within the circle?
+                ## this formula is wrong, but it is close to correct
+                fraction = (circle_diam/2.+0.5) - circ_dist_map
+                fraction[fraction<0] = 0
+                fraction[fraction>1] = 1
+                
+                ## These lines neglect fractions of a pixel, which is safer but noisier
+#                good_pix = circ_dist_map <= (circle_diam/2.)
+#                fraction = good_pix # If we want to only use 1 or 0
+                
+                # Make the weights for the original NaN values 0
+                fraction[nan_mask[annulus_pix]] = 0.
+
+                noise_circles[circle_ix] = np.sum(image_annulus*fraction/np.nansum(fraction))
+                
+                if rep == 0 & circle_ix ==0:
+                    # Plot the location of the circles
+#                    plotim[annulus_pix] += circle_ix*good_pix
+#                    plotim[annulus_pix] += circle_ix*fraction
+#                    plotim[annulus_pix] = circ_dist_map
+                    plotim[annulus_pix] += fraction
+            
+            # The noise is estimated by the standard deviation
+            if mad:
+                noise_reps[rep] = 1.4862*np.nanmedian(np.abs(noise_circles-np.nanmedian(noise_circles)))
+            elif robust_sigma:
+                noise_reps[rep] = robust_std(noise_circles)
+            else:
+                noise_reps[rep] = np.nanstd(noise_circles)
+            
+            
+            
+            # Or we can just combine all of the measurements and take the std deviation at the end
+            # This gives almost exactly the same result
+#            all_noise_reps[rep] = noise_circles
+#        
+        # Take the mean over the repetitions
+        noise[r] = np.nanmean(noise_reps)
+        
+        # Or take the standard deviation of all the circles from every repetition
+        # This gives almost exactly the same result
+#         noise[r] = np.nanstd(all_noise_reps)
+#        noise[r] = 1.4826*np.nanmedian(np.abs(all_noise_reps - np.nanmedian(all_noise_reps))) # use MAD
+
+    if plot:
+        plt.clf()
+        plt.imshow(plotim)
+
     return noise,detec_r
 
 ###############
@@ -173,45 +331,45 @@ def mean_vs_radius(image,n_radii,r_min,fwhm,median = False):
 
 ###############
 
-def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4.5,smooth_image_length=None,
-                   convolve_with_circular_aperture=False,remove_planet=False,planet_position=None,
-                   planet_radius=10.,plate_scale=0.027,n_sigma=5,offset=0,label='',
-                   median_filter_length=None,save_im=False, return_noise=False,
-                   plot=False,sss_correction=True, self_subtraction_file=None,
-                   save_contrast=None,save_noise=None):
-    ''' Calculates a contrast curve from a given image and flux frame.
-    n_radii: the number of radial positions to calculate the contrast at.
-    fwhm: the expected full-width-half-max of the psf
-    offset: adds a constant to the contrast curve. Useful for turning into a 
-          sensitivity curve (by adding the star magnitude)
-    plate_scale : in arcsec
-    sss_correction : apply small sample statistics correction? (Default=True)
-    self_subtraction_file : a text file containing the fraction of flux that was self-subtracted
-          during the PCA/ADI step, as a function of radius
+def prepare_detection_image(filename,save_name=None,smooth_image_length=None,
+         median_filter_length=None,convolve_with_circular_aperture=None):
     '''
+    Perform various cosmetic steps to an image, which make it easier to see
+    faint structures. Default is to do nothing. For each option, set the argument
+    to the requested size of the filter or convolution.
     
-    # Load the image
-    image,hdr = pf.getdata(filename,header=True)
-    image=np.array(image,dtype=np.float)# To avoid endian problems with bottleneck
-    npix=image.shape[0]
+    This assumes filename contains a 2D image, but we could vectorize or add 
+    some for-loops if we need more dimensions.
     
-    # Load the flux image
-    if type(flux_filename) == type('a string'):
-        flux_image,flux_header=pf.getdata(flux_filename,header=True)        
+    Options:
+        save_name: Save the image (and header) with this name. Otherwise, it will
+            be returned but not saved.
+        smooth_image_length: Convolve with a Gaussian kernel with this FWHM. This
+            is the Gaussian Cross Correlation / Gaussian Matched Filter approach 
+            as defined in Ruffio+ 2017.
+        median_filter_length: For each pixel, subtract the median calculated in 
+            a box with this radius. Useful for removing large-scale structures 
+            that are irrelevant for planet detectability but visually affect 
+            the final image.
+        convolve_with_circular_aperture: Convolve with a circle with this radius.
+            ( Note, this was used by one of the Mawet/Absil papers, but does not
+            really make sense to apply to real data. )
+    '''
+    # Load the image (if filename is a string)
+    if isinstance(filename,str):
+        image,hdr = pf.getdata(filename,header=True)
+        image=np.array(image,dtype=np.float)# To avoid endian problems with bottleneck
     else:
-        flux_image=1*flux_filename
-    
+        # Otherwise assume the input was the image itself
+        image = filename
+        hdr={}
+
     # Pixel distance map that we will use later
     npix=image.shape[1]
     xarr=np.arange(0,npix)-npix/2
     xx,yy=np.meshgrid(xarr,xarr)
     pix_dist_map=np.sqrt(xx**2+yy**2)
-
-    if r_max == None or r_max == 'Default':
-        r_max = npix/2.-fwhm/2.
     
-    # Do some cosmetics to the image    
-    print('Preparing image for contrast_curve')
     # Gaussian smooth the image
     if smooth_image_length:
         # We need to temporarily remove the nans
@@ -224,11 +382,10 @@ def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4
         ker/=np.sum(ker)
         smoothed_image=signal.fftconvolve(image,ker,mode='same')
         
-        # also smooth the flux image
-        flux_image=signal.fftconvolve(flux_image,ker,mode='same')
-        
         image=smoothed_image
         image[nans]=np.NaN
+        
+        hdr['HIERARCH GC CONTRAST SMOOTH FWHM'] = smooth_image_length
 
     # Median filter to smooth the image
     if median_filter_length:
@@ -246,12 +403,14 @@ def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4
                 
         final_image=image-smoothed_image
         image=final_image
+        
+        hdr['HIERARCH GC CONTRAST MEDIAN FILT'] = median_filter_length
                 
     if convolve_with_circular_aperture:
         # Convolve the image with a circular aperture of rad=FWHM        
         circ_ap=np.zeros((npix,npix))
-        circ_ap[pix_dist_map<(fwhm/2)]=1
-        convol_sz=np.int(np.ceil(fwhm)+3)
+        circ_ap[pix_dist_map<(convolve_with_circular_aperture/2)]=1
+        convol_sz=np.int(np.ceil(convolve_with_circular_aperture)+3)
 
         circ_ap=circ_ap[npix/2-convol_sz/2:npix/2+convol_sz/2,npix/2-convol_sz/2:npix/2+convol_sz/2]
 #        plt.imshow(circ_ap)
@@ -260,15 +419,70 @@ def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4
         image[wherenan]=0.
         image=signal.fftconvolve(image,circ_ap,mode='same')
         image[wherenan]=np.nan
+        
+        hdr['HIERARCH GC CONTRAST CONVOL CIRC'] = convolve_with_circular_aperture
+
+    if save_name:
+        pf.writeto(save_name,image,header=hdr,clobber=True)
+    
+    return image
+
+###############
+
+###############
+
+def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4.5,
+                   remove_planet=False,planet_position=None,planet_radius=10.,
+                   plate_scale=0.027,n_sigma=5,offset=0,label='',plot=False,
+                   return_noise=False,sss_correction=True, self_subtraction_file=None,
+                   save_contrast=None,save_noise=None,use_apertures=False,
+                   mad=True,robust_sigma=False):
+    ''' Calculates a contrast curve from a given image and flux frame.
+    This uses noise_vs_radius_apertures to calculate the noise in the image.
+    n_radii: the number of radial positions to calculate the contrast at.
+    fwhm: the expected full-width-half-max of the psf
+    offset: adds a constant to the contrast curve. Useful for turning into a 
+          sensitivity curve (by adding the star magnitude)
+    plate_scale : in arcsec
+    sss_correction : apply small sample statistics correction? (Default=True)
+    self_subtraction_file : a text file containing the fraction of flux that was self-subtracted
+          during the PCA/ADI step, as a function of radius
+         
+    use_apertures: Measure the noise using aperture photometry instead of peak counts
+    mad: use the median absolute deviation instead of the std. dev. to measure the noise
+    robust_sigma: Use a robust estimator of the standard deviation instead.
+    '''
+    
+    # Load the image
+    image,hdr = pf.getdata(filename,header=True)
+    image=np.array(image,dtype=np.float)# To avoid endian problems with bottleneck
+    npix=image.shape[0]
+    
+    # Load the flux image
+    if type(flux_filename) == type('a string'):
+        flux_image,flux_header=pf.getdata(flux_filename,header=True)        
+    else:
+        flux_image=1*flux_filename
+    
+    npix=image.shape[1]
+    if r_max == None or r_max == 'Default':
+        r_max = npix/2.-fwhm/2.
     
     # remove the planet (if needed)
     if remove_planet:
+        planet_position = np.array(planet_position,dtype=np.int)
+        planet_radius = np.int(planet_radius)
         image[planet_position[0]-planet_radius:planet_position[0]+planet_radius,
               planet_position[1]-planet_radius:planet_position[1]+planet_radius]=np.nan
               
     print('  Calculating contrast')
     # Measure the noise as a function of radius
-    noise,detec_r=noise_vs_radius(image,n_radii,r_min,fwhm,r_max=r_max)
+    if use_apertures:
+        noise,detec_r = noise_vs_radius_apertures(image,n_radii,r_min,fwhm,r_max,reps=20,
+                                                 mad=mad,robust_sigma=robust_sigma)
+    else:
+        noise,detec_r=noise_vs_radius(image,n_radii,r_min,fwhm,r_max=r_max,mad=mad,
+                                      robust_sigma=robust_sigma)
     detec_r_arcsec=detec_r*plate_scale
     
     # Small sample statistics correction
@@ -281,7 +495,10 @@ def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4
         n_sigma=stats.t.ppf(cl,n_res_elements)/sss_corr_factor
     
     # Measure the primary flux:
-    primary_flux=measure_flux(flux_image,radius=5.)    
+    if use_apertures:
+        primary_flux = aperture_photometry(flux_image,radius=fwhm,mean=True)
+    else:
+        primary_flux=measure_flux(flux_image,radius=5.)    
     
     # Correct for self-subtraction
     if self_subtraction_file:
@@ -318,36 +535,10 @@ def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4
         
         plt.tight_layout()
         plt.grid()
-    
-    if save_im:
-        print('  Saving image used to calculate contrast')
-        # Also crop it to the right size
-        # Count the number of NaNs in each row/column
-        n_nans_x=np.sum(np.isnan(image),axis=1)
-        n_nans_y=np.sum(np.isnan(image),axis=0)
-        # Find the first elements that have less than n_pixels NaNs. 
-        # Check both the +ve and -ve directions by reversing the array the second time.
-        # The minimum of these is the one with the largest distance from the centre. 
-        # Then turn into distance from the centre by doing n_pixels/2-index
-        xradius=image.shape[0]/2-np.min([np.argmax(n_nans_x < image.shape[0]),np.argmax(n_nans_x[::-1] < image.shape[0])])
-        yradius=image.shape[1]/2-np.min([np.argmax(n_nans_y < image.shape[1]),np.argmax(n_nans_y[::-1] < image.shape[1])])
-        
-        # actually just take the maximum of these so the output is square
-        xradius=np.max([xradius,yradius])
-        yradius=xradius    
-    
-        image = image[image.shape[0]/2-xradius:image.shape[0]/2+xradius,
-                            image.shape[1]/2-yradius:image.shape[1]/2+yradius]
-
-        # Append the reduction params to the header
-        hdr['HIERARCH GC CONTRAST SMOOTH LENGTH'] = smooth_image_length
-        hdr['HIERARCH GC CONTRAST MEDIAN FILTER'] = median_filter_length
-        hdr['HIERARCH GC CONTRAST CONVOLVE CIRCLE'] = convolve_with_circular_aperture
-        
-        pf.writeto(save_im,image,clobber=True,header=hdr,output_verify='silentfix')
-        
+            
     if save_contrast:
-        np.savetxt(save_contrast,[detec_r_arcsec,detec_limits],header='Separation (arcsec) Contrast (mag)  using plate scale of '+str(plate_scale))
+        con_head ='Separation (arcsec) Contrast (mag)  using plate scale of '+str(plate_scale) 
+        np.savetxt(save_contrast,[detec_r_arcsec,detec_limits],header=con_head)
 
     if save_noise:
         np.savetxt(save_noise,[detec_r,noise],header='Separation (pix) NoiseSigma (counts)')
@@ -364,7 +555,8 @@ def contrast_curve(filename,flux_filename,n_radii=200,r_min=5.,r_max=None,fwhm=4
 
 def snr_map_quick(image_file,fwhm_pix,n_radii,r_min=3.,plot=False,
                   remove_planet=False,planet_position=None,
-                   planet_radius=10.,save_name='snr_map.fits'):
+                   planet_radius=10.,save_name='snr_map.fits',
+                   robust_sigma=False,mad=False):
     ''' Makes an SNR map from a PCA reduced image, by dividing into annuli and 
     comparing the total flux in a region to the standard deviation of the values
     in the same annulus.
@@ -376,7 +568,11 @@ def snr_map_quick(image_file,fwhm_pix,n_radii,r_min=3.,plot=False,
     
    # Load the datacube
     print("Loading cube")
-    image,header=pf.getdata(image_file,header=True)
+    if isinstance(image_file,str):
+        image,header=pf.getdata(image_file,header=True)
+    else:
+        image=image_file
+        header={}
     
     # Pixel distance map that we will use later
     npix=image.shape[1]
@@ -387,12 +583,16 @@ def snr_map_quick(image_file,fwhm_pix,n_radii,r_min=3.,plot=False,
     noise_image = 1*image
     # remove the planet (if needed)
     if remove_planet:
-        noise_image[planet_position[0]-planet_radius:planet_position[0]+planet_radius,
-              planet_position[1]-planet_radius:planet_position[1]+planet_radius]=np.nan
+        xmin = int(planet_position[0]-planet_radius)
+        xmax = int(planet_position[0]+planet_radius)
+        ymin = int(planet_position[1]-planet_radius)
+        ymax = int(planet_position[1]+planet_radius)
+        noise_image[xmin:xmax,ymin:ymax]=np.nan
 
     
     # Get the noise using the contrast function
-    noise_vs_rad,detec_r=noise_vs_radius(noise_image,n_radii,r_min,fwhm_pix)
+    noise_vs_rad,detec_r=noise_vs_radius(noise_image,n_radii,r_min,fwhm_pix,mad=mad,
+                                         robust_sigma=robust_sigma)
     
     # Make an interpolation function
     noise_interp=interpolate.interp1d(detec_r,noise_vs_rad,kind='cubic',
@@ -409,11 +609,17 @@ def snr_map_quick(image_file,fwhm_pix,n_radii,r_min=3.,plot=False,
     snr_map[mask] = np.nan
     
     if plot:
+        plt.figure(1)
         plt.clf()
         im1=plt.imshow(snr_map)
         plt.colorbar(im1)
+        plt.figure(2)
+        plt.clf()
+        plt.imshow(noise_image)
     if save_name:
         pf.writeto(save_name,snr_map,header=header,clobber=True,output_verify='silentfix')
+    else:
+        return snr_map
 
 ##################
 
@@ -471,7 +677,7 @@ def snr_map(image_file,noise_file,plot=False,
 ##################
 
 def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pad=10,
-                   save_name='injected_companions.fits',hdr=None):
+                   save_name='injected_companions.fits',hdr=None,silent=False):
     ''' Injects fake companions into an image cube by adding in copies of the psf.
     cube    = data cube (3D) or filename of data cube
     psf     = psf image (2D)
@@ -504,6 +710,11 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
     
     if np.size(fluxes) == 1:
         fluxes = np.repeat(fluxes,np.size(radii))
+    
+    # Make sure everything is an array
+    radii = np.array(radii)
+    fluxes = np.array(fluxes)
+    
         
 
     # Set up the psf in a padded array for when it is shifted
@@ -518,8 +729,8 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
                       cube.shape[2]+2*cube_extra_pad))
     cube2[:,cube_extra_pad:-cube_extra_pad,cube_extra_pad:-cube_extra_pad] = cube
     
-    
-    print('Injecting psfs into the cleaned frames')
+    if not silent:
+        print('Injecting psfs into the cleaned frames')
     # Loop over frames
     for frame_ix,frame in enumerate(cube2):
         
@@ -533,8 +744,8 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
             flux = fluxes[sep_ix]
             
             # Work out the relative companion positions in pixels
-            pos_x=sep*np.cos(theta+parangs_rad[frame_ix]+azimuth_offset)
-            pos_y=sep*np.sin(theta+parangs_rad[frame_ix]+azimuth_offset)
+            pos_x=sep*np.cos(theta+parangs_rad[frame_ix])
+            pos_y=sep*np.sin(theta+parangs_rad[frame_ix])
             pos_x_int=np.int(np.floor(pos_x)) # this will round down
             pos_y_int=np.int(np.floor(pos_y)) # this will round down
             
@@ -596,12 +807,12 @@ def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad
         # Loop through the fluxes
 #        for flux_ix,flux in enumerate(fluxes):
 #            theta=flux_ix*2*np.pi/(len(fluxes))
-        theta = azimuth_offset
+#        theta = azimuth_offset
         flux = fluxes[sep_ix]
             
             # This is where we injected the companion
-        pos_x=sep*np.cos(theta+azimuth_offset)+(adi_image.shape[0])/2
-        pos_y=sep*np.sin(theta+azimuth_offset)+(adi_image.shape[1])/2
+        pos_x=sep*np.cos(azimuth_offset)+(adi_image.shape[0])/2
+        pos_y=sep*np.sin(azimuth_offset)+(adi_image.shape[1])/2
         pos_x_int=np.int(np.floor(pos_x)) # this will round down
         pos_y_int=np.int(np.floor(pos_y)) # this will round down
         
@@ -630,7 +841,10 @@ def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad
                         
     if save_name:
         save_array = [radii,measured_throughputs]
-        np.savetxt(save_name,save_array,header='# Radii of measurement (pix), Input fluxes (Multiple of stellar flux), Measured throughput (fraction)')
+        thput_head = '# Radii of measurement (pix), '
+        thput_head += 'Input fluxes (Multiple of stellar flux), '
+        thput_head += 'Measured throughput (fraction)'
+        np.savetxt(save_name,save_array,header=thput_head)
     return measured_throughputs
 
 ##################
