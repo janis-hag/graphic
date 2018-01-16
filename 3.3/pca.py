@@ -623,7 +623,7 @@ def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr
     out_cube -= psf
 
     if save_name:
-        hdr = make_pca_header('cADI',n_modes, n_fwhm=n_fwhm,
+        hdr = make_pca_header('cADI',1, n_fwhm=n_fwhm,
                   fwhm=fwhm, n_annuli=n_annuli, arc_length=arc_length,
                   hdr=hdr, r_min=r_min, r_max=r_max, image_file=image_file,
                   min_reference_frames=min_reference_frames)
