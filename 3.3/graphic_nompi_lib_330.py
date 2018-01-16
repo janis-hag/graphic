@@ -2032,8 +2032,8 @@ def mask_centre(frame, R, x0, y0):
 	frame=numpy.where(r > R, frame, numpy.NaN)
 	frame_med=bottleneck.nanmedian(frame)
 	#frame[numpy.round(x0),numpy.round(y0)]=frame_med
-	frame[x0,:]=numpy.where(numpy.isnan(frame[x0,:]),frame_med , frame[x0,:])
-	frame[:,y0]=numpy.where(numpy.isnan(frame[:,y0]),frame_med , frame[:,y0])
+	frame[x0,:]=numpy.where(numpy.isnan(frame[int(x0),:]),frame_med , frame[int(x0),:])
+	frame[:,y0]=numpy.where(numpy.isnan(frame[:,int(y0)]),frame_med , frame[:,int(y0)])
 
 	return frame
 
