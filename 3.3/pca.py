@@ -593,6 +593,48 @@ def make_pca_header(pca_type,n_modes,hdr=None,n_fwhm='',fwhm='',n_annuli='',
 
 ###############
 
+def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr=None):
+    ''' Runs classical ADI on an image cube. Subtracts the mean or median of the cube
+    from every individual frame. No protection angle is used.'''
+
+    if isinstance(image_file,str):
+        cube,hdr = pyfits.getdata(image_file,header=True)
+    else:
+        cube = image_file
+
+    if isinstance(parang_file,str):
+        parangs = np.loadtxt(parang_file)
+    else:
+        parangs = parang_file
+
+    if not hdr:
+        hdr = pyfits.Header()
+
+    # Force the cube to be in the right format (to remove endian problems)
+    cube = cube.astype(np.float)
+
+    # Get the mean or median frame
+    if median:
+        psf = bottleneck.nanmedian(cube,axis=0)
+    else:
+        psf = bottleneck.nanmean(cube,axis=0)
+
+    out_cube = 1*cube
+    out_cube -= psf
+
+    if save_name:
+        hdr = make_pca_header('cADI',n_modes, n_fwhm=n_fwhm,
+                  fwhm=fwhm, n_annuli=n_annuli, arc_length=arc_length,
+                  hdr=hdr, r_min=r_min, r_max=r_max, image_file=image_file,
+                  min_reference_frames=min_reference_frames)
+        pyfits.writeto(save_name,out_cube,header=hdr,clobber=True)
+    else:
+        return out_cube
+
+###############
+
+###############
+
 def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
                  median_combine=False,return_cube=True,silent=False):
     '''Derotates and mean-combines a cube. Uses FFT derotation '''

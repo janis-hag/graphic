@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-This is an example script for how to use the pca module.
+This script runs PCA (or a simple cADI reduction) on a data cube.
 The output will go into the directory that the data is in (wdir)
 e.g.
 	- smart_annular_pca.fits for the PCA-subtracted frames
 	- smart_annular_pca_derot.fits for the final derotated and combined image
+
+pca_type must be:
+	'pca','smart_pca','annular_pca','smart_annular_pca', or 'cadi' 
 """
 from mpi4py import MPI
 import argparse
@@ -115,6 +118,9 @@ if rank==0:
 		smart_annular_pca(image_file,n_modes,pca_reduced_cube_file,parang_file,n_annuli=n_annuli,
 				   arc_length=arc_length,r_min=r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,r_max=r_max,
 				   min_reference_frames = min_reference_frames)
+	elif pca_type.lower() == 'cadi':
+		classical_adi(image_file,pca_reduced_cube_file,parang_file,median=False)
+
 	###
 	if pca_type !='':
 		derot_cube=derotate_and_combine_multi(pca_reduced_cube_file,parang_file,
