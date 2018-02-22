@@ -154,22 +154,27 @@ if rank==0:
 
 	cube_list, dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici, sphere=sphere, scexao=scexao, fit=fit)
 
+	if scexao:
+		for cube_number in xrange(len(cube_list['info'])):
+			for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
+				cube_list['info'][cube_number][frame_number][11]=-1*float(cube_list['info'][cube_number][frame_number][11])
+
 	comm.bcast(cube_list,root=0)
 
-	# Search for the first valid angle to align all the frames to
-	p0=-1
-	for cube_number in xrange(len(cube_list['info'])):
-		for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
-			cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
-			if p0==-1:
-				p0=float(cube_list['info'][cube_number][frame_number][11])
-			## if not p0==-1:
-				## break
-		## if not p0==-1:
-			## break
+
 	if derotate_not_on_first_frame:
 		p0=0 #the derotation is done on the paralactic angle calculated and not on the first valid frame
-
+	else: 	# Search for the first valid angle to align all the frames to
+		p0=-1
+		for cube_number in xrange(len(cube_list['info'])):
+			for frame_number in xrange(cube_list['info'][cube_number].shape[0]):
+				cube_list['info'][cube_number][frame_number][11]=float(cube_list['info'][cube_number][frame_number][11])+float(pa_offset)
+				if p0==-1:
+					p0=float(cube_list['info'][cube_number][frame_number][11])
+				## if not p0==-1:
+					## break
+			## if not p0==-1:
+				## break
 
 	comm.bcast(p0,root=0)
 
@@ -230,7 +235,7 @@ if rank==0:
 	# loop through the serie, broadcast range at each step
 	prev_step_filename=None
 	for step in range(steps):
-		step_filename=str(step)+"."+str(steps)+"_"+finalname
+		step_filename=str(step+1)+"."+str(steps)+"_"+finalname
 		if os.access( step_filename, os.F_OK ): # Check if file already exists
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
 			## med_tot=pyfits.getdata(step_filename).byteswap().newbyteorder()
@@ -398,8 +403,8 @@ if not rank==0:
 						## if rank==2:
 							## print("rs_cube[fn] "+str(bottleneck.nanmax(rs_cube[fn])))
 						s_cube=s_cube[1:]
-				## if d>2:
-					## graphic_nompi_lib.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdr , backend='pyfits' )
+				if d>2:
+					graphic_nompi_lib.save_fits('rs_cube_'+str(rank)+'_'+dirlist[i], rs_cube, hdr=hdulist_s[0].header , backend='pyfits' )
 
 				if full_stack is None:
 					full_stack=rs_cube.copy()

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
@@ -17,7 +17,7 @@ __subversion__='0'
 import scipy, glob,  os, sys, subprocess, string, time
 import numpy as np
 import graphic_nompi_lib_330 as graphic_nompi_lib
-from scipy import ndimage
+# from scipy import ndimage
 ## from mpi4py import MPI
 import argparse
 ## from graphic_nompi_lib import dprint
@@ -39,7 +39,7 @@ parser.add_argument('--pattern', action="store", dest="pattern",  default='*', h
 ## parser.add_argument('--info_pattern', action="store", dest="info_pattern", required=True, help='Info filename pattern')
 parser.add_argument('--info_dir', action="store", dest="info_dir",  default='cube-info', help='Info directory')
 parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
-parser.add_argument('--naxis2', action="store", dest="naxis2", default=0, type=int, help='The size of the single frames. No frame trimming if not set.')
+parser.add_argument('--naxis2', action="store", dest="naxis2", default=-1, type=int, help='The size of the single frames. No frame trimming if not set.')
 parser.add_argument('--naxis3', action="store", dest="naxis3", default=4, type=int, help='The number of frames per cube')
 parser.add_argument('-nofft', dest='nofft', action='store_const',
 					const=True, default=False,
@@ -104,17 +104,22 @@ skipped=0
 	# 9: frame_number, 10: frame_time, 11: paralactic_angle
 ## l_max=0
 
+inst=graphic_nompi_lib.determine_instrument(pyfits.getheader(dirlist[0]))
+
 if args.trimonly:
-	for i in xrange(len(dirlist)):
+	if naxis2==-1:
+		print('-trimonly option requires a trim value specified by --naxis2')
+		sys.exit(0)
+	for i in range(len(dirlist)):
 		frame, hdr=pyfits.getdata(dirlist[i], header=True)
 		if len(frame.shape)==2:
-			cube=frame[frame.shape[0]/2-naxis2/2:frame.shape[0]/2+naxis2/2,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2]
-			hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[0]/2.+hdr['CRPIX1']+naxis2/2.)
-			hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX2']+naxis2/2.)
+			cube=frame[frame.shape[0]//2-naxis2//2:frame.shape[0]//2+naxis2//2,frame.shape[1]//2-naxis2//2:frame.shape[1]//2+naxis2//2]
+			hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[0]//2.+hdr['CRPIX1']+naxis2//2.)
+			hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[1]//2.+hdr['CRPIX2']+naxis2//2.)
 		else:
-			cube=frame[:,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2,frame.shape[2]/2-naxis2/2:frame.shape[2]/2+naxis2/2]
-			hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[1]/2.+hdr['CRPIX1']+naxis2/2.)
-			hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[2]/2.+hdr['CRPIX2']+naxis2/2.)
+			cube=frame[:,frame.shape[1]//2-naxis2//2:frame.shape[1]//2+naxis2//2,frame.shape[2]//2-naxis2//2:frame.shape[2]//2+naxis2//2]
+			hdr['CRPIX1']='{0:14.7G}'.format(-frame.shape[1]//2.+hdr['CRPIX1']+naxis2//2.)
+			hdr['CRPIX2']='{0:14.7G}'.format(-frame.shape[2]//2.+hdr['CRPIX2']+naxis2//2.)
 
 		hdr['HIERARCH GC TRIMPACK']=str(__version__)+'.'+str(__subversion__)
 
@@ -126,8 +131,8 @@ if args.trimonly:
 
 else:
 	for j in range(int(np.ceil(1.*len(dirlist)/naxis3))):
-		if naxis3*j>len(dirlist):
-			n3=naxis3*j-len(dirlist)
+		if naxis3*(j+1)>len(dirlist):
+			n3=len(dirlist)-naxis3*j
 		else:
 			n3=naxis3
 		c=j*naxis3
@@ -144,7 +149,7 @@ else:
 		t0_cube=time.time()
 
 		trimpack_filename=target_pattern+"_"+dirlist[c]
-		info_filename="scexao_parang_"+trimpack_filename[:-5]+".rdb"
+		info_filename=inst+"_parang_"+trimpack_filename[:-5]+".rdb"
 
 		# Check if already processed
 		if os.access(target_dir+os.sep+trimpack_filename, os.F_OK | os.R_OK):
@@ -171,20 +176,31 @@ else:
 			### frame_num       frame_time      paralactic_angle
 
 			## jdate=float(header['MJD'])+2400000.5
-			if parang_list is None:
-				parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_scexao(header))))
-				## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+			if inst=='scexao':
+				if parang_list is None:
+					parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_scexao(header))))
+					## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+				else:
+					parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_scexao(header)))))
+			elif inst=='naco':
+				header['ESO TEL ROT ALTAZTRACK']=True
+				if parang_list is None:
+					parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_list_naco(header)[1:])))
+					## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+				else:
+					parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_list_naco(header)[1:]))))
 			else:
-				parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_scexao(header)))))
+				print('Unsupported instrument. Not generating parallactic angles!')
+
 
 			# Trimming the frame
-			cube[n]=frame[frame.shape[0]/2-naxis2/2:frame.shape[0]/2+naxis2/2,frame.shape[1]/2-naxis2/2:frame.shape[1]/2+naxis2/2]
-
+			cube[n]=frame[frame.shape[0]//2-naxis2//2:frame.shape[0]//2+naxis2//2,frame.shape[1]//2-naxis2//2:frame.shape[1]//2+naxis2//2]
 
 		cent_list=np.ones((n3,9))
 		cent_list[:,0]=np.arange(n3) # Frame number
-		cent_list[:,1]=naxis2/2. # X center
-		cent_list[:,2]=naxis2/2. # Y center
+		cent_list[:,1]=naxis2//2. # X center
+		cent_list[:,2]=naxis2//2. # Y center
+
 		cent_list=np.hstack((cent_list,parang_list))
 
 		## trimpack_filename=target_pattern+"_"+dirlist[c+n]
@@ -216,9 +232,9 @@ print("Total time: "+graphic_nompi_lib.humanize_time((time.time()-t_init)))
 
 if not hdr==None:
 	if 'ESO OBS TARG NAME' in hdr.keys():
-		log_file=log_file+"_"+string.replace(hdr['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+		log_file=log_file+"_"+hdr['ESO OBS TARG NAME'].replace(' ','')+"_"+str(__version__)+".log"
 	else:
-		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
+		log_file=log_file+"_"+hdr['OBJECT'].replace(' ','')+"_"+str(__version__)+".log"
 	graphic_nompi_lib.write_log((time.time()-t_init),log_file,  comments=None)
 sys.exit(0)
 

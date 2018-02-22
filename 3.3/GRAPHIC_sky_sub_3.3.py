@@ -153,8 +153,11 @@ if rank==0:
 		sky_data, sky_hdr = pyfits.getdata(skyls[0], header=True)
 		sky_med_frame=sky_data
 
-		sky_obstimes[sky_hdr['HIERARCH GC SKY_OBSTIME']]=skyls[0]
-
+		if 'HIERARCH GC SKY_OBSTIME' in sky_hdr.keys():
+			sky_obstimes[sky_hdr['HIERARCH GC SKY_OBSTIME']]=skyls[0]
+		else:
+			print('No HIERARCH GC SKY_OBSTIME keyword found. Using MJD-OBS')
+			sky_obstimes[sky_hdr['MJD-OBS']]=skyls[0]
 	else:
 
 		# Loop over all the sky files and make a big array containing all of them.
@@ -188,7 +191,7 @@ if not rank==0:
 	# skylist=comm.bcast(None, root=0)
 	sky_obstimes=comm.bcast(None,root=0)
 	sky_med_frame=comm.bcast(None, root=0)
-	
+
 	dirlist=comm.recv(source = 0)
 	if dirlist==None:
 		sys.exit(0)
@@ -346,9 +349,9 @@ for i in range(len(dirlist)):
 	header['HIERARCH GC SKY_INTERP']=( sky_interp, '# of sky frames used to interpolate')
 
 	# ACC removed verify='warn' because NACO files have a PXSPACE card that is non-standard
-	# Also, ACC changed this to explicitly write out 32 bit floats, since images are usually 32 bit 
+	# Also, ACC changed this to explicitly write out 32 bit floats, since images are usually 32 bit
 	#  to begin with and this saves 50% of the disk space used.
-	graphic_nompi_lib.save_fits(targetfile, cube.astype(np.float32), hdr=header, backend='pyfits') 
+	graphic_nompi_lib.save_fits(targetfile, cube.astype(np.float32), hdr=header, backend='pyfits')
 
 if rank==0:
 	if not header==None:
