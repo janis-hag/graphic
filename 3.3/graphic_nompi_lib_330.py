@@ -817,6 +817,18 @@ def datetime2jd(t):
 
     return JD
 
+def determine_instrument(hdr):
+    if 'INSTRUME' in hdr.keys():
+        if 'HICIAO' in hdr['INSTRUME']:
+            inst='scexao'
+        elif 'NAOS+CONICA' in hdr['INSTRUME']:
+            inst='naco'
+        else:
+            inst='unknown'
+    else:
+        inst='unknown'
+    return inst
+
 def cut_cube(centroname,cube_in, R, d):
     import tables
 
@@ -1553,7 +1565,7 @@ def inject_FP_sphere(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, w
     elif wavelen!=0: #for sphere data you have to give the wavelength as a parameter
         wavelen_m=wavelen*10**(-6) # microns*10**(-6)=meters
     else:
-        print "error no wavelength found!"
+        print('Error no wavelength found!')
 
     ## waveLen_nyquist=1.3778#micron
     ## focal_scale_as_p_m=hdr['ESO TEL FOCU SCALE']*10**(3) #Focal scale (arcsec/mm)*10**(3)=(arcsec/m)
@@ -1562,7 +1574,7 @@ def inject_FP_sphere(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, w
     elif 'ESO DET CHIP1 PXSPACE' in hdr.keys(): #for IRDIS
         pix_size_m=hdr['ESO DET CHIP1 PXSPACE']
     else:
-        print "error pix_size not found check header"
+        print('Error pix_size not found check header')
     ## waveLen_nyquist_m=(2*r_tel_prim*as_par_pixel)/focal_scale_as_p_m #meters
     wavelen_nyquist_m=(r_tel_prim*pix_scale_as_pix*pix_size_m)/1.22  # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
     ## wavelen_nyquist_m=(pix_scale_as_pix*r_tel_prim*2)/(1.22*206265) # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
@@ -2069,20 +2081,20 @@ def mask_cube(x0, y0,cube_in, R, d):
 
     # Cut window in first frame and broadcast
     # Defined edges
-    xs=numpy.ceil(x0-R)
-    xe=numpy.floor(x0+R)
-    ys=numpy.ceil(y0-R)
-    ye=numpy.floor(y0+R)
+    xs=int(numpy.ceil(x0-R))
+    xe=int(numpy.floor(x0+R))
+    ys=int(numpy.ceil(y0-R))
+    ye=int(numpy.floor(y0+R))
 
     # Check if window limits not out of bounds
     if x0-R < 0:
         xs=0
     if x0+R > cube_in[0].shape[0]:
-        xe= cube_in[0].shape[0]
+        xe= int(cube_in[0].shape[0])
     if y0-R < 0:
         ys=0
     if y0+R > cube_in[0].shape[1]:
-        ye= cube_in[0].shape[1]
+        ye= int(cube_in[0].shape[1])
 
     if d>0:
         print("xs: "+str(xs)+" xe: "+str(xe)+" ys: "+str(ys)+" ye: "+str(ye)+" x0: "+str(x0)+" y0: "+str(y0))
@@ -2182,10 +2194,10 @@ def nanmask_frame(x0, y0,frame, R, d):
 
     # Cut window in first frame and broadcast
     # Defined edges
-    xs=numpy.ceil(x0-R)
-    xe=numpy.floor(x0+R)
-    ys=numpy.ceil(y0-R)
-    ye=numpy.floor(y0+R)
+    xs=int(numpy.ceil(x0-R))
+    xe=int(numpy.floor(x0+R))
+    ys=int(numpy.ceil(y0-R))
+    ye=int(numpy.floor(y0+R))
 
     # Check if window limits not out of bounds
     if x0-R < 0:
