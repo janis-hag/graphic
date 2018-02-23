@@ -275,9 +275,11 @@ if rank==0:
         for wav in range(n_wav):
             
             if science_waffle:
-                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-center[wav,:,0]-dithering_x,np.shape(cube)[-2]/2.-center[wav,:,1]-dithering_y)
+                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-0.5-center[wav,:,0]-dithering_x,
+                            np.shape(cube)[-2]/2.-0.5-center[wav,:,1]-dithering_y)
             else:
-                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-center[wav,0]-dithering_x,np.shape(cube)[-2]/2.-center[wav,1]-dithering_y)
+                cube_translat[wav] = translat_cube(cube[wav],np.shape(cube)[-1]/2.-0.5-center[wav,0]-dithering_x,
+                            np.shape(cube)[-2]/2.-0.5-center[wav,1]-dithering_y)
 
         # find the position of the NaN mask after translation of the image.
         # IF science_waffle we use the first frame as the position will change
@@ -323,44 +325,8 @@ if rank==0:
                 prefixes = ['cen_'] # if there's only 1 wavelength channel, we don't need to specify what wavelength it is
             else:
                 prefixes = ['wav'+str(wav)+'_' for wav in range(n_wav)]
-
             
         for wav in range(n_wav):
-
-            # Add a header keyword saying which number channel this is (left/right = 0/1). For IFS, this should already be added.
-            #  So only do it for IRDIS (where n_wav = 2)
-            if 'HIERARCH GC WAVE CHANNEL' not in hdr and (n_wav == 2):
-                hdr['HIERARCH GC WAVE CHANNEL'] = wav
-
-                # And save the wavelength as well to make it easier later
-                filter_hdr = hdr['HIERARCH ESO INS COMB IFLT']
-                ##### H band
-                if filter_hdr == 'DB_H23':
-                    filter_name = ['H2','H3'][wav]
-                elif filter_hdr == 'DB_H32':
-                    filter_name = ['H3','H2'][wav]
-                elif filter_hdr == 'DB_H34':
-                    filter_name = ['H3','H4'][wav]
-                ##### K band
-                elif filter_hdr == 'DB_K12':
-                    filter_name = ['K1','K2'][wav]
-                ##### Y band
-                elif filter_hdr == 'DB_Y23':
-                    filter_name = ['Y2','Y3'][wav]
-                ##### J band
-                elif filter_hdr == 'DB_J23':
-                    filter_name = ['J2','J3'][wav]
-                else:
-                    raise Exception('ERROR! Unknown filter in cut_center_cube_sphere_science_waffle.py!')
-
-                # The filter wavelenth file should be in a subdirectory from the location of this file
-                filter_wavelength_file = os.path.dirname(os.path.realpath(__file__))+os.sep+'SPHERE_characterization/photometry_SPHERE/filter_wavelength.dat'
-                filters,filter_wavs = np.loadtxt(filter_wavelength_file,skiprows=2,unpack=True,dtype=str)
-                filter_wavs = filter_wavs.astype(np.float64)
-                filter_wav = filter_wavs[filters == filter_name][0]
-
-                hdr['HIERARCH GC WAVELENGTH'] = (filter_wav*1e-3,'Wavelength in microns')
-                
             out_name = prefixes[wav]+file_name
             pyfits.writeto(out_name,cube_translat[wav],header=hdr,output_verify='warn',clobber=True)
 
