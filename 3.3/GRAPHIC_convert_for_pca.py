@@ -17,6 +17,8 @@ parser.add_argument('--output_file',action="store",dest='output_file', default="
 	help='Filename of the output fits file containing the stacked cube.')
 parser.add_argument('-skip_parang',action='store_const',dest='skip_parang',const=True,default=False,
 	help='Skip the generation of the parallactic angle file.')
+parser.add_argument('-collapse_cube',action='store_const',dest='collapse_cube',const=True,default=False,
+	help='Collapse the image cube into a single frame (used to make the PSF frame).')
 
 
 args = parser.parse_args()
@@ -24,6 +26,7 @@ pattern=args.pattern
 output_dir = args.output_dir
 output_file = args.output_file
 skip_parang = args.skip_parang
+collapse_cube = args.collapse_cube
 
 if rank==0:
 	t0=MPI.Wtime()
@@ -40,6 +43,8 @@ if rank==0:
 	sys.stdout.flush()
 
 	# Check that the output directory exists, and make it if needed
+	if not output_dir.endswith(os.sep):
+		output_dir+=os.sep
 	dir_exists=os.access(output_dir, os.F_OK)
 	if not dir_exists:
 		os.mkdir(output_dir)
@@ -59,13 +64,16 @@ if rank==0:
 
 		for line in lines:
 			parallactic_angle=line.strip().split()[11]
-			if ((not "parallactic_angle" in parallactic_angle) and (not "---" in parallactic_angle)):
+			if ((not "paralactic_angle" in parallactic_angle) and (not "---" in parallactic_angle)):
 				parallactic_angle_vec=np.append(parallactic_angle_vec,parallactic_angle)
+
+	if collapse_cube:
+		master_cube = np.nanmean(master_cube,axis=0)
 	
 	# Write the output file with all of the frames in the cube
 	# If there's only 1 file, just copy it rather than saving it with pyfits
 	# This will be much quicker
-	if len(dirlist) ==1:
+	if len(dirlist) ==1 and not collapse_cube:
 		shutil.copy(dirlist[0],output_dir+output_file)
 	else:
 		pyfits.writeto(output_dir+output_file,master_cube,header=hdr,clobber=True)

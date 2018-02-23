@@ -70,8 +70,8 @@ if rank==0:
 			counter1=0
 			counter2=0
 			if np.size(frame_to_del)!=0:
-				index_del=index_keep[frame_to_del-1]
-				index_keep=np.delete(index_keep,frame_to_del-1)
+				index_del=index_keep[frame_to_del]
+				index_keep=np.delete(index_keep,frame_to_del)
 			else:
 				index_del=np.array([])
 				counter1=99999
@@ -86,6 +86,7 @@ if rank==0:
 			    else:
 				counter1=99999
 			    counter1+=1
+			# print 'Keeping:',index_keep
 		
 			cube=cube[index_keep,:,:]
 		
