@@ -112,6 +112,7 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
 	comm.bcast(l_max,root=0)
 	comm.bcast(rcube_list['info'][rcn],root=0)
 	graphic_mpi_lib.send_frames_async(cube)
+
 	cube=None
 	if args.stat==True:
 		print("\n STAT: Data upload took: "+humanize_time(MPI.Wtime()-t0_trans))
@@ -361,7 +362,11 @@ else:
 						# 	bigstack[fn,left_edge:right_edge,top_edge]=stack[fn,:,-1]/2.
 						# 	bigstack[fn,left_edge,bottom_edge:top_edge]=stack[fn,0,:]/2.
 						# 	bigstack[fn,right_edge,bottom_edge:top_edge]=stack[fn,-1,:]/2.
+						# Remove the NaNs
+						nan_mask = np.isnan(bigstack[fn])
+						bigstack[fn][nan_mask]=np.nanmedian(bigstack[fn])
 						bigstack[fn]=graphic_nompi_lib.fft_shift(bigstack[fn], stack.shape[1]/2.-info_stack[s+fn,4], stack.shape[2]/2.-info_stack[s+fn,5])
+
 					# Now turn all of the values that wrapped into NaNs.
 					# Due to a quirk of python's indexing, negative indexes wrap while those greater than the array size do not. So we need to be careful here not to NaN perfectly good data!
 					if left_edge >0:
