@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
@@ -15,17 +15,17 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 __version__='3.3'
 __subversion__='0'
 
-import numpy, scipy, glob,  os, sys, subprocess, string, time
+import os, sys, string
 import numpy as np
 import graphic_lib_330 as graphic_lib
-from scipy import ndimage
+#from scipy import ndimage
 from mpi4py import MPI
 import argparse
-from graphic_lib_330 import dprint
+#from graphic_lib_330 import dprint
 import astropy.io.fits as pyfits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
-import bottleneck
+#import bottleneck
 
 
 nprocs = MPI.COMM_WORLD.Get_size()
@@ -79,7 +79,7 @@ if use_bottleneck:
     from bottleneck import median as median
     from bottleneck import nanmedian as nanmedian
 else:
-    from numpy import nanmedian
+    # from numpy import nanmedian
     from numpy import median as median
 
 header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
@@ -101,7 +101,7 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
     graphic_lib.send_frames_async(cube)
     cube=None
     if args.stat==True:
-        print("\n STAT: Data upload took: "+humanize_time(MPI.Wtime()-t0_trans))
+        print("\n STAT: Data upload took: "+graphic_lib.humanize_time(MPI.Wtime()-t0_trans))
         t0_trans=MPI.Wtime()
 
     # Recover data from slaves
@@ -164,7 +164,7 @@ if rank==0:
         new_info=None
         cube,hdr=pyfits.getdata(dirlist[c],header=True)
         cube=cube*1.
-        new_cube=np.ones((cube.shape[0]/naxis3, cube.shape[1],cube.shape[2]))*1.
+        new_cube=np.ones((cube.shape[0]//naxis3, cube.shape[1],cube.shape[2]))*1.
 
         sys.stdout.write("\n Processing cube ["+str(c+1)+"/"+str(len(dirlist))+"]: "+str(dirlist[c])+"\n")
         sys.stdout.flush()
