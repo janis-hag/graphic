@@ -375,7 +375,7 @@ def create_parang_list_nirc2(hdr):
     return parang_array
 
 
-def create_parang_list_nici(hdr):
+def create_parang_list_nici(ndata):
     """
     Reads the header and creates an array giving the paralactic angle for each frame,
     taking into account the inital derotator position.
@@ -452,8 +452,7 @@ def create_parang_scexao(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
+    from numpy import sin, cos, arctan2, deg2rad, rad2deg
     from astropy import units as u
     from astropy import coordinates
     from astropy.time import Time
@@ -476,8 +475,8 @@ def create_parang_scexao(hdr):
     ## coord=SkyCoord(hdr['DEC'], hdr['RA'], 'FK5', unit=(u.deg, u.hourangle))  #HH:MM:SS.SSS RA pointing, +/-DD:MM:SS.SS DEC pointing
     coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
 
-    ra_deg = coord.ra.deg
-    dec_deg = coord.dec.deg
+#    ra_deg = coord.ra.deg
+#    dec_deg = coord.dec.deg
 
     ## coord.dec.deg = float(hdr['DEC'])
 
