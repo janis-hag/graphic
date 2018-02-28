@@ -8,14 +8,14 @@ High-contrast Imaging of planetary Companions".
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
-import numpy, os, shutil, sys, glob, math
+import numpy, os, sys
 import numpy as np
 ## from scipy.signal import correlate2d
 from mpi4py import MPI
-from gaussfit_330 import fitgaussian
-from scipy import ndimage, fftpack
+#from gaussfit_330 import fitgaussian
+#from scipy import fftpack
 #import astropy.io.fits as pyfits
-from astropy.io import fits
+#from astropy.io import fits
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 ## import bottleneck
@@ -191,7 +191,7 @@ def cluster_search_multi(image, thres_coef, min, max, x_i, y_i):
     -im: the image to be analysed
     -spot_ary: the 2d array of spots [psf_barycentre_x, psf_barycentre_y, psf_pixel_size]
     """
-    import sys, numpy
+    import numpy
 
     ima=image.copy()
     from sys import setrecursionlimit
@@ -432,7 +432,7 @@ def send_chunks(cub_in,d):
             if 2*n+2 > cub_in.shape[1]:
                  comm.send(cub_in.shape[1], dest=n+1)
                  comm.send(None, dest=n+1)
-            elif 2*n+3==cub.shape[1]: # Reaching the end of the cube, send all the remaining frames.
+            elif 2*n+3==cub_in.shape[1]: # Reaching the end of the cube, send all the remaining frames.
                 comm.send(2*n, dest = n+1 )
                 comm.send(cub_in[:,2*n:,:], dest = n+1 )
             else:
@@ -462,9 +462,9 @@ def send_chunks_2D(cub_in,d):
     if cub_in.shape[1]/2.<(nprocs-1): # Send only two or three columns to each proc
         for n in range(nprocs-1):
             if 2*n+2 > cub_in.shape[1]:
-                 comm.send(cube_in.shape[1], dest=n+1)
+                 comm.send(cub_in.shape[1], dest=n+1)
                  comm.send(None, dest=n+1)
-            elif 2*n+3==cube.shape[1]: # Reaching the end of the cube, send all the remaining frames.
+            elif 2*n+3==cub_in.shape[1]: # Reaching the end of the cube, send all the remaining frames.
                 comm.send(2*n, dest = n+1 )
                 comm.send(cub_in[:,2*n:], dest = n+1 )
             else:
@@ -687,11 +687,11 @@ def send_masked_chunks(cub_in,d):
     if cub_in.shape[1]/2.<(nprocs-1): # Send only two or three columns to each proc
         for n in range(nprocs-1):
             if 2*n+2 > cub_in.shape[1]:
-                 comm.send(cube_in.shape[1], dest=n+1)
+                 comm.send(cub_in.shape[1], dest=n+1)
                  comm.send(None, dest=n+1)
                  comm.send(None, dest=n+1)
 
-            elif 2*n+3==cube.shape[1]: # Reaching the end of the cube, send all the remaining frames.
+            elif 2*n+3==cub_in.shape[1]: # Reaching the end of the cube, send all the remaining frames.
                 comm.send(2*n, dest = n+1 )
                 comm.send(cub_in.data[:,2*n:,:], dest = n+1 )
                 comm.send(cub_in.mask[:,2*n:,:], dest = n+1 )
