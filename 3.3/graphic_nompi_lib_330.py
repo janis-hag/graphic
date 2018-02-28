@@ -522,8 +522,7 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
     - hdr: a simultaneous HICIAO header
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
+    from numpy import sin, cos, arctan2, deg2rad, rad2deg
     from astropy import units as u
     from astropy import coordinates
     from astropy.time import Time
@@ -547,8 +546,8 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
     coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
     ## coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.hourangle))
 
-    ra_deg = coord.ra.deg
-    dec_deg = coord.dec.deg
+#    ra_deg = coord.ra.deg
+#    dec_deg = coord.dec.deg
 
     parang_array=numpy.ones((len(times),3))
 
@@ -564,7 +563,7 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
         ## lst_long=coordinates.Longitude(angle=hdr['LST'],unit=u.hourangle)
         ## lst=float(lst_long.to_string(decimal=True, precision=10))*15
 
-        lst=obs_time.sidereal_time('apparent')
+#        lst=obs_time.sidereal_time('apparent')
 
         ## ha_deg=lst-coord.ra.deg
         ha_deg=obs_time.sidereal_time('apparent').deg-coord.ra.deg
@@ -593,8 +592,8 @@ def create_parang_list_sphere(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, arctan2, pi, deg2rad, rad2deg
-
+    from numpy import sin, cos, arctan2, pi
+    
     r2d = 180/pi
     d2r = pi/180
 
@@ -630,13 +629,13 @@ def create_parang_list_sphere(hdr):
         
         dec_deg = (actual_dec_deg + actual_dec_min/60. + actual_dec_sec/60./60.)*sgn
 
-        geolat_deg=float(hdr['ESO TEL GEOLAT'])
+#        geolat_deg=float(hdr['ESO TEL GEOLAT'])
         geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
     except:
         print('WARNING: No RA/Dec Keywords found in header')
         ra_deg=0
         dec_deg=0
-        geolat_deg=0
+#        geolat_deg=0
         geolat_rad=0
 
     ######################ajouter par Seb
