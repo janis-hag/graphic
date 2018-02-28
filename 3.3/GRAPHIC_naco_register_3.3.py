@@ -20,7 +20,7 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 __version__='3.3'
 __subversion__='0'
 
-import numpy, glob, os, sys,argparse, fnmatch, string
+import numpy, glob, os, sys,argparse, fnmatch
  ## pickle, tables, argparse
 from mpi4py import MPI
 #from gaussfit_nosat import fitgaussian_nosat
@@ -242,13 +242,14 @@ if rank==0:  # Master process
         elif 'INSTRUME' in cube_header.keys() and cube_header['INSTRUME']=='SPHERE':
             parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
         elif scexao and not chuck:
-            fctable_filename= fnmatch.filter(fctable_list,'*'+string.split(dirlist[i],'_')[-1][:-5]+'.rdb')[0]
+            fctable_filename= fnmatch.filter(fctable_list,'*'+dirlist[i].split('_')[-1][:-5]+'.rdb')[0]
             fctable=graphic_nompi_lib.read_rdb(fctable_filename)
             parang_list=np.array([fctable['frame_num'][:],fctable['frame_time'][:],fctable['paralactic_angle'][:]])
             parang_list=(np.rollaxis(parang_list,1))
         elif chuck:
             ## 'ircam'+string.split(tfile,'ircam')[1]
-            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+#            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+            frame_text_info='ircam'+dirlist[i].split('ircam')[1].replace('fits','txt')
             if os.access(frame_text_info, os.F_OK | os.R_OK):
                 f=open(frame_text_info)
                 timestamps=f.readlines()
