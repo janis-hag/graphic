@@ -300,7 +300,7 @@ def create_parang_list(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi
+    from numpy import sin, cos, arctan2, pi
 
     r2d = 180/pi
     d2r = pi/180
@@ -435,9 +435,6 @@ def create_parang_list_nirc2(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
-
     mjdstart=float(hdr['MJD-OBS'])
 
     pa = hdr['PARANG'] + hdr['ROTPPOSN'] - hdr['EL'] - hdr['INSTANGL']
@@ -456,7 +453,7 @@ def create_parang_list_nici(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi
+    from numpy import sin, cos, arctan2, pi
     import dateutil.parser
 
     r2d = 180/pi
@@ -625,7 +622,7 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
 
     parang_array=numpy.ones((len(times),3))
 
-    for i in xrange(len(times)):
+    for i in range(len(times)):
         ## times[i]=date+' '+string.split(times[i],' ')[0]
         times[i]=date+' '+times[i].split(' ')[0]
 
@@ -666,8 +663,7 @@ def create_parang_list_sphere(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
+    from numpy import sin, cos, arctan2, pi, deg2rad, rad2deg
 
     r2d = 180/pi
     d2r = pi/180
@@ -807,8 +803,6 @@ def datetime2jd(t):
 
     SHOULD BE REPLACED BY astropy.time module
     """
-    from datetime import datetime
-
     a=(14-t.month)/12
     y=t.year+4800-a
     m=t.month+12*a-3
@@ -836,10 +830,10 @@ def cut_cube(centroname,cube_in, R, d):
     if not os.access(centroname[0], os.F_OK | os.R_OK): # Check if file exists
         sys.stdout('\n Error, cannot access: '+centroname[0])
         sys.stdout.flush()
-        for n in range(nprocs-1):
-            comm.send("over", dest = n+1 )
-            comm.send("over", dest = n+1 )
-            sys.exit(1)
+#        for n in range(nprocs-1):
+#            comm.send("over", dest = n+1 )
+#            comm.send("over", dest = n+1 )
+#            sys.exit(1)
 
     # Read the centroids list
     f=tables.openFile(centroname[0])
@@ -2112,7 +2106,7 @@ def parang(dec, ha, geolat):
     """
     Read a header and calculates the paralactic angle, using method derived by Arthur Vigan
     """
-    from numpy import sin, cos, tan, arctan, pi
+    from numpy import sin, cos, arctan, pi
 
     r2d = 180/pi
     d2r = pi/180
