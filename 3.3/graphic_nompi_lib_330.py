@@ -507,7 +507,7 @@ def create_parang_scexao(hdr):
         else:
             print('Data does not seem to be taken in pupil tracking.')
 
-        parang_array=numpy.array([mjdstart,0])
+        parang_array=numpy.array([obs_time.mjd,0])
 
     return parang_array
 
