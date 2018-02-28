@@ -1622,7 +1622,7 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
     wavelen_m=hdr['ESO INS CWLEN']*10**(-6) # microns*10**(-6)=meters
     ## waveLen_nyquist=1.3778#micron
     ## focal_scale_as_p_m=hdr['ESO TEL FOCU SCALE']*10**(3) #Focal scale (arcsec/mm)*10**(3)=(arcsec/m)
-    pix_size_m=hdr['ESO DET CHIP PXSPACE']
+#    pix_size_m=hdr['ESO DET CHIP PXSPACE']
     ## waveLen_nyquist_m=(2*r_tel_prim*as_par_pixel)/focal_scale_as_p_m #meters
     ## wavelen_nyquist_m=(r_tel_prim*pix_scale_as_pix*pix_size_m)/1.22  # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
     wavelen_nyquist_m=(pix_scale_as_pix*r_tel_prim*2)/(1.22*206265) # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
@@ -2595,7 +2595,7 @@ def trim_overscan(cube):
     """
     Trims the overscan of a cube to make it square
     """
-    cube_shape=cube.shape
+#    cube_shape=cube.shape
 
     if cube.shape[1]-cube.shape[2]==2:
         overscan_limit=cube.shape[2]
@@ -2604,7 +2604,7 @@ def trim_overscan(cube):
         overscan_limit=cube.shape[1]
         cube=cube[:,:overscan_limit,:]
     else:
-        print('Error! No overscan detected for: '+str(dirlist[i]))
+        print('Error! No overscan detected!') # for: '+str(dirlist[i]))
 
     return cube
 
