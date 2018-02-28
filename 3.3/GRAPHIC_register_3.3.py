@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -20,13 +20,13 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 __version__='3.3'
 __subversion__='0'
 
-import numpy, scipy, glob, shutil, os, sys,argparse, time, fnmatch, string
+import numpy, glob, os, sys,argparse, fnmatch
  ## pickle, tables, argparse
 from mpi4py import MPI
 #from gaussfit_nosat import fitgaussian_nosat
 #from gaussfit import fitgaussian, i_fitmoffat, moments
 import gaussfit_330 as gaussfit
-from scipy import stats
+#from scipy import stats
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
 from graphic_mpi_lib_330 import dprint
@@ -215,7 +215,7 @@ if rank==0:  # Master process
         print("["+str(i+1)+"/"+str(len(dirlist))+"]: Processing "+str(dirlist[i]))
 
         if not os.access(dirlist[i], os.F_OK ): # Check if file exists
-            print "Error: cannot access file "+dirlist[i]
+            print("Error: cannot access file "+dirlist[i])
             skipped=skipped+1
             continue
         else:
@@ -255,7 +255,7 @@ if rank==0:  # Master process
             parang_list=None
             if not 'Angle_deg' in fctable.keys():
                 print(str(fctable_filename)+' does not contain Angle_deg in keys: '+str(fctable.keys()))
-            for i in xrange(len(fctable['Angle_deg'])):
+            for i in range(len(fctable['Angle_deg'])):
                 jdate = graphic_nompi_lib.datetime2jd(dateutil.parser.parse(fctable['Time-UT'][i]))
                 if parang_list is None:
                     parang_list=numpy.array([i,jdate,fctable['Angle_deg'][i]])
@@ -268,19 +268,20 @@ if rank==0:  # Master process
         elif sphere:
             parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
         elif naco_pack or (scexao and not chuck):
-            fctable_filename= fnmatch.filter(fctable_list,'*'+string.split(dirlist[i],'_')[-1][:-5]+'.rdb')[0]
+            fctable_filename= fnmatch.filter(fctable_list,'*'+dirlist[i].split('_')[-1][:-5]+'.rdb')[0]
             fctable=graphic_nompi_lib.read_rdb(fctable_filename)
             parang_list=np.array([fctable['frame_num'][:],fctable['frame_time'][:],fctable['paralactic_angle'][:]])
             parang_list=(np.rollaxis(parang_list,1))
         elif chuck:
             ## 'ircam'+string.split(tfile,'ircam')[1]
-            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+#            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+            frame_text_info='ircam'+dirlist[i].split('ircam')[1].replace('fits','txt')
             if os.access(frame_text_info, os.F_OK | os.R_OK):
                 f=open(frame_text_info)
                 timestamps=f.readlines()
                 parang_list=graphic_nompi_lib.create_parang_scexao_chuck(timestamps, hdr, iers_a)
             else:
-                print('No '+frame_text_info+' file found. Skipping '+dirlist[c+n])
+                print('No '+frame_text_info+' file found. Skipping '+dirlist[i])
                 continue
         elif naco:
             # Creates a 2D array [frame_number, frame_time, paralactic_angle]
