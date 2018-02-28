@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
