@@ -16,7 +16,7 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 __version__='3.3'
 __subversion__='0'
 
-import os, sys, string
+import os, sys
 from mpi4py import MPI
 from scipy import ndimage
 import argparse
@@ -190,16 +190,16 @@ if rank==0:
             fil=fil+str(hdr['ESO INS OPTI6 ID'])
         elif 'ESO INS COMB IFLT' in hdr.keys(): #VLT/SPHERE
             fil=fil+str(hdr['ESO INS COMB IFLT'])
-        finalname='final_image_'+string.upper(string.replace(hdr['ESO OBS TARG NAME'],' ',''))+'_'+fil+'_'+dirlist[0]
+        finalname='final_image_'+hdr['ESO OBS TARG NAME'].replace(' ','').upper()+'_'+fil+'_'+dirlist[0]
     elif 'OBJECT' in hdr.keys(): # Gemini/NICI
         if not 'CHANNEL' in hdr.keys():
             fil=fil+''
         elif hdr['CHANNEL']=='BLUE':
-            fil=fil+string.replace(hdr['FILTER_B'],'%','')
+            fil=fil+hdr['FILTER_B'].replace('%','')
         elif hdr['CHANNEL']=='RED':
-            fil=fil+string.replace(hdr['FILTER_R'],'%','')
+            fil=fil+hdr['FILTER_R'].repalce('%','')
         ## log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
-        finalname='final_image_'+string.upper(string.replace(hdr['OBJECT'],' ',''))+'_'+fil+'_'+dirlist[0]
+        finalname='final_image_'+hdr['OBJECT'].replace(' ','').upper()+'_'+fil+'_'+dirlist[0]
     else:
         ## log_file=log_file+"_UNKNOW_TARGET_"+str(__version__)+".log"
         finalname='final_image_UNKNOW_TARGET_'+dirlist[0]
