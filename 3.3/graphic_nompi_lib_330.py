@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
@@ -11,7 +12,7 @@ __version__='3.3'
 
 __subversion__='0'
 
-import numpy, os, shutil, sys, glob, math
+import numpy, os, shutil, sys, glob
 import numpy as np
 ## from scipy.signal import correlate2d
 from gaussfit_330 import fitgaussian
@@ -37,7 +38,7 @@ def calc_parang(hdr):
     """
     Read a header and calculates the paralactic angle, using method derived by Arthur Vigan
     """
-    from numpy import sin, cos, tan, arctan, pi
+    from numpy import sin, cos, arctan, pi
 
     r2d = 180/pi
     d2r = pi/180
@@ -151,7 +152,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
     for i in range(len(dirlist)):
         if not os.access(dirlist[i], os.F_OK | os.R_OK): # Check if file exists
             ## print("")
-            print(str(rank)+': Error, cannot access: '+dirlist[i])
+            print(': Error, cannot access: '+dirlist[i])
             dirlist[i]=None
             continue
         if not target_pattern==None:
@@ -414,7 +415,7 @@ def create_parang_list_naco(hdr):
                     pa=hdr['HIERARCH ESO ADA POSANG']    
                     parang_array=numpy.array([0,mjdstart,pa])
                     parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
-                print parang_array[0]
+                print(parang_array[0])
                 return parang_array
         else:
             print('Data does not seem to be taken in pupil tracking.')
@@ -2463,9 +2464,9 @@ def rescale_image(im1_3d,x,y):
     if x<1 -> compression of im1_3d in x direction by factor x
     '''
     
-    print "\n"
-    print "factor of rescaling in x direction:",x
-    print "factor of rescaling in y direction:",y,"\n"
+    print("\n")
+    print("rescaling factor in x direction:",x)
+    print("rescaling factor in y direction:",y,"\n")
     
     # Find the NaNs in the image
     mask_nan=np.where(np.isnan(im1_3d),0,1.)
