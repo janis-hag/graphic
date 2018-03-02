@@ -2696,7 +2696,7 @@ def write_log(runtime, log_file, comments=None, nprocs=0):
 
     p=Popen(["ps","-o", "cmd=","-p",str(os.getpid())], stdout=PIPE)
     out, err = p.communicate()
-    f = open(log_file, 'aw')
+    f = open(log_file, 'a')
     ## f.write(string.replace(string.zfill('0',80),'0','-')+'\n')
     f.write(''.zfill(80).replace('0','-')+'\n')
 
