@@ -15,10 +15,10 @@ __subversion__='0'
 import numpy, os, shutil, sys, glob
 import numpy as np
 ## from scipy.signal import correlate2d
-from gaussfit_330 import fitgaussian
+#from gaussfit_330 import fitgaussian
 from scipy import ndimage,signal
 #import astropy.io.fits as pyfits
-from astropy.io import fits
+#from astropy.io import fits
 import pyfftw
 
 
@@ -751,6 +751,7 @@ def determine_instrument(hdr):
             inst='unknown'
     else:
         inst='unknown'
+    print('Insrument detected as: '+inst)
     return inst
 
 def cut_cube(centroname,cube_in, R, d):
