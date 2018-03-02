@@ -19,7 +19,7 @@ import numpy as np
 from scipy import ndimage,signal
 #import astropy.io.fits as pyfits
 #from astropy.io import fits
-import pyfftw
+#import pyfftw
 
 
 ## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
@@ -2387,6 +2387,7 @@ def rescale_image(im1_3d,x,y):
     if x>1 -> streching of im1_3d in x direction by factor x
     if x<1 -> compression of im1_3d in x direction by factor x
     '''
+    import pyfftw
     
     print("\n")
     print("rescaling factor in x direction:",x)
