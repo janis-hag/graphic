@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
@@ -11,7 +12,7 @@ __version__='3.3'
 
 __subversion__='0'
 
-import numpy, os, shutil, sys, glob, math
+import numpy, os, shutil, sys, glob
 import numpy as np
 ## from scipy.signal import correlate2d
 from gaussfit_330 import fitgaussian
@@ -37,7 +38,7 @@ def calc_parang(hdr):
     """
     Read a header and calculates the paralactic angle, using method derived by Arthur Vigan
     """
-    from numpy import sin, cos, tan, arctan, pi
+    from numpy import sin, cos, arctan, pi
 
     r2d = 180/pi
     d2r = pi/180
@@ -56,75 +57,6 @@ def calc_parang(hdr):
     parang_deg=r2d*arctan(f1/f2)
 
     return parang_deg
-
-def chi_diff(shift, r_im, s_im ,x0, y0, r, R):
-    """
-    Calculate the difference between the reference window (rw) and the shifted image (shift_im)
-
-    -shift tuple containing x and y shift to apply
-    -xs,ys x position of the reference window start
-    -xe,ye y position of the reference window end
-    -r inner annulus radius
-    -R outer annulus radius
-    """
-
-    s=5
-
-    if x0+R+s+1 >= s_im.shape[0]:
-        for i in range(s,0):
-           if x0+R+i+1 <= s_im.shape[0]:
-               s=1
-               break
-           elif i==0:
-               print("Error, star at edge of frame! "+str(x0)+" "+str(y0))
-
-    elif x0-R-s <= 0:
-        for i in range(s,0):
-            if x0-R-i >= 0:
-                s=i
-                break
-            elif i==0:
-                print("Error, star at edge of frame! "+str(x0)+" "+str(y0))
-
-    if y0+R+s+1 >= s_im.shape[1]:
-        for i in range(s,0):
-            if x0+R+i+1 <= s_im.shape[1]:
-                s=i
-                break
-            elif i==0:
-                print("Error, star at edge of frame! "+str(x0)+" "+str(y0))
-
-    elif y0-R-s <= 0:
-        for i in range(s,0):
-            if x0-R-i >= 0:
-                s=i
-                break
-            elif i==0:
-                print("Error, star at edge of frame! "+str(x0)+" "+str(y0))
-
-    # Cut window in reference image
-    # rw = r_im[x0-R:x0+R+1,y0-R:y0+R+1]
-
-    # Generate annulus mask
-    annulus=numpy.zeros((2*R+1,2*R+1))
-
-    for x in range(-R,R+1):
-        for y in range(-R,R+1):
-            if (x**2+y**2) <= R**2 and (x**2+y**2) >= r**2:
-                annulus[x+R+x0][y+R+y0]=1
-
-    chi2=numpy.zeros(11,11)
-    for xs in range(-s,s+1):
-        for ys in range(-s,s+1):
-            iw=s_im[x0-R+xs:x0+R+1+xs,y0-R+ys:y0+R+1+ys] # Sliding search window
-            chi2[xs,ys]=sum((rw[annulus]-iw[annulus])**2)
-
-    ## best=numpy.where(chi2==numpy.max(chi2))
-    ## level=numpy.median(chi2)
-
-    params=fitgaussian(chi2)
-
-    return params
 
 def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=None, interactive=False):
     """
@@ -151,7 +83,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
     for i in range(len(dirlist)):
         if not os.access(dirlist[i], os.F_OK | os.R_OK): # Check if file exists
             ## print("")
-            print(str(rank)+': Error, cannot access: '+dirlist[i])
+            print(': Error, cannot access: '+dirlist[i])
             dirlist[i]=None
             continue
         if not target_pattern==None:
@@ -299,7 +231,7 @@ def create_parang_list(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi
+    from numpy import sin, cos, arctan2, pi
 
     r2d = 180/pi
     d2r = pi/180
@@ -414,7 +346,7 @@ def create_parang_list_naco(hdr):
                     pa=hdr['HIERARCH ESO ADA POSANG']    
                     parang_array=numpy.array([0,mjdstart,pa])
                     parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
-                print parang_array[0]
+                print(parang_array[0])
                 return parang_array
         else:
             print('Data does not seem to be taken in pupil tracking.')
@@ -434,9 +366,6 @@ def create_parang_list_nirc2(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
-
     mjdstart=float(hdr['MJD-OBS'])
 
     pa = hdr['PARANG'] + hdr['ROTPPOSN'] - hdr['EL'] - hdr['INSTANGL']
@@ -446,7 +375,7 @@ def create_parang_list_nirc2(hdr):
     return parang_array
 
 
-def create_parang_list_nici(hdr):
+def create_parang_list_nici(ndata):
     """
     Reads the header and creates an array giving the paralactic angle for each frame,
     taking into account the inital derotator position.
@@ -455,7 +384,7 @@ def create_parang_list_nici(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi
+    from numpy import sin, cos, arctan2, pi
     import dateutil.parser
 
     r2d = 180/pi
@@ -523,8 +452,7 @@ def create_parang_scexao(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
+    from numpy import sin, cos, arctan2, deg2rad, rad2deg
     from astropy import units as u
     from astropy import coordinates
     from astropy.time import Time
@@ -547,8 +475,8 @@ def create_parang_scexao(hdr):
     ## coord=SkyCoord(hdr['DEC'], hdr['RA'], 'FK5', unit=(u.deg, u.hourangle))  #HH:MM:SS.SSS RA pointing, +/-DD:MM:SS.SS DEC pointing
     coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
 
-    ra_deg = coord.ra.deg
-    dec_deg = coord.dec.deg
+#    ra_deg = coord.ra.deg
+#    dec_deg = coord.dec.deg
 
     ## coord.dec.deg = float(hdr['DEC'])
 
@@ -579,7 +507,7 @@ def create_parang_scexao(hdr):
         else:
             print('Data does not seem to be taken in pupil tracking.')
 
-        parang_array=numpy.array([mjdstart,0])
+        parang_array=numpy.array([obs_time.mjd,0])
 
     return parang_array
 
@@ -594,8 +522,7 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
     - hdr: a simultaneous HICIAO header
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
+    from numpy import sin, cos, arctan2, deg2rad, rad2deg
     from astropy import units as u
     from astropy import coordinates
     from astropy.time import Time
@@ -619,12 +546,12 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
     coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.deg))
     ## coord=coordinates.SkyCoord(frame='fk5', ra=hdr['RA'], dec=hdr['DEC'], unit=( u.hourangle, u.hourangle))
 
-    ra_deg = coord.ra.deg
-    dec_deg = coord.dec.deg
+#    ra_deg = coord.ra.deg
+#    dec_deg = coord.dec.deg
 
     parang_array=numpy.ones((len(times),3))
 
-    for i in xrange(len(times)):
+    for i in range(len(times)):
         ## times[i]=date+' '+string.split(times[i],' ')[0]
         times[i]=date+' '+times[i].split(' ')[0]
 
@@ -636,7 +563,7 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
         ## lst_long=coordinates.Longitude(angle=hdr['LST'],unit=u.hourangle)
         ## lst=float(lst_long.to_string(decimal=True, precision=10))*15
 
-        lst=obs_time.sidereal_time('apparent')
+#        lst=obs_time.sidereal_time('apparent')
 
         ## ha_deg=lst-coord.ra.deg
         ha_deg=obs_time.sidereal_time('apparent').deg-coord.ra.deg
@@ -665,9 +592,8 @@ def create_parang_list_sphere(hdr):
     frame_number, frame_time, paralactic_angle
     """
 
-    from numpy import sin, cos, tan, arctan2, pi, deg2rad, rad2deg
-    import dateutil.parser
-
+    from numpy import sin, cos, arctan2, pi
+    
     r2d = 180/pi
     d2r = pi/180
 
@@ -703,13 +629,13 @@ def create_parang_list_sphere(hdr):
         
         dec_deg = (actual_dec_deg + actual_dec_min/60. + actual_dec_sec/60./60.)*sgn
 
-        geolat_deg=float(hdr['ESO TEL GEOLAT'])
+#        geolat_deg=float(hdr['ESO TEL GEOLAT'])
         geolat_rad=float(hdr['ESO TEL GEOLAT'])*d2r
     except:
         print('WARNING: No RA/Dec Keywords found in header')
         ra_deg=0
         dec_deg=0
-        geolat_deg=0
+#        geolat_deg=0
         geolat_rad=0
 
     ######################ajouter par Seb
@@ -806,8 +732,6 @@ def datetime2jd(t):
 
     SHOULD BE REPLACED BY astropy.time module
     """
-    from datetime import datetime
-
     a=(14-t.month)/12
     y=t.year+4800-a
     m=t.month+12*a-3
@@ -835,10 +759,10 @@ def cut_cube(centroname,cube_in, R, d):
     if not os.access(centroname[0], os.F_OK | os.R_OK): # Check if file exists
         sys.stdout('\n Error, cannot access: '+centroname[0])
         sys.stdout.flush()
-        for n in range(nprocs-1):
-            comm.send("over", dest = n+1 )
-            comm.send("over", dest = n+1 )
-            sys.exit(1)
+#        for n in range(nprocs-1):
+#            comm.send("over", dest = n+1 )
+#            comm.send("over", dest = n+1 )
+#            sys.exit(1)
 
     # Read the centroids list
     f=tables.openFile(centroname[0])
@@ -1698,7 +1622,7 @@ def inject_FP_beta(in_frame, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alp
     wavelen_m=hdr['ESO INS CWLEN']*10**(-6) # microns*10**(-6)=meters
     ## waveLen_nyquist=1.3778#micron
     ## focal_scale_as_p_m=hdr['ESO TEL FOCU SCALE']*10**(3) #Focal scale (arcsec/mm)*10**(3)=(arcsec/m)
-    pix_size_m=hdr['ESO DET CHIP PXSPACE']
+#    pix_size_m=hdr['ESO DET CHIP PXSPACE']
     ## waveLen_nyquist_m=(2*r_tel_prim*as_par_pixel)/focal_scale_as_p_m #meters
     ## wavelen_nyquist_m=(r_tel_prim*pix_scale_as_pix*pix_size_m)/1.22  # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
     wavelen_nyquist_m=(pix_scale_as_pix*r_tel_prim*2)/(1.22*206265) # "Electronic imaging in astronomy - Detectors and Instrumentation - Ian S. Maclean - 4.3 Matching the plate scale pp74-75 "
@@ -2111,7 +2035,7 @@ def parang(dec, ha, geolat):
     """
     Read a header and calculates the paralactic angle, using method derived by Arthur Vigan
     """
-    from numpy import sin, cos, tan, arctan, pi
+    from numpy import sin, cos, arctan, pi
 
     r2d = 180/pi
     d2r = pi/180
@@ -2463,9 +2387,9 @@ def rescale_image(im1_3d,x,y):
     if x<1 -> compression of im1_3d in x direction by factor x
     '''
     
-    print "\n"
-    print "factor of rescaling in x direction:",x
-    print "factor of rescaling in y direction:",y,"\n"
+    print("\n")
+    print("rescaling factor in x direction:",x)
+    print("rescaling factor in y direction:",y,"\n")
     
     # Find the NaNs in the image
     mask_nan=np.where(np.isnan(im1_3d),0,1.)
@@ -2671,7 +2595,7 @@ def trim_overscan(cube):
     """
     Trims the overscan of a cube to make it square
     """
-    cube_shape=cube.shape
+#    cube_shape=cube.shape
 
     if cube.shape[1]-cube.shape[2]==2:
         overscan_limit=cube.shape[2]
@@ -2680,7 +2604,7 @@ def trim_overscan(cube):
         overscan_limit=cube.shape[1]
         cube=cube[:,:overscan_limit,:]
     else:
-        print('Error! No overscan detected for: '+str(dirlist[i]))
+        print('Error! No overscan detected!') # for: '+str(dirlist[i]))
 
     return cube
 

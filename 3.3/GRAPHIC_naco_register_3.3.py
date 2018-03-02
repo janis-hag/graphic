@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -20,20 +20,20 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 __version__='3.3'
 __subversion__='0'
 
-import numpy, scipy, glob, shutil, os, sys,argparse, time, fnmatch, string
+import numpy, glob, os, sys,argparse, fnmatch
  ## pickle, tables, argparse
 from mpi4py import MPI
 #from gaussfit_nosat import fitgaussian_nosat
 #from gaussfit import fitgaussian, i_fitmoffat, moments
 import gaussfit_330 as gaussfit
-from scipy import stats
+#from scipy import stats
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
-from graphic_mpi_lib_330 import dprint
+#from graphic_mpi_lib_330 import dprint
 import numpy as np
 from astropy.io import fits as pyfits
 import bottleneck
-from scipy import ndimage
+#from scipy import ndimage
 import dateutil.parser
 
 nprocs = MPI.COMM_WORLD.Get_size()
@@ -176,6 +176,7 @@ if rank==0:  # Master process
             ## comm.send("over", dest = n+1 )
             ## comm.send("over", dest = n+1 )
         sys.exit(1)
+
     for i in range(len(dirlist)):
         # Read cube header and data
         #header_in=pyfits.getheader(dirlist[i])
@@ -195,7 +196,9 @@ if rank==0:  # Master process
         print("["+str(i+1)+"/"+str(len(dirlist))+"]: Processing "+str(dirlist[i]))
 
         if not os.access(dirlist[i], os.F_OK ): # Check if file exists
-            print "Error: cannot access file "+dirlist[i]
+
+            print("Error: cannot access file "+dirlist[i])
+
             skipped=skipped+1
             continue
         else:
@@ -235,7 +238,7 @@ if rank==0:  # Master process
             parang_list=None
             if not 'Angle_deg' in fctable.keys():
                 print(str(fctable_filename)+' does not contain Angle_deg in keys: '+str(fctable.keys()))
-            for i in xrange(len(fctable['Angle_deg'])):
+            for i in range(len(fctable['Angle_deg'])):
                 jdate = graphic_nompi_lib.datetime2jd(dateutil.parser.parse(fctable['Time-UT'][i]))
                 if parang_list is None:
                     parang_list=numpy.array([i,jdate,fctable['Angle_deg'][i]])
@@ -245,19 +248,20 @@ if rank==0:  # Master process
         elif 'INSTRUME' in cube_header.keys() and cube_header['INSTRUME']=='SPHERE':
             parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
         elif scexao and not chuck:
-            fctable_filename= fnmatch.filter(fctable_list,'*'+string.split(dirlist[i],'_')[-1][:-5]+'.rdb')[0]
+            fctable_filename= fnmatch.filter(fctable_list,'*'+dirlist[i].split('_')[-1][:-5]+'.rdb')[0]
             fctable=graphic_nompi_lib.read_rdb(fctable_filename)
             parang_list=np.array([fctable['frame_num'][:],fctable['frame_time'][:],fctable['paralactic_angle'][:]])
             parang_list=(np.rollaxis(parang_list,1))
         elif chuck:
             ## 'ircam'+string.split(tfile,'ircam')[1]
-            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+#            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
+            frame_text_info='ircam'+dirlist[i].split('ircam')[1].replace('fits','txt')
             if os.access(frame_text_info, os.F_OK | os.R_OK):
                 f=open(frame_text_info)
                 timestamps=f.readlines()
                 parang_list=graphic_nompi_lib.create_parang_scexao_chuck(timestamps, hdr, iers_a)
             else:
-                print('No '+frame_text_info+' file found. Skipping '+dirlist[c+n])
+                print('No '+frame_text_info+' file found. Skipping '+dirlist[i])
                 continue
         elif naco:
             # Creates a 2D array [frame_number, frame_time, paralactic_angle]
@@ -286,16 +290,17 @@ if rank==0:  # Master process
             #  For the AGPM, the region outside the mask has a different offset and can cause weird edge effects when smoothing
             mean_cube=np.mean(cube,axis=0)
             if search_region>1:
-                mean_cube=mean_cube[int(np.round(mean_cube.shape[0]/2-search_region/2)):int(np.round(mean_cube.shape[0]/2+search_region/2)),
-                                    int(np.round(mean_cube.shape[1]/2-search_region/2)):int(np.round(mean_cube.shape[1]/2+search_region/2))]
+
+                mean_cube=mean_cube[mean_cube.shape[0]//2-search_region//2:mean_cube.shape[0]//2+search_region//2,
+                                    mean_cube.shape[1]//2-search_region//2:mean_cube.shape[1]//2+search_region//2]
             
                 if remove_striping:
                     for row in mean_cube:
                         row-=np.median(row)
                 centre_est=gaussfit.rough_centre(mean_cube,smooth_width=smooth_width)
                 # And convert to pixels in the original image
-                centre_est[0]+=cube.shape[1]/2-search_region/2
-                centre_est[1]+=cube.shape[2]/2-search_region/2
+                centre_est[0]+=cube.shape[1]//2-search_region//2
+                centre_est[1]+=cube.shape[2]//2-search_region//2
             else:
                 centre_est=gaussfit.rough_centre(mean_cube,smooth_width=smooth_width)
 
@@ -455,7 +460,7 @@ else: # Slave processes
                     cen_frame=np.mean(data_in,axis=0)
                     cen_frame-bottleneck.nanmedian(cen_frame)
                     cutsz=16
-                    cen_frame=cen_frame[centre_est[0]-cutsz/2:centre_est[0]+cutsz/2,centre_est[1]-cutsz/2:centre_est[1]+cutsz/2]
+                    cen_frame=cen_frame[centre_est[0]-cutsz//2:centre_est[0]+cutsz//2,centre_est[1]-cutsz//2:centre_est[1]+cutsz//2]
                     # Run the agpm fit
                     fit=gaussfit.agpm_gaussfit(cen_frame)
                     # Now save the results [frame #, rough x cen, rough y cen, psf pixel size?, cen x, cen y, amplitude, x width, y width]
@@ -463,7 +468,7 @@ else: # Slave processes
                     agpm_params=fit.parameters[6:]  # (amplitude, x0, y0, sigmax, sigmay, theta)
                     # centre_fit=agpm_params[1:3]+ centre_est - cutsz/2 # the output of agpm_gaussfit is relative to the edge of the cut frame
                     # centre_fit=agpm_params[2:0:-1]+ centre_est - cutsz/2 # the output of agpm_gaussfit is relative to the edge of the cut frame
-                    centre_fit=star_params[2:0:-1]+ centre_est - cutsz/2 # the output of agpm_gaussfit is relative to the edge of the cut frame
+                    centre_fit=star_params[2:0:-1]+ centre_est - cutsz//2 # the output of agpm_gaussfit is relative to the edge of the cut frame
 
             for frame in range(data_in.shape[0]):
                 sys.stdout.write('\n  [Rank '+str(rank)+', cube '+str(cube_count)+']  Frame '+str(frame+startframe)+' of '+str(startframe+data_in.shape[0]))
@@ -480,7 +485,7 @@ else: # Slave processes
                     cen_frame=image-bottleneck.nanmedian(image)
                     # Cut out a small region to make the fitting more reliable and fast
                     cutsz=16
-                    cen_frame=cen_frame[centre_est[0]-cutsz/2:centre_est[0]+cutsz/2,centre_est[1]-cutsz/2:centre_est[1]+cutsz/2]
+                    cen_frame=cen_frame[centre_est[0]-cutsz//2:centre_est[0]+cutsz//2,centre_est[1]-cutsz//2:centre_est[1]+cutsz//2]
                     # Run the agpm fit
                     fit=gaussfit.agpm_gaussfit(cen_frame)
                     
@@ -490,7 +495,7 @@ else: # Slave processes
                     agpm_params=fit.parameters[6:]  # (amplitude, x0, y0, sigmax, sigmay, theta)
                     # centre_fit=agpm_params[1:3]+ centre_est - cutsz/2 # the output of agpm_gaussfit is relative to the edge of the cut frame
                     # centre_fit=agpm_params[2:0:-1]+ centre_est - cutsz/2 # the output of agpm_gaussfit is relative to the edge of the cut frame
-                    centre_fit=star_params[2:0:-1]+ centre_est - cutsz/2 # the output of agpm_gaussfit is relative to the edge of the cut frame
+                    centre_fit=star_params[2:0:-1]+ centre_est - cutsz//2 # the output of agpm_gaussfit is relative to the edge of the cut frame
                     cluster_array_ref=np.array([frame+startframe,centre_est[0],centre_est[1],0., centre_fit[0],centre_fit[1],star_params[0],star_params[3],star_params[4]])
 
                 else:
@@ -500,7 +505,7 @@ else: # Slave processes
                     if not nofit:
                         # Now cut out a small region of the image to make the fitting more reliable and fast
                         cut_size=16
-                        refpoint=centre_est-cut_size/2
+                        refpoint=centre_est-cut_size//2
                         refpoint[1]+=0
                         cut_frame=image[refpoint[0]:refpoint[0]+cut_size,refpoint[1]:refpoint[1]+cut_size]
 
