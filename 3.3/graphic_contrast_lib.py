@@ -362,7 +362,7 @@ def prepare_detection_image(filename,save_name=None,smooth_image_length=None,
     else:
         # Otherwise assume the input was the image itself
         image = filename
-        hdr={}
+        hdr=pf.Header()
 
     # Pixel distance map that we will use later
     npix=image.shape[1]
