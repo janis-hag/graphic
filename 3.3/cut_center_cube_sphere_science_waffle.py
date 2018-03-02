@@ -329,7 +329,7 @@ if rank==0:
 
             # Add a header keyword saying which number channel this is (left/right = 0/1). For IFS, this should already be added.
             #  So only do it for IRDIS (where n_wav = 2)
-            if 'HIERARCH GC WAVE CHANNEL' not in hdr and (n_wav == 2):
+            if n_wav == 2:
                 hdr['HIERARCH GC WAVE CHANNEL'] = wav
 
                 # And save the wavelength as well to make it easier later
