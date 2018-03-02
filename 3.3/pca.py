@@ -42,12 +42,24 @@ def principal_components(pix_array,n_modes=None):
 
 ###############
    
-def subtract_principal_components(pcomps,image_region):
+def subtract_principal_components(pcomps,image_region,mask=False):
     ''' Projects an array of pixel values onto the principal components and 
-    subtracts the result from the original values.'''
-    transformed = np.dot(pcomps, image_region.T)
-    reconstructed = np.dot(transformed.T, pcomps)
-    residuals = image_region - reconstructed
+    subtracts the result from the original values.
+    mask: A boolean array that masks out some pixels when calculating the 
+          coefficients used for the projection. e.g. useful for excluding the star
+          when performing PCA sky subtraction.'''
+          
+    if (mask is False):
+        transformed = np.dot(pcomps, image_region.T) #i.e. the coefficients
+        reconstructed = np.dot(transformed.T, pcomps)
+        residuals = image_region - reconstructed
+    else:
+        pcomps_windowed = pcomps[:,mask]
+        image_windowed = image_region[:,mask]
+        transformed = np.dot(pcomps_windowed, image_windowed.T) #i.e. the coefficients
+        reconstructed = np.dot(transformed.T, pcomps)
+        residuals = image_region - reconstructed
+
     return residuals
 
 ###############

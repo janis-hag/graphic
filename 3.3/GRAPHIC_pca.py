@@ -120,6 +120,8 @@ if rank==0:
 				   min_reference_frames = min_reference_frames)
 	elif pca_type.lower() == 'cadi':
 		classical_adi(image_file,pca_reduced_cube_file,parang_file,median=False)
+	elif pca_type.lower() == 'noadi':
+		pca_reduced_cube_file = image_file
 
 	###
 	if pca_type !='':
