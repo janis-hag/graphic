@@ -92,7 +92,7 @@ graphic_nompi_lib.print_init()
 hdr=None
 
 dirlist=graphic_nompi_lib.create_dirlist(pattern)
-print(dirlist)
+#print(dirlist)
 ## infolist=glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
 ## infolist.sort() # Sort the list alphabetically
 ## cube_list,dirlist=graphic_lib_310.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit)
