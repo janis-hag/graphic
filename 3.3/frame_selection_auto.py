@@ -10,9 +10,9 @@ rank   = MPI.COMM_WORLD.Get_rank()
 target_dir = "."
 parser = argparse.ArgumentParser(description='Supress the frame in the cubes and rdb files from the selection_frame file')
 parser.add_argument('--pattern', action="store", dest="pattern",  default="sdi", help='Filename pattern of the cubes to apply the frame selections')
-parser.add_argument('--r_int', action="store", dest="r_int",  default=30, help='The inner radius used to consider the speckle statistics')
-parser.add_argument('--r_ext', action="store", dest="r_ext",  default=80, help='The outer radius used to consider the speckle statistics')
-parser.add_argument('--sigma', action="store", dest="sigma",  default=5, help='The number of sigma used for the cut based on the median flux in each frame')
+parser.add_argument('--r_int', action="store", dest="r_int",  default=30, type=float, help='The inner radius used to consider the speckle statistics')
+parser.add_argument('--r_ext', action="store", dest="r_ext",  default=80, type=float, help='The outer radius used to consider the speckle statistics')
+parser.add_argument('--sigma', action="store", dest="sigma",  default=5, type=float, help='The number of sigma used for the cut based on the median flux in each frame')
 args = parser.parse_args()
 pattern=args.pattern
 r_int = args.r_int
@@ -95,7 +95,7 @@ if rank==0:
 	        # Loop through the quadrants to see if any are bad
 	        for quad in [quad1,quad2,quad3,quad4]:
 	            
-	            highflux_amount=np.nansum(np.where(quad1[i]>mean_quad_min+3*std_quad_min,quad1[i],np.nan))
+	            highflux_amount=np.nansum(np.where(quad[i]>mean_quad_min+3*std_quad_min,quad[i],np.nan))
 
 	            # A frame is bad if > 10% of the flux is located in pixels that are 
 	            # 3 sigma above the mean    
