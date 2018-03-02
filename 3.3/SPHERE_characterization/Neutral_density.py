@@ -6,8 +6,10 @@ Estimate the contrast from a GRAPHIC reduction for SPHERE
 """
 
 import numpy as np
+import os
 
-path="/home/spectro/peretti/GRAPHIC/version_seb/SPHERE_characterization/contrast_curve_SPHERE/"
+
+path=os.path.dirname(os.path.realpath(__file__))+"/contrast_curve_SPHERE/"
 filename="SPHERE_ND_filter_table.dat"
 ND_path_filename=path+filename
 
