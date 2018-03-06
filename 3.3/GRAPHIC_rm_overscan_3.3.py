@@ -40,7 +40,7 @@ parser.add_argument('--trim', dest='trim', action='store_const',
                    const=True, default=False,
                    help='Trim images.')
 parser.add_argument('--l_max', dest='l_max', action='store', type=int, default=None, help='The output image size (default is to not change the shape)')
-parser.add_argument('--centre_offset', dest='centre_offset',action='store',type=int,default=0,nargs=2,
+parser.add_argument('--centre_offset', dest='centre_offset',action='store',type=int,default=None,nargs=2,
                     help='Offset the image centre when using l_max, so that the image is cut centred on this position (in x,y)')
 parser.add_argument('-chuck', dest='chuck', action='store_const',
                    const=True, default=False,
