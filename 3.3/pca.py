@@ -7,7 +7,7 @@ import scipy,time,pickle
 import bottleneck
 import numpy as np
 import astropy.io.fits as pyfits
-from scipy import ndimage
+#from scipy import ndimage
 from multiprocessing import Pool
 import graphic_nompi_lib_330 as graphic_nompi_lib
 try:
@@ -23,7 +23,7 @@ except:
 
 def principal_components(pix_array,n_modes=None):
     ''' Calculates the principal components for a set of flattened pixel arrays
-     (i.e. pix_array must be 2D, and is n_frames x n_pixels)
+     (i.e. pix_array must be 2D, and is n_frames x n_pixels)p
      n_modes is the number of modes to return. Default is n_frames'''
     # Get the principal components
     cov=np.dot(pix_array,pix_array.T)
@@ -34,7 +34,7 @@ def principal_components(pix_array,n_modes=None):
     pcomps=pc[::-1]
     S = np.sqrt(evals)[::-1]
     for comp_ix in range(pcomps.shape[1]):
-        pcomps[:,comp_ix]/=S
+        pcomps[:,comp_ix]//=S
     pcomps=pcomps[:n_modes]
     return pcomps
 
@@ -283,7 +283,7 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
         hdr = make_pca_header('simple_pca',n_modes, hdr=hdr, image_file=image_file)
         
         pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
-        print '  PCA subtracted cube saved as:',save_name
+        print('  PCA subtracted cube saved as:',save_name)
     
     if pc_name:
         data={'principal_components':pcomps.astype(np.float32),'regions':None,'npix':initial_shape[1],
@@ -396,7 +396,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
     
     t_start=time.time()
     # Loop through frames in the cube
-    print 'smart_pca: starting loop over frames in image'
+    print('smart_pca: starting loop over frames in image')
     for ix,frame in enumerate(cube):
         
         parang=parangs[ix]
@@ -411,7 +411,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
     
         if (ix % 10) ==9:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
-            print '  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining'
+            print('  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining')
     
     cube_out[nan_mask]=np.nan
     # Make the cube 3d again
@@ -421,7 +421,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
         hdr = make_pca_header('smart_pca',n_modes, hdr=hdr, image_file=image_file)
         
         pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
-        print '  PCA subtracted cube saved as:',save_name
+        print('  PCA subtracted cube saved as:',save_name)
 
     if pc_name:
         data={'principal_components':pcomps.astype(np.float32),'regions':None,'npix':initial_shape[1],
@@ -557,8 +557,8 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
 
     # Now cut it to r_max (if applicable)
     if (r_max < initial_shape[1]/2.) and (r_max < initial_shape[2]/2.):
-        cube_out = cube_out[:,np.int(cube_out.shape[1]/2-r_max):np.int(cube_out.shape[1]/2+r_max),
-                              np.int(cube_out.shape[2]/2-r_max):np.int(cube_out.shape[2]/2+r_max)]
+        cube_out = cube_out[:,np.int(cube_out.shape[1]//2-r_max):np.int(cube_out.shape[1]//2+r_max),
+                              np.int(cube_out.shape[2]//2-r_max):np.int(cube_out.shape[2]//2+r_max)]
     if save_name:
 
         # Make a header to store the reduction parameters
@@ -674,7 +674,7 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
         
         if ((ix % 20) ==19) and not silent:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
-            print '  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining'
+            print('  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining')
         
     # now sum into a final image
     if median_combine:
@@ -689,22 +689,22 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     # Check both the +ve and -ve directions by reversing the array the second time.
     # The minimum of these is the one with the largest distance from the centre. 
     # Then turn into distance from the centre by doing n_pixels/2-index
-    xradius=out_frame.shape[0]/2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
-    yradius=out_frame.shape[1]/2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
+    xradius=out_frame.shape[0]//2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
+    yradius=out_frame.shape[1]//2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
     
     # actually just take the maximum of these so the output is square
     xradius=np.max([xradius,yradius])
     yradius=xradius
     
-    out_cube=out_cube[:,out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
-                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
-    out_frame=out_frame[out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
-                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
+    out_cube=out_cube[:,out_frame.shape[0]//2-xradius:out_frame.shape[0]//2+xradius,
+                        out_frame.shape[1]//2-yradius:out_frame.shape[1]//2+yradius]
+    out_frame=out_frame[out_frame.shape[0]//2-xradius:out_frame.shape[0]//2+xradius,
+                        out_frame.shape[1]//2-yradius:out_frame.shape[1]//2+yradius]
     
     if save_name:
         pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
         if not silent:
-            print 'Combined image saved as:',save_name
+            print('Combined image saved as:',save_name)
     if return_cube:
         return out_cube
 
@@ -772,18 +772,18 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
     # Check both the +ve and -ve directions by reversing the array the second time.
     # The minimum of these is the one with the largest distance from the centre. 
     # Then turn into distance from the centre by doing n_pixels/2-index
-    xradius=out_frame.shape[0]/2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
-    yradius=out_frame.shape[1]/2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
+    xradius=out_frame.shape[0]//2-np.min([np.argmax(n_nans_x < out_frame.shape[0]),np.argmax(n_nans_x[::-1] < out_frame.shape[0])])
+    yradius=out_frame.shape[1]//2-np.min([np.argmax(n_nans_y < out_frame.shape[1]),np.argmax(n_nans_y[::-1] < out_frame.shape[1])])
     
     # actually just take the maximum of these so the output is square
     xradius=np.max([xradius,yradius])
     yradius=xradius
 
 
-    out_cube=out_cube[:,out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
-                        out_frame.shape[1]/2-xradius:out_frame.shape[1]/2+xradius]    
-    out_frame=out_frame[out_frame.shape[0]/2-xradius:out_frame.shape[0]/2+xradius,
-                        out_frame.shape[1]/2-yradius:out_frame.shape[1]/2+yradius]
+    out_cube=out_cube[:,out_frame.shape[0]//2-xradius:out_frame.shape[0]//2+xradius,
+                        out_frame.shape[1]//2-xradius:out_frame.shape[1]//2+xradius]    
+    out_frame=out_frame[out_frame.shape[0]//2-xradius:out_frame.shape[0]//2+xradius,
+                        out_frame.shape[1]//2-yradius:out_frame.shape[1]//2+yradius]
         
     if save_name:
         pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
@@ -809,8 +809,8 @@ def crop_nans(cube,xradius=None):
     # Check both the +ve and -ve directions by reversing the array the second time.
     # The minimum of these is the one with the largest distance from the centre. 
     # Then turn into distance from the centre by doing n_pixels/2-index
-    xradius=cube.shape[-2]/2-np.min([np.argmax(n_nans_x < cube.shape[-2]),np.argmax(n_nans_x[::-1] < cube.shape[-2])])
-    yradius=cube.shape[-1]/2-np.min([np.argmax(n_nans_y < cube.shape[-1]),np.argmax(n_nans_y[::-1] < cube.shape[-1])])
+    xradius=cube.shape[-2]//2-np.min([np.argmax(n_nans_x < cube.shape[-2]),np.argmax(n_nans_x[::-1] < cube.shape[-2])])
+    yradius=cube.shape[-1]//2-np.min([np.argmax(n_nans_y < cube.shape[-1]),np.argmax(n_nans_y[::-1] < cube.shape[-1])])
     
     # actually just take the maximum of these so the output is square
     xradius=np.max([xradius,yradius])
@@ -818,11 +818,11 @@ def crop_nans(cube,xradius=None):
     
     # Now crop it
     if cube.ndim == 3:
-        cube = cube[:,cube.shape[-2]/2-xradius:cube.shape[-2]/2+xradius,
-                        cube.shape[-1]/2-yradius:cube.shape[-1]/2+yradius]
+        cube = cube[:,cube.shape[-2]//2-xradius:cube.shape[-2]//2+xradius,
+                        cube.shape[-1]//2-yradius:cube.shape[-1]//2+yradius]
     elif cube.ndim == 2:
-        cube = cube[cube.shape[-2]/2-xradius:cube.shape[-2]/2+xradius,
-                cube.shape[-1]/2-yradius:cube.shape[-1]/2+yradius]
+        cube = cube[cube.shape[-2]//2-xradius:cube.shape[-2]//2+xradius,
+                cube.shape[-1]//2-yradius:cube.shape[-1]//2+yradius]
                 
     return cube
 
