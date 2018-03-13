@@ -494,12 +494,13 @@ def send_dirlist(dirlist):
     Dispatches the dirlist to slaves, telling them what position in the dirlist they are starting at.
     It keeps the last part for the master.
     """
-    if len(dirlist) < nprocs:
+    nfiles=len(dirlist)
+    if nfiles < nprocs:
         for n in range(nprocs):
-            if n+1 == len(dirlist):
+            if n+1 == nfiles:
                 start=n
                 dirlist=dirlist[n:] # take the list to the end
-                if n+1 < nprocs:
+                if n+1 < nfiles:
                     for k in range(n+1,nprocs): # kill useless slaves
                         comm.send(None, dest=k)
                 break
