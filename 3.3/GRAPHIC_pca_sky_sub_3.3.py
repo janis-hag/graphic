@@ -157,8 +157,8 @@ if rank==0:
         comm.bcast("over", root=0)
         sys.exit(1)
     elif len(skyls) < pca_modes:
-        print(" Warning! Less sky frames than desired pca modes! Using 80% of available modes")
-        pca_modes=np.int(0.8*skyls)
+        print(" Warning! Less sky frames than desired pca modes! Using all available modes: "+str(len(skyls)))
+        pca_modes=len(skyls)
 
     if d>2:
         print(" Using "+str(pca_modes)+" pca modes for sky subtraction")
