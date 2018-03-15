@@ -107,14 +107,13 @@ if rank==0:
 	#########
 
 	if pca_type=='pca':
-		simple_pca(image_file,n_modes,pca_reduced_cube_file,threads=threads)
+		simple_pca(image_file,n_modes,pca_reduced_cube_file)
 	elif pca_type=='smart_pca':
 		smart_pca(image_file,n_modes,pca_reduced_cube_file,
 								 parang_file,protection_angle=15.)
 	elif pca_type=='annular_pca':
 		annular_pca(image_file,n_modes,pca_reduced_cube_file,n_annuli=n_annuli,arc_length=arc_length,r_min=r_min,r_max=r_max)
 	elif pca_type=='smart_annular_pca':
-		print parang_file,os.getcwd()
 		smart_annular_pca(image_file,n_modes,pca_reduced_cube_file,parang_file,n_annuli=n_annuli,
 				   arc_length=arc_length,r_min=r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,r_max=r_max,
 				   min_reference_frames = min_reference_frames)

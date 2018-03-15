@@ -34,7 +34,7 @@ def principal_components(pix_array,n_modes=None):
     pcomps=pc[::-1]
     S = np.sqrt(evals)[::-1]
     for comp_ix in range(pcomps.shape[1]):
-        pcomps[:,comp_ix]//=S
+        pcomps[:,comp_ix]/=S
     pcomps=pcomps[:n_modes]
     return pcomps
 
@@ -270,14 +270,22 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
     # median subtract
     cube-=bottleneck.nanmedian(cube)
     
+    # Set the NaNs to zero and restore them later
+    nan_mask=np.isnan(cube)
+    cube[nan_mask]=0.
+    
     # Get the principal components
     pcomps=principal_components(cube,n_modes=n_modes)
     
     # Subtract them from the data
     cube_out=subtract_principal_components(pcomps,cube)
     
+    # Restore the NaNs
+    cube_out[nan_mask] = np.nan
+    
     # Make the cube 3d again
     cube_out=cube_out.reshape(initial_shape)
+    
     if save_name:
         # Make a header to store the reduction parameters
         hdr = make_pca_header('simple_pca',n_modes, hdr=hdr, image_file=image_file)
@@ -383,10 +391,14 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
     cube,hdr = pyfits.getdata(image_file,header=True)
     initial_shape=cube.shape
     cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
-    try:
-        parangs=np.loadtxt(parang_file)
-    except:
-        parangs=pyfits.getdata(parang_file)
+    # Load the parallactic angles
+    if isinstance(parang_file,str):
+        if parang_file.endswith('.txt'):
+            parangs=np.loadtxt(parang_file)
+        else:
+            parangs=pyfits.getdata(parang_file)
+    else: # assume it is an array
+        parangs = parang_file
     
     cube_out=np.zeros(cube.shape)+np.NaN
     
@@ -457,10 +469,15 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
     initial_shape=cube.shape
     # cube = cube.astype(np.float32) # We don't need this much precision, and this saves RAM
     cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
-    try:
-        parangs=np.loadtxt(parang_file)
-    except:
-        parangs=pyfits.getdata(parang_file)
+    
+    # Load the parallactic angles
+    if isinstance(parang_file,str):
+        if parang_file.endswith('.txt'):
+            parangs=np.loadtxt(parang_file)
+        else:
+            parangs=pyfits.getdata(parang_file)
+    else: # assume it is an array
+        parangs = parang_file
     
     cube_out=np.zeros(cube.shape)+np.NaN
     
@@ -614,9 +631,13 @@ def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr
     else:
         cube = image_file
 
+    # Load the parallactic angles
     if isinstance(parang_file,str):
-        parangs = np.loadtxt(parang_file)
-    else:
+        if parang_file.endswith('.txt'):
+            parangs=np.loadtxt(parang_file)
+        else:
+            parangs=pyfits.getdata(parang_file)
+    else: # assume it is an array
         parangs = parang_file
 
     if not hdr:
@@ -655,11 +676,15 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     else: # assume it is already a cube
         cube=image_file
         hdr = pyfits.Header()
-    # Load the parangs
-    try:
-        parangs=np.loadtxt(parang_file)
-    except:
-        parangs=pyfits.getdata(parang_file)
+    # Load the parallactic angles
+    if isinstance(parang_file,str):
+        if parang_file.endswith('.txt'):
+            parangs=np.loadtxt(parang_file)
+        else:
+            parangs=pyfits.getdata(parang_file)
+    else: # assume it is an array
+        parangs = parang_file
+
     
     out_cube=np.zeros(cube.shape*np.array([1,2,2]))+np.nan # assuming pad=2 in fft_rotate
     t_start=time.time()
@@ -723,11 +748,14 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
     else: # assume it is already a cube
         cube=image_file
 
-    # Load the parangs
-    try:
-        parangs=np.loadtxt(parang_file)
-    except:
-        parangs=pyfits.getdata(parang_file)
+    # Load the parallactic angles
+    if isinstance(parang_file,str):
+        if parang_file.endswith('.txt'):
+            parangs=np.loadtxt(parang_file)
+        else:
+            parangs=pyfits.getdata(parang_file)
+    else: # assume it is an array
+        parangs = parang_file
     
     if not silent:
         print('Starting image derotation')
