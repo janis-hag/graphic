@@ -373,8 +373,13 @@ if rank==0:  # Master process
         print(" Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i-1)/(i+1-skipped)))
 
     if len(dirlist)==skipped: # Nothing to be done.
+        comm.bcast("over", root=0)
+        for n in range(nprocs-1):
+            comm.send("over", dest = n+1 )
+            comm.send("over", dest = n+1 )
         MPI.Finalize()
         sys.exit(0)
+
 
     print("")
     print(" Total time: "+graphic_nompi_lib.humanize_time(MPI.Wtime()-t0))
@@ -394,12 +399,11 @@ if rank==0:  # Master process
     graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr, comments, nprocs=nprocs)
     ## graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
     # Stop slave processes
-    ## MPI.Finalize()
-    ## comm.bcast("over", root=0)
-    ## for n in range(nprocs-1):
-        ## comm.send("over", dest = n+1 )
-        ## comm.send("over", dest = n+1 )
-    comm.Abort()
+    comm.bcast("over", root=0)
+    for n in range(nprocs-1):
+        comm.send("over", dest = n+1 )
+        comm.send("over", dest = n+1 )
+    MPI.Finalize()
     sys.exit(0)
 
 #except:
