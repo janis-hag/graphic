@@ -189,12 +189,12 @@ if sphere: # for SPHERE a large part of the image are badpix because outside of 
     y=np.copy(x)
     X,Y=np.meshgrid(x,y)
     z=np.arange(-512,512)
-        centre_filtre_left=[471,529]
-        centre_filtre_right=[1558-1024,516]
+    centre_filtre_left=[471,529]
+    centre_filtre_right=[1558-1024,516]
     w=np.copy(z)
     Z,W=np.meshgrid(z,w)
-        R_left=np.sqrt((Z+(512-centre_filtre_left[0]))**2+(W+(512-centre_filtre_left[1]))**2)
-        R_right=np.sqrt((Z+(512-centre_filtre_right[0]))**2+(W+(512-centre_filtre_right[1]))**2)
+    R_left=np.sqrt((Z+(512-centre_filtre_left[0]))**2+(W+(512-centre_filtre_left[1]))**2)
+    R_right=np.sqrt((Z+(512-centre_filtre_right[0]))**2+(W+(512-centre_filtre_right[1]))**2)
     R=np.sqrt(Z**2+W**2)
     #left part of the image
     mask_nan_l=np.where(X<50,np.nan,1.)
