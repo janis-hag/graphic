@@ -24,7 +24,6 @@ for x,filename in enumerate(files):
     if x==0:
         outputhdr=header
 
-    outputhdr['HIERARCH GC PCA FRAME' + str(x)] = header['HIERARCH GC PCA ']
     outputhdr['HIERARCH GC PCA FRAME' + str(x)+' NMODES'] = header['HIERARCH GC PCA NMODES']
     outputhdr['HIERARCH GC PCA FRAME' + str(x)+' MINREFFRAMES'] = header['HIERARCH GC PCA MINREFFRAMES']
     
