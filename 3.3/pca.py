@@ -606,7 +606,7 @@ def make_pca_header(pca_type,n_modes,hdr=None,n_fwhm='',fwhm='',n_annuli='',
     if hdr is None:
         hdr = pyfits.Header()
     
-    hdr['HIERARCH GC PCA TYPE'] = 'smart_annular'
+    hdr['HIERARCH GC PCA TYPE'] = pca_type
     hdr['HIERARCH GC PCA NMODES'] = n_modes
     hdr['HIERARCH GC PCA NFWHM'] = n_fwhm
     hdr['HIERARCH GC PCA FWHM'] = fwhm
@@ -661,6 +661,72 @@ def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr
         pyfits.writeto(save_name,out_cube,header=hdr,clobber=True)
     else:
         return out_cube
+
+###############
+        
+###############
+
+def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False):
+    ''' Performs a smart classical ADI reduction on the input datacube.
+    For each frame, it takes the mean of frames that have a parallactic
+    angle difference that is above some threshold, to minimize self-subtraction.
+    protection_angle is the minimum parallactic angle change used to include a frame in pca. In degrees
+    '''
+    
+    # Load the datacube and make it 2d
+    cube,hdr = pyfits.getdata(image_file,header=True)
+    initial_shape=cube.shape
+    cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
+    cube = cube.astype(np.float) #Remove endian problems
+    
+    # Load the parallactic angles
+    if isinstance(parang_file,str):
+        if parang_file.endswith('.txt'):
+            parangs=np.loadtxt(parang_file)
+        else:
+            parangs=pyfits.getdata(parang_file)
+    else: # assume it is an array
+        parangs = parang_file
+    
+    cube_out=np.zeros(cube.shape)+np.NaN
+    
+    # Set the NaNs to zero and restore them later
+    nan_mask=np.isnan(cube)
+    cube[nan_mask]=0.
+    
+    t_start=time.time()
+    # Loop through frames in the cube
+    print('smart_pca: starting loop over frames in image')
+    for ix,frame in enumerate(cube):
+        
+        parang=parangs[ix]
+        # Find which frames are ok to use
+        good_frames=cube[np.abs(parang-parangs) > protection_angle]
+        
+        # Get the mean or median frame
+        if median:
+            psf = bottleneck.nanmedian(good_frames,axis=0)
+        else:
+            psf = bottleneck.nanmean(good_frames,axis=0)
+        
+        # Subtract it from the data
+        cube_out[ix]=cube[ix] - psf
+    
+        if (ix % 10) ==9:
+            time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
+            print('  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining')
+    
+    cube_out[nan_mask]=np.nan
+    # Make the cube 3d again
+    cube_out=cube_out.reshape(initial_shape)
+    if save_name:
+        # Make a header to store the reduction parameters
+        hdr = make_pca_header('smart_adi',1, hdr=hdr, image_file=image_file)
+        
+        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+        print('  ADI subtracted cube saved as:'+save_name)
+
+    return cube_out
 
 ###############
 

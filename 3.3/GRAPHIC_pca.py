@@ -121,6 +121,8 @@ if rank==0:
 		classical_adi(image_file,pca_reduced_cube_file,parang_file,median=False)
 	elif pca_type.lower() == 'noadi':
 		pca_reduced_cube_file = image_file
+	elif pca_type.lower() == 'smart_adi':
+		smart_adi(image_file,pca_reduced_cube_file,parang_file,median=False,protection_angle=15.)
 
 	###
 	if pca_type !='':
