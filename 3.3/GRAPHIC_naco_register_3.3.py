@@ -47,7 +47,7 @@ parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
 parser.add_argument('--pattern', action="store", dest="pattern", type=str, required=True, help='Filename pattern')
 parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
 parser.add_argument('--chuck', action="store", dest="hiciao_filename", help='HICIAO fits file to use as reference for chuckcam data')
-parser.add_argument('--search_region', action="store", dest="search_region", type=float,
+parser.add_argument('--search_region', action="store", dest="search_region", type=int,
     default=0, help='Set this to a size (in pixels) to cut out a region around the centre of the frame before calculating the centre. Useful to ignore edge of detector artefacts')
 
 
