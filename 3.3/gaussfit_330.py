@@ -9,203 +9,203 @@ from astropy.modeling.fitting import LevMarLSQFitter
 import scipy.interpolate as interpolate
 
 def gaussian(height, center_x, center_y, width_x, width_y, bg):
-	"""Returns a gaussian function with the given parameters"""
-	width_x = float(width_x)
-	width_y = float(width_y)
-	## print("width y="+str(width_x)+", y="+str(width_y))
-	return lambda x,y: bg+height*np.exp(
-				-(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
+    """Returns a gaussian function with the given parameters"""
+    width_x = float(width_x)
+    width_y = float(width_y)
+    ## print("width y="+str(width_x)+", y="+str(width_y))
+    return lambda x,y: bg+height*np.exp(
+                -(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
 
 def moments(data):
-	"""Returns (height, x, y, width_x, width_y)
-	the gaussian parameters of a 2D distribution by calculating its
-	moments """
+    """Returns (height, x, y, width_x, width_y)
+    the gaussian parameters of a 2D distribution by calculating its
+    moments """
 
-	total = np.sum(data)
-	bg = np.median(data)
-	X, Y = np.indices(data.shape)
-	x = np.sum(X*data)/total
-	y = np.sum(Y*data)/total
-	col = data[:, np.round(y)]
-	width_x = np.sqrt(np.abs(np.sum((np.arange(col.size)-y)**2*col)/np.sum(col)))
-	row = data[np.round(x), :]
-	width_y = np.sqrt(np.abs(np.sum((np.arange(row.size)-x)**2*row)/np.sum(row)))
-	height = data.max()
-	## print("width_y: "+str(width_y)+", data.shape :"+str(data.shape)+", row: "+str(row)+", row.size: "+str(row.size)+", row.sum(): "+str(row.sum())+", abs((arange(row.size)-x)**2*row: "+str(abs((arange(row.size)-x)**2*row)))
+    total = np.sum(data)
+    bg = np.median(data)
+    X, Y = np.indices(data.shape)
+    x = np.sum(X*data)/total
+    y = np.sum(Y*data)/total
+    col = data[:, np.round(y)]
+    width_x = np.sqrt(np.abs(np.sum((np.arange(col.size)-y)**2*col)/np.sum(col)))
+    row = data[np.round(x), :]
+    width_y = np.sqrt(np.abs(np.sum((np.arange(row.size)-x)**2*row)/np.sum(row)))
+    height = data.max()
+    ## print("width_y: "+str(width_y)+", data.shape :"+str(data.shape)+", row: "+str(row)+", row.size: "+str(row.size)+", row.sum(): "+str(row.sum())+", abs((arange(row.size)-x)**2*row: "+str(abs((arange(row.size)-x)**2*row)))
 
-	return height, x, y, width_x, width_y, bg
+    return height, x, y, width_x, width_y, bg
 
 def fitgaussian(data):
-	"""Returns (height, x, y, width_x, width_y)
-	the gaussian parameters of a 2D distribution found by a fit"""
-	params = moments(data)
-	## print("params: "+str(params))
-	errorfunction = lambda p: np.ravel(gaussian(*p)(*np.indices(data.shape)) -
-								 data)
-	p, success, infodict, mesg, ier = optimize.leastsq(errorfunction, params, full_output=1)
-	## print(p)
-	if p[3]<0. or p[4]<0.:
-		print("Error, negative width: w_x="+str(p[3])+" w_y="+str(p[4]))
-		p.fill(-1)
-		## p[3]=np.abs(p[3])
-		## p[4]=np.abs(p[4])
-	if not (p[3]/p[4] < 1./0.75 and p[3]/p[4] > 0.75):
-		print(params, p)
-		## print(p, success, infodict, mesg, ier)
-	if ier > 4 or ier==0:
-		print(mesg)
-		p.fill(-1)
-	return p
+    """Returns (height, x, y, width_x, width_y)
+    the gaussian parameters of a 2D distribution found by a fit"""
+    params = moments(data)
+    ## print("params: "+str(params))
+    errorfunction = lambda p: np.ravel(gaussian(*p)(*np.indices(data.shape)) -
+                                 data)
+    p, success, infodict, mesg, ier = optimize.leastsq(errorfunction, params, full_output=1)
+    ## print(p)
+    if p[3]<0. or p[4]<0.:
+        print("Error, negative width: w_x="+str(p[3])+" w_y="+str(p[4]))
+        p.fill(-1)
+        ## p[3]=np.abs(p[3])
+        ## p[4]=np.abs(p[4])
+    if not (p[3]/p[4] < 1./0.75 and p[3]/p[4] > 0.75):
+        print(params, p)
+        ## print(p, success, infodict, mesg, ier)
+    if ier > 4 or ier==0:
+        print(mesg)
+        p.fill(-1)
+    return p
 
 
 def moffat(a, b, x, y):
-	"""Returns a Moffat function with the given parameters"""
-	## x = float(width_x)
-	## y = float(width_y)
-	## return lambda x,y: height*exp(-(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
-	return lambda x,y :((b-1)/(np.pi*(a**2)))*((1+((x**2+y**2)/a**2))**(-b))
-	## I=((b-1)*(np.pi*(a**2))**(-1))*((1+((x**2+y**2)/a**2))**(-b))
-	## return I
+    """Returns a Moffat function with the given parameters"""
+    ## x = float(width_x)
+    ## y = float(width_y)
+    ## return lambda x,y: height*exp(-(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
+    return lambda x,y :((b-1)/(np.pi*(a**2)))*((1+((x**2+y**2)/a**2))**(-b))
+    ## I=((b-1)*(np.pi*(a**2))**(-1))*((1+((x**2+y**2)/a**2))**(-b))
+    ## return I
 
 def moffat_peak(a, b, x, y):
-	"""Returns a Moffat function with the given parameters"""
-	I=((b-1)*(np.pi*(a**2))**(-1))*((1+((x**2+y**2)/a**2))**(-b))
-	return I
+    """Returns a Moffat function with the given parameters"""
+    I=((b-1)*(np.pi*(a**2))**(-1))*((1+((x**2+y**2)/a**2))**(-b))
+    return I
 
 ## def moffat_error(p):
-	## E=ravel(moffat(*p)(*indices(data.shape)) - data)
-	## return E
+    ## E=ravel(moffat(*p)(*indices(data.shape)) - data)
+    ## return E
 def mofpar(data):
-	g_param=fitgaussian(data)
-	b=2.5
-	FWHM=(g_param[3]+g_param[4])/2.
-	a=FWHM/(2*np.sqrt(2**(1/b)-1))
-	x=g_param[1]
-	y=g_param[2]
-	return a, b, x, y
+    g_param=fitgaussian(data)
+    b=2.5
+    FWHM=(g_param[3]+g_param[4])/2.
+    a=FWHM/(2*np.sqrt(2**(1/b)-1))
+    x=g_param[1]
+    y=g_param[2]
+    return a, b, x, y
 
 def fitmoffat(data, params=None):
-	"""Returns (height, x, y, width_x, width_y)
-	the gaussian parameters of a 2D distribution found by a fit"""
-	## params = [a, b, moments(data)[1,2]]
-	if params==None:
-		params=mofpar(data)
-		## g_param=fitgaussian(data)
-		## b=2.5
-		## FWHM=(g_param[3]+g_param[4])/2.
-		## a=FWHM/(2*np.sqrt(2**(1/b)-1))
-		## x=g_param[1]
-		## y=g_param[2]
-		## params = [a, b, x, y]
-	moffat_error = lambda p: ravel(moffat(*p)(*np.indices(data.shape))-data)
-	p, success, infodict, mesg, ier = optimize.leastsq(moffat_error, params, full_output=1)
-	#print(p, success, infodict, mesg, ier)
-	if ier > 4 or ier==0:
-		print(mesg)
-		p.fill(-1)
-	return p
+    """Returns (height, x, y, width_x, width_y)
+    the gaussian parameters of a 2D distribution found by a fit"""
+    ## params = [a, b, moments(data)[1,2]]
+    if params==None:
+        params=mofpar(data)
+        ## g_param=fitgaussian(data)
+        ## b=2.5
+        ## FWHM=(g_param[3]+g_param[4])/2.
+        ## a=FWHM/(2*np.sqrt(2**(1/b)-1))
+        ## x=g_param[1]
+        ## y=g_param[2]
+        ## params = [a, b, x, y]
+    moffat_error = lambda p: ravel(moffat(*p)(*np.indices(data.shape))-data)
+    p, success, infodict, mesg, ier = optimize.leastsq(moffat_error, params, full_output=1)
+    #print(p, success, infodict, mesg, ier)
+    if ier > 4 or ier==0:
+        print(mesg)
+        p.fill(-1)
+    return p
 
 def e_moffat(I,x0,y0,bg,b,sX,sY):
-	return lambda x,y: bg+(I*((1+(x/sX)**2+(y/sY)**2)**(-b)))
+    return lambda x,y: bg+(I*((1+(x/sX)**2+(y/sY)**2)**(-b)))
 
 def e_mofpar(data):
-	import numpy as np
-	g_param=fitgaussian(data)
-	b=2.5
-	bg=0
-	I=g_param[0]
-	x=g_param[1]
-	y=g_param[2]
-	sX=g_param[3]/(2*np.sqrt(2*np.log(2)))
-	sY=g_param[4]/(2*np.sqrt(2*np.log(2)))
-	FWHM=(g_param[3]+g_param[4])/2.
-	a=FWHM/(2*np.sqrt(2**(1/b)-1))
-	return I, x, y, bg, b, sX, sY
+    import numpy as np
+    g_param=fitgaussian(data)
+    b=2.5
+    bg=0
+    I=g_param[0]
+    x=g_param[1]
+    y=g_param[2]
+    sX=g_param[3]/(2*np.sqrt(2*np.log(2)))
+    sY=g_param[4]/(2*np.sqrt(2*np.log(2)))
+    FWHM=(g_param[3]+g_param[4])/2.
+    a=FWHM/(2*np.sqrt(2**(1/b)-1))
+    return I, x, y, bg, b, sX, sY
 
 def e_fitmoffat(data, params=None):
-	"""Returns (x, y, background, peak, beta, width_x, width_y)
-	the gaussian parameters of a 2D distribution found by a fit"""
-	import numpy as np
-	## params = [a, b, moments(data)[1,2]]
-	if params==None:
-		params=e_mofpar(data)
-		## g_param=fitgaussian(data)
-		## b=2.5
-		## FWHM=(g_param[3]+g_param[4])/2.
-		## a=FWHM/(2*np.sqrt(2**(1/b)-1))
-		## x=g_param[1]
-		## y=g_param[2]
-		## params = [a, b, x, y]
-	# print(params)
-	moffat_error = lambda p: ravel(e_moffat(*p)(*indices(data.shape))-data)
-	p, success, infodict, mesg, ier = optimize.leastsq(moffat_error, params, full_output=1)
-	#print(p, success, infodict, mesg, ier)
-	if ier > 4 or ier==0:
-		print(mesg, infodict)
-		## p.fill(-1)
-	return p
+    """Returns (x, y, background, peak, beta, width_x, width_y)
+    the gaussian parameters of a 2D distribution found by a fit"""
+    import numpy as np
+    ## params = [a, b, moments(data)[1,2]]
+    if params==None:
+        params=e_mofpar(data)
+        ## g_param=fitgaussian(data)
+        ## b=2.5
+        ## FWHM=(g_param[3]+g_param[4])/2.
+        ## a=FWHM/(2*np.sqrt(2**(1/b)-1))
+        ## x=g_param[1]
+        ## y=g_param[2]
+        ## params = [a, b, x, y]
+    # print(params)
+    moffat_error = lambda p: ravel(e_moffat(*p)(*indices(data.shape))-data)
+    p, success, infodict, mesg, ier = optimize.leastsq(moffat_error, params, full_output=1)
+    #print(p, success, infodict, mesg, ier)
+    if ier > 4 or ier==0:
+        print(mesg, infodict)
+        ## p.fill(-1)
+    return p
 
 def i_moffat(I, x0, y0, a, b, bg):
-	"""Returns a Moffat function with the given parameters"""
-	import numpy as np
-	## x = float(width_x)
-	## y = float(width_y)
-	## return lambda x,y: height*exp(-(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
-	return lambda x,y: bg+(I*((b-1)/(np.pi*(a**2)))*((1+(((x0-x)**2+(y0-y)**2)/a**2))**(-b)))
-	## I=((b-1)*(np.pi*(a**2))**(-1))*((1+((x**2+y**2)/a**2))**(-b))
-	## return I
+    """Returns a Moffat function with the given parameters"""
+    import numpy as np
+    ## x = float(width_x)
+    ## y = float(width_y)
+    ## return lambda x,y: height*exp(-(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
+    return lambda x,y: bg+(I*((b-1)/(np.pi*(a**2)))*((1+(((x0-x)**2+(y0-y)**2)/a**2))**(-b)))
+    ## I=((b-1)*(np.pi*(a**2))**(-1))*((1+((x**2+y**2)/a**2))**(-b))
+    ## return I
 
 ## def i_moffat_peak(I, a, b, x, y):
-	## """Returns a Moffat function with the given parameters"""
-	## import numpy as np
-	## peak=I*((b-1)*(np.pi*(a**2))**(-1))*((1+(((x0-x)**2+(y0-y)**2)/a**2))**(-b))
-	## return peak
+    ## """Returns a Moffat function with the given parameters"""
+    ## import numpy as np
+    ## peak=I*((b-1)*(np.pi*(a**2))**(-1))*((1+(((x0-x)**2+(y0-y)**2)/a**2))**(-b))
+    ## return peak
 
 ## def moffat_error(p):
-	## E=ravel(moffat(*p)(*indices(data.shape)) - data)
-	## return E
+    ## E=ravel(moffat(*p)(*indices(data.shape)) - data)
+    ## return E
 
 def i_mofpar(data, gaussfitting):
-	if gaussfitting:
-		g_param=fitgaussian(data)
-	else:
-		g_param=moments(data)
-	b=2.5
-	bg=0
-	FWHM=(g_param[3]+g_param[4])/2.
-	a=FWHM/(2*np.sqrt(2**(1/b)-1))
-	I=g_param[0]
-	x=g_param[1]
-	y=g_param[2]
-	return I, x, y, a, b, bg
+    if gaussfitting:
+        g_param=fitgaussian(data)
+    else:
+        g_param=moments(data)
+    b=2.5
+    bg=0
+    FWHM=(g_param[3]+g_param[4])/2.
+    a=FWHM/(2*np.sqrt(2**(1/b)-1))
+    I=g_param[0]
+    x=g_param[1]
+    y=g_param[2]
+    return I, x, y, a, b, bg
 
 def i_fitmoffat(data, params=None, gaussfitting=False, full=False):
-	"""Returns (height, x, y, a, b, bg)
-	the gaussian parameters of a 2D distribution found by a fit"""
-	import numpy as np
-	## params = [a, b, moments(data)[1,2]]
-	if params==None:
-		params=i_mofpar(data, gaussfitting)
-		# print(params)
-		## g_param=fitgaussian(data)
-		## b=2.5
-		## FWHM=(g_param[3]+g_param[4])/2.
-		## a=FWHM/(2*np.sqrt(2**(1/b)-1))
-		## x=g_param[1]
-		## y=g_param[2]
-		## params = [a, b, x, y]
-	moffat_error = lambda p: np.ravel(i_moffat(*p)(*np.indices(data.shape))-data)
-	p, success, infodict, mesg, ier = optimize.leastsq(moffat_error, params, full_output=1)
-	## print(p, success, infodict, mesg, ier)
-	if ier > 4 or ier==0:
-		print("\n ERROR "+str(ier)+"!\n"+mesg)
-		#p.fill(-1)
-	if full:
-		return p, success, infodict, mesg, ier
-	else:
-		return p
+    """Returns (height, x, y, a, b, bg)
+    the gaussian parameters of a 2D distribution found by a fit"""
+    import numpy as np
+    ## params = [a, b, moments(data)[1,2]]
+    if params==None:
+        params=i_mofpar(data, gaussfitting)
+        # print(params)
+        ## g_param=fitgaussian(data)
+        ## b=2.5
+        ## FWHM=(g_param[3]+g_param[4])/2.
+        ## a=FWHM/(2*np.sqrt(2**(1/b)-1))
+        ## x=g_param[1]
+        ## y=g_param[2]
+        ## params = [a, b, x, y]
+    moffat_error = lambda p: np.ravel(i_moffat(*p)(*np.indices(data.shape))-data)
+    p, success, infodict, mesg, ier = optimize.leastsq(moffat_error, params, full_output=1)
+    ## print(p, success, infodict, mesg, ier)
+    if ier > 4 or ier==0:
+        print("\n ERROR "+str(ier)+"!\n"+mesg)
+        #p.fill(-1)
+    if full:
+        return p, success, infodict, mesg, ier
+    else:
+        return p
 
-def agpm_gaussfit(image,width=3.5,agpm_width=1.4,agpm_rejection_fraction=0.97):
+def agpm_gaussfit(image,width=3.5,agpm_width=1.4,agpm_rejection_fraction=0.97,agpm_position='Default'):
     '''Performs a fit to an image slice, using a model with two gaussians. One Gaussian represents
     the star and the other represents the agpm coronagraph, and has a negative amplitude.
     The initi
@@ -226,8 +226,11 @@ def agpm_gaussfit(image,width=3.5,agpm_width=1.4,agpm_rejection_fraction=0.97):
                 x_stddev=width,y_stddev=width)
     
     # The second for the AGPM
-    agpm=models.Gaussian2D(amplitude=-agpm_rejection_fraction*image.max(),x_mean=sz/2.,y_mean=sz/2.,
-                x_stddev=agpm_width,y_stddev=agpm_width)
+    if type(agpm_position) == type('Default'):
+        agpm_position = [sz/2.,sz/2.]
+
+    agpm=models.Gaussian2D(amplitude=-agpm_rejection_fraction*image.max(),x_mean=agpm_position[0],
+                y_mean=agpm_position[1],x_stddev=agpm_width,y_stddev=agpm_width)
     # agpm.fixed['x_stddev']=True
     # agpm.fixed['y_stddev']=True
     # agpm.bounds['amplitude']=(-2*image.max(),0)
@@ -242,6 +245,66 @@ def agpm_gaussfit(image,width=3.5,agpm_width=1.4,agpm_rejection_fraction=0.97):
     # Try fitting with LM
     fitter = LevMarLSQFitter()
     fit=fitter(total_model,x,y,image,acc=1e-4,maxiter=1000)
+    
+    return fit
+
+def fixed_agpm_gaussfit(image,width=3.5,agpm_width=1.4,agpm_rejection_fraction=0.97,agpm_position=[0,0]):
+    '''Performs a fit to an image slice, using a model with two gaussians. One Gaussian represents
+    the star and the other represents the agpm coronagraph, and has a negative amplitude.
+    The initi
+
+    data = the input image slice
+    width = Initial guess for the psf standard deviation (i.e. sigma for the Gaussian) in pixels
+    agpm_width = Initial guess for the with of the Gaussian used to model the AGPM, in pixels
+    agpm_rejection_fraction = the fraction of the peak rejected by the agpm. It should be 0.97, 
+            but experimentally, 0.8 works better for the fit.
+
+    '''
+
+    sz=image.shape[1]
+    
+    # Set up the models
+    # The first for the star
+    star=models.Gaussian2D(amplitude=1.3*image.max(),x_mean=agpm_position[0],y_mean=agpm_position[1],
+                x_stddev=width,y_stddev=width)
+    
+    # The second for the AGPM
+    agpm=models.Gaussian2D(amplitude=-agpm_rejection_fraction*image.max(),x_mean=agpm_position[0],y_mean=agpm_position[1],
+                x_stddev=agpm_width,y_stddev=agpm_width)
+    # Force the AGPM to be symmetric
+    def tiedfunc(agpm):
+        y_stddev_1 = agpm.x_stddev_1
+        return y_stddev_1
+    agpm.y_stddev.tied=tiedfunc
+    
+    # agpm.fixed['x_stddev']=True
+#    agpm.fixed['y_stddev']=True
+    agpm.fixed['x_mean']=True
+    agpm.fixed['y_mean']=True
+    agpm.fixed['theta'] = True # No reason to fit theta to a symmetrical gaussian
+    agpm.bounds['x_stddev']=[0.5,2.0]
+    agpm.bounds['y_stddev']=[0.5,2.0]
+    agpm.bounds['amplitude']=[None,0]
+    star.bounds['amplitude']=[0,None]
+
+    # agpm.bounds['x_mean']=[0.5,image.shape[0]-0.5]
+    # agpm.bounds['y_mean']=[0.5,image.shape[0]-0.5]
+
+    total_model=star+agpm
+    
+    # Set up the fitting
+    y,x=np.indices(image.shape)
+                
+    # Try fitting with LM
+    fitter = LevMarLSQFitter()
+    fit=fitter(total_model,x,y,image,acc=1e-4,maxiter=5000)
+    # print 'hack in fixed_agpm_gaussfit'
+    # fit = total_model # 
+
+    # # Calculate chi2
+    # chi2_init = np.sum((total_model(x,y)-image)**2)
+    # chi2_final = np.sum((fit(x,y)-image)**2)
+    # print 'Chi2',chi2_init/2e5,chi2_final/2e5
     
     return fit
 
@@ -265,8 +328,8 @@ def psf_gaussfit(image,width=3.5,saturated=True):
         gauss=np.where(gauss<satpoint,gauss,satpoint)
         return gauss
         
-    SatPSF=models.custom_model(satpsf_model)
     if saturated:
+        SatPSF=models.custom_model(satpsf_model)
         satpoint=image.max()
         star=SatPSF(amplitude=image.max(),x_mean=sz/2.,y_mean=sz/2.,x_stddev=width,
                 y_stddev=width,satpoint=satpoint)
@@ -274,13 +337,22 @@ def psf_gaussfit(image,width=3.5,saturated=True):
         satpoint=np.Inf
         star=models.Gaussian2D(amplitude=image.max(),x_mean=sz/2.,y_mean=sz/2.,
             x_stddev=width,y_stddev=width)
+            
+    # Add a constant to represent the background level
+    const = models.Const2D(amplitude=0)
+    total_model = star+const
     
     # Set up the fitting
     y,x=np.indices(image.shape)
                 
     # Try fitting with LM
     fitter = LevMarLSQFitter()
-    fit=fitter(star,x,y,image,acc=1e-4,maxiter=1000,estimate_jacobian=True)
+    fit=fitter(total_model,x,y,image,acc=1e-4,maxiter=1000,estimate_jacobian=True)
+    
+    # To keep it compatible with the code before we added the fit to the constant background
+    fit.x_mean = fit.x_mean_0
+    fit.y_mean = fit.y_mean_0
+
     
     return fit
 
@@ -291,7 +363,8 @@ def rough_centre(image,smooth_width=3.):
     smooth_width = the standard deviation of the Gaussian used, in pixels'''
 
     # Get the x and y coordinates, then make the Gaussian kernel
-    x,y=np.indices((smooth_width*4,smooth_width*4+1),dtype=np.float64)-smooth_width*2
+    ker_sz = np.int(np.round(smooth_width*4))
+    x,y=np.indices((ker_sz,ker_sz),dtype=np.float64)-smooth_width*2
     ker=np.exp(-(x**2 /(2*smooth_width**2) + (y**2 /(2*smooth_width**2))))
 
     # Remove any NaNs
@@ -343,4 +416,103 @@ def correlate_centre(image1,image2,search_size=10,smooth_width=500):
         return -interp_func(x[0],x[1])
     centre=optimize.fmin(fit_func,np.array([0,0]),disp=False)
     return centre
+
+
+###################
+## The following functions are specific to the NACO AGPM, and are used to calculate the centre position of the coronagraph
+###################
+def agpm_model(params,image_shape=(600,600)):
+    ''' A circular model of the AGPM "big circle" (i.e. the transmissive region of the AGPM substrate).
+    params = [xcentre, ycentre, radius]
+    Returns an array that has the value True for all pixels inside the circle and False for all pixels outside
+    '''
+    xx,yy = np.indices(image_shape)
+    model = np.sqrt((xx-params[0])**2 + (yy-params[1])**2)
+    model = model < params[2]
+    
+    return model
+
+def agpm_centre_min_func(params,image_shape=(600,600),npix_x=0,npix_y=0):
+    '''Function to minimize to calculate the centre of the big circle in the NACO AGPM
+    data.
+    This uses the parameters to construct a model of the AGPM "big circle". It then counts
+    how many pixels are within the circle for each row and column. It returns a goodness-of-fit
+    value that represents how different this distribution is compared to the data (i.e. npix_x 
+    and npix_y)
+
+    Each pixel is weighted by 1-sin(theta)**2 where theta is the angle between the centre of 
+    the circle and the edge of the circle at that row/column. This is because most of the data 
+    points are near the centre of the circle, which has very little sensitivity to the movement
+    of the agpm. So we want to weight the edge points higher.
+
+    params = [xcentre, ycentre, radius]
+    npix_x = number of pixels inside the circle for each column of the data
+    npix_y = number of pixels inside the circle for each row of the data
+
+    '''
+    model = agpm_model(params,image_shape=image_shape)
+    
+    x_model = np.sum(model,axis=1)
+    y_model = np.sum(model,axis=0)
+    
+    # Throw away points outside of the circle
+    # Ideally we would like to use npix_x > 0, but it is noisier
+    good_pix_x = x_model > 0
+    good_pix_y = y_model > 0
+    
+    # Weight the points in the chi2
+    # We want higher weights at the edges
+    x = np.arange(image_shape[0])
+    theta_x = np.arccos((x-params[0])/params[2])
+    weights_x =1-np.sin(theta_x)**2 # kind of arbitrary
+
+    y = np.arange(image_shape[1])
+    theta_y = np.arccos((y-params[1])/params[2])
+    weights_y =1-np.sin(theta_y)**2 # kind of arbitrary
+      
+    # Normal chi2
+    resids_x = npix_x-x_model
+    resids_y = npix_y - y_model
+    chi2_x = np.nansum(((resids_x*weights_x)[good_pix_x])**2)
+    chi2_y = np.nansum(((resids_y*weights_y)[good_pix_y])**2)
+
+    
+    # Here we could use distance instead of chi2
+    # If neither circle is cropped, then for each point on the data, the closest 
+    #  point on the model is on the line between the centre of the model and the
+    #  data point. So the distance between them is (distance from datapoint to
+    #  the centre of the model circle) - (radius of model circle)
+    
+    return chi2_x+chi2_y
+
+def pix_inside_big_circle(image):
+    ''' Calculate the number of pixels inside the big circle of the NACO AGPM
+    as a function of x and y position. Used to calculate the centre of the circle,
+    and then the position of the AGPM.'''
+
+    outside_bckgrd = np.nanmedian(image[0:50,0:50])
+    outside_scatter = np.median(np.abs(image[0:50,0:50]-outside_bckgrd))
+    above_bckgrd = image > (9*outside_scatter+outside_bckgrd)
+    npix_x = np.sum(above_bckgrd,axis=1)
+    npix_y = np.sum(above_bckgrd,axis=0)
+    
+    return [npix_x,npix_y]
+
+def fit_to_big_circle(image):
+    ''' Perform a fit to calculate the centre of the big circle in an AGPM image'''
+    # Find the pixels inside the big circle
+    npix_x,npix_y = pix_inside_big_circle(image)    
+
+    initial_guess = [image.shape[0]/2,image.shape[1]/2,295.6]    
+    
+    # Try fitting
+    method = 'Powell'
+    result = optimize.minimize(agpm_centre_min_func, initial_guess,
+                               args=(image.shape,npix_x,npix_y),tol=1e-4,method=method)
+    
+    [xcen,ycen,agpm_rad] = result.x
+    
+    return [[xcen,ycen],agpm_rad]
+
+###################
 
