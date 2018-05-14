@@ -13,8 +13,15 @@ import glob
 basedirectory = "./GRAPHIC_PCA/"
 
 files = glob.glob(basedirectory + "*/*_derot.fits")
+files = np.array(files)
 
-files = np.sort(files)
+# Need to account for the fact that the sort did not actually sort it by number of modes, but
+# by the first number...
+nmodes = []
+for f in files:
+    nmodes.append(float(f.replace(basedirectory,'').split('/')[0]))
+sort_ix = np.argsort(nmodes)
+files = files[sort_ix]
 
 cube = []
 
