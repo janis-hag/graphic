@@ -13,25 +13,34 @@ import glob
 basedirectory = "./GRAPHIC_PCA/"
 
 files = glob.glob(basedirectory + "*/*_derot.fits")
-files = np.array(files)
-
-# Need to account for the fact that the sort did not actually sort it by number of modes, but
-# by the first number...
-nmodes = []
-for f in files:
-    nmodes.append(float(f.replace(basedirectory,'').split('/')[0]))
-sort_ix = np.argsort(nmodes)
-files = files[sort_ix]
+files = np.sort(files)
 
 cube = []
-
+nmodes = []
+nminmodes = []
 for x,filename in enumerate(files):
     image, header = fits.getdata(filename, header = True)
     cube.append(image)
     if x==0:
         outputhdr=header
+        
+    nmodes.append(float(header['HIERARCH GC PCA NMODES']))
+    nminmodes.append(header['HIERARCH GC PCA MINREFFRAMES'])
 
-    outputhdr['HIERARCH GC PCA FRAME' + str(x)+' NMODES'] = header['HIERARCH GC PCA NMODES']
-    outputhdr['HIERARCH GC PCA FRAME' + str(x)+' MINREFFRAMES'] = header['HIERARCH GC PCA MINREFFRAMES']
+cube = np.array(cube)
+nmodes = np.array(nmodes)
+nminmodes = np.array(nminmodes)
+
+# Need to account for the fact that the sort did not actually sort it by number of modes, but
+# by the first number...
+sort_ix = np.argsort(nmodes)
+cube = cube[sort_ix]
+nmodes = nmodes[sort_ix]
+nminmodes = nminmodes[sort_ix]
+
+for ix in range(len(nmodes)):
+
+    outputhdr['HIERARCH GC PCA FRAME' + str(ix)+' NMODES'] = nmodes[ix]
+    outputhdr['HIERARCH GC PCA FRAME' + str(ix)+' MINREFFRAMES'] = nminmodes[ix]
     
 fits.writeto(basedirectory + 'pca_multimodes.fits',cube,outputhdr,clobber=True)
