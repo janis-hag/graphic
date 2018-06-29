@@ -137,6 +137,7 @@ if rank==0:
         cube_list,dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici,fit=fit,sphere=sphere)
 
     print('Distributing dirlist to slaves.')
+    print(rank, nprocs)
     start,dirlist=graphic_mpi_lib.send_dirlist(dirlist)
 
     comm.bcast(cube_list, root=0)
@@ -204,7 +205,7 @@ if not rank==0:
 
 skyfile=None
 t0=MPI.Wtime()
-
+print(dirlist)
 # Loop through the files and do the sky subtraction
 for i in range(len(dirlist)):
     targetfile="no"+sky_pattern.replace('_','')+"_"+dirlist[i]

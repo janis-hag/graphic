@@ -517,7 +517,7 @@ def send_dirlist(dirlist):
                 break
             comm.send(dirlist[start:end], dest = n+1 )
             comm.send(start, dest=n+1)
-
+            
     return start,dirlist
 
 def send_dirlist_slaves(dirlist):
