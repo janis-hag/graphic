@@ -118,11 +118,11 @@ if rank==0:
 				   arc_length=arc_length,r_min=r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,r_max=r_max,
 				   min_reference_frames = min_reference_frames)
 	elif pca_type.lower() == 'cadi':
-		classical_adi(image_file,pca_reduced_cube_file,parang_file,median=False)
+		classical_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine)
 	elif pca_type.lower() == 'noadi':
 		pca_reduced_cube_file = image_file
 	elif pca_type.lower() == 'smart_adi':
-		smart_adi(image_file,pca_reduced_cube_file,parang_file,median=False,protection_angle=15.)
+		smart_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine,protection_angle=15.)
 
 	###
 	if pca_type !='':
