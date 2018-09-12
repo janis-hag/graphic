@@ -28,8 +28,8 @@ dirlist=graphic_nompi_lib.create_dirlist(pattern)
 
 cube,hdr=pyfits.getdata(dirlist[0], header=True)
 
-for i in xrange(1,len(dirlist)):
-	cube=np.dstack((cube,pyfits.getdata(dirlist[i])))
+for i in range(1,len(dirlist)):
+    cube=np.dstack((cube,pyfits.getdata(dirlist[i])))
 
 flat=np.median(cube, axis=2)
 
