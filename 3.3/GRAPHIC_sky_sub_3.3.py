@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
@@ -14,21 +14,23 @@ If you find any bugs or have any suggestions email:
 janis.hagelberg@unige.ch
 """
 
-__version__='3.3'
-__subversion__='0'
+__version__ = '3.3'
+__subversion__ = '0'
 
-import scipy, glob, shutil, os, sys, time, fnmatch, argparse, string, time
+import glob
+import os
+import sys
+import argparse
 import numpy as np
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
 from mpi4py import MPI
-## from astropy.io import fits as pyfits
 import astropy.io.fits as pyfits
 import bottleneck
 from scipy.interpolate import interp1d
 
 nprocs = MPI.COMM_WORLD.Get_size()
-rank   = MPI.COMM_WORLD.Get_rank()
+rank = MPI.COMM_WORLD.Get_rank()
 procnm = MPI.Get_processor_name()
 comm = MPI.COMM_WORLD
 
@@ -39,73 +41,80 @@ iterations = 1
 coefficient = 0.95
 
 
-parser = argparse.ArgumentParser(description='Subtracts the sky on each frame of the cube.')
+parser = argparse.ArgumentParser(
+        description='Subtracts the sky on each frame of the cube.')
 parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
-parser.add_argument('--pattern', action="store", dest="pattern",  default='*', help='Filename pattern')
-parser.add_argument('--sky_pattern', action="store", dest="sky_pattern", help='Sky file pattern')
-parser.add_argument('--sky_dir', action="store", dest="sky_dir", default='sky-OB', help='Give alternative sky directory')
+parser.add_argument('--pattern', action="store", dest="pattern",  default='*',
+                    help='Filename pattern')
+parser.add_argument('--sky_pattern', action="store", dest="sky_pattern",
+                    help='Sky file pattern')
+parser.add_argument('--sky_dir', action="store", dest="sky_dir",
+                    default='sky-OB', help='Give alternative sky directory')
 parser.add_argument('--info_pattern', action="store", dest="info_pattern",
-					default='all_info', help='Info filename pattern.')
+                    default='all_info', help='Info filename pattern.')
 parser.add_argument('--info_dir', action="store", dest="info_dir",
-					default='cube-info', help='Info directory')
+                    default='cube-info', help='Info directory')
 parser.add_argument('-noinfo', dest='noinfo', action='store_const',
-				   const=True, default=False,
-				   help='Do not use PSF fitting values.')
+                    const=True, default=False,
+                    help='Do not use PSF fitting values.')
 parser.add_argument('-s', dest='stat', action='store_const',
-				   const=True, default=False,
-				   help='Print benchmarking statistics')
-parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
+                    const=True, default=False,
+                    help='Print benchmarking statistics')
+parser.add_argument('--log_file', action="store", dest="log_file",
+                    default='GRAPHIC', help='Log filename')
 parser.add_argument('-nofit', dest='fit', action='store_const',
-				   const=False, default=True,
-				   help='Do not use PSF fitting values.')
+                    const=False, default=True,
+                    help='Do not use PSF fitting values.')
 parser.add_argument('-norm', dest='normalise', action='store_const',
-				   const=True, default=False,
-				   help='Normalise the sky before subtracting.')
+                    const=True, default=False,
+                    help='Normalise the sky before subtracting.')
 parser.add_argument('-nici', dest='nici', action='store_const',
-				   const=True, default=False,
-				   help='Switch for GEMINI/NICI data')
-## parser.add_argument('-hdf5', dest='hdf5', action='store_const',
-				   ## const=True, default=False,
-				   ## help='Switch to use HDF5 tables')
+                    const=True, default=False,
+                    help='Switch for GEMINI/NICI data')
 parser.add_argument('-interactive', dest='interactive', action='store_const',
-				   const=True, default=False,
-				   help='Switch to set execution to interactive mode')
+                    const=True, default=False,
+                    help='Switch to set execution to interactive mode')
 parser.add_argument('--flat_filename', dest='flat_filename', action='store',
-				   default=None, help='Name of flat field to be used. If this argument is not set, the data will not be flat fielded')
-parser.add_argument('--sky_interp', dest='sky_interp', action='store', type=int,default=1,
-				   help='Number of sky files to interpolate when doing the sky subtraction. Default is to use 1 file only (no interpolation).')
+                    default=None, help='Name of flat field to be used. If ' +
+                    'this argument is not set, the data will not be flat '
+                    + 'fielded')
+parser.add_argument('--sky_interp', dest='sky_interp', action='store',
+                    type=int, default=1, help='Number of sky files to'
+                    + 'interpolate when doing the sky subtraction. Default'
+                    + ' is to use 1 file only (no interpolation).')
 parser.add_argument('-sphere', dest='sphere', action='store_const',
-				   const=True, default=False,
-				   help='Switch for raw SPHERE data')
+                    const=True, default=False,
+                    help='Switch for raw SPHERE data')
 
 args = parser.parse_args()
-d=args.d
-pattern=args.pattern
-sky_pattern=args.sky_pattern
-sky_dir=args.sky_dir
-info_pattern=args.info_pattern
-info_dir=args.info_dir
-stat=args.stat
-log_file=args.log_file
-fit=args.fit
-nici=args.nici
-flat_filename=args.flat_filename
-sky_interp=args.sky_interp
-## hdf5=args.hdf5
-sphere=args.sphere
+d = args.d
+pattern = args.pattern
+sky_pattern = args.sky_pattern
+sky_dir = args.sky_dir
+info_pattern = args.info_pattern
+info_dir = args.info_dir
+stat = args.stat
+log_file = args.log_file
+fit = args.fit
+nici = args.nici
+flat_filename = args.flat_filename
+sky_interp = args.sky_interp
+sphere = args.sphere
 
-header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
-	'frame_num', 'frame_time', 'paralactic_angle']
+header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
+               'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
+               'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
+               'frame_num', 'frame_time', 'paralactic_angle']
 
-skipped=0
-header=None
+skipped = 0
+header = None
 
-t_init=MPI.Wtime()
+t_init = MPI.Wtime()
 
 
 if args.noinfo:
-	infolist=None
-	cube_list=None
+	infolist = None
+	cube_list = None
 
 if rank==0:
 	graphic_nompi_lib.print_init()
@@ -117,9 +126,6 @@ if rank==0:
 		MPI.Finalize()
 		sys.exit(1)
 
-	## if hdf5:
-		## infolist=glob.glob(info_dir+os.sep+info_pattern+'*.hdf5')
-	## else:
 	if not args.noinfo:
 		if info_pattern=='all_info':
 			print('Warning, using default value: info_pattern=\"all_info\" wrong info file may be used.')
@@ -222,7 +228,7 @@ current_skyfiles=[]
 
 # Loop through the files and do the sky subtraction
 for i in range(len(dirlist)):
-	targetfile="no"+string.replace(sky_pattern,'_','')+"_"+dirlist[i]
+	targetfile="no"+sky_pattern.replace('_','')+"_"+dirlist[i]
 	if os.access(target_dir+os.sep+targetfile, os.F_OK | os.R_OK):
 		print('Already processed: '+targetfile)
 		skipped=skipped+1
@@ -293,9 +299,9 @@ for i in range(len(dirlist)):
 	else: # The normal case of no interpolation
 		# Find the sky frame with a mean MJD closest to the file
 		targ_mjd=header['MJD-OBS']
-		sky_obstimes_arr=np.array(sky_obstimes.keys())
-		time_diffs=np.abs(targ_mjd-sky_obstimes_arr)
-		best_mjd=np.where(time_diffs ==np.min(time_diffs))
+		sky_obstimes_arr=np.array(list(sky_obstimes.keys()))
+		time_diffs = np.abs(targ_mjd - sky_obstimes_arr)
+		best_mjd=np.where(time_diffs == np.min(time_diffs))
 		skyfile=sky_obstimes[sky_obstimes_arr[best_mjd[0][0]]]
 
 		# Load the sky file
@@ -335,7 +341,7 @@ for i in range(len(dirlist)):
 		else:
 			cube=cube-np.where(nan_ix, sky_med_frame, sky)
 
-	skyref=string.split(skyfile,os.sep)[-1] # Strip directory away so we can record which sky file was used
+	skyref=skyfile.split(os.sep)[-1] # Strip directory away so we can record which sky file was used
 
 	# Flat field the data if a filename was provided
 	if flat_filename:
@@ -355,12 +361,6 @@ for i in range(len(dirlist)):
 
 if rank==0:
 	if not header==None:
-		## if 'ESO OBS TARG NAME' in header.keys():
-			## log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
-		## else:
-			## log_file=log_file+"_"+string.replace(header['OBJECT'],' ','')+"_"+str(__version__)+".log"
-		## graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
-
 		graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, header, comments=None, 	nprocs=nprocs)
 
 print(str(rank)+": Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
