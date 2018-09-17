@@ -2788,6 +2788,28 @@ def fix_naco_bad_cols(cube):
             ix2 = np.min([col+2,cube.shape[-1]])
             
             cube[...,x1:x2,col] = np.nanmean(cube[...,x1:x2,ix1:ix2],axis=(-1))
+
+    # Also fix the slightly bad columns on the top right quadrant
+    second_bad_cols = np.arange(cube.shape[2]/2+6,cube.shape[2],8) # This column number is hard-coded because it is hard to detect
+    stripe_model = 0*cube[0] # this will hold the offsets for each column
+    # mult_stripe_model = 0*cube[0]
+    add_stripe_model = 0*cube[0]
+
+    # Do the correction frame-by-frame
+    for frame_ix,frame in enumerate(cube):
+        # Loop through columns to subtract the neighbouring flux and measure the offset
+        for col in second_bad_cols:
+            # Subtract the neighbouring pixels
+            add_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2:,col] - (frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2
+            # Just in case if you were wondering if the stripes are multiplicative:
+            # Spoiler: they're not
+            # mult_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2,col] / ((frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2)
+        
+        # Now replace the model by the mean of the stripes
+        stripe_amp = np.nanmedian(add_stripe_model[cube.shape[1]/2:,second_bad_cols])
+        stripe_model[cube.shape[1]/2:,second_bad_cols] = stripe_amp
+        
+        cube[frame_ix] -= stripe_model
             
     return cube
 
