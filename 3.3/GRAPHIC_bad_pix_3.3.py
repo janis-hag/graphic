@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
@@ -10,64 +10,74 @@ Its purpose is to clean bad pixels from each frame in a cube list.
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
-__version__='3.3'
-__subversion__='0'
+__version__ = '3.3'
+__subversion__ = '0'
 
-import numpy, scipy, glob, shutil, os, sys, string
+import os
+import sys
+import string
 import numpy as np
 import graphic_nompi_lib_330 as graphic_nompi_lib
-import graphic_mpi_lib_330 as graphic_mpi_lib 
+import graphic_mpi_lib_330 as graphic_mpi_lib
 from mpi4py import MPI
 import argparse
 from graphic_mpi_lib_330 import dprint
 import astropy.io.fits as pyfits
 
-#sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
-## import bottleneck
-
 nprocs = MPI.COMM_WORLD.Get_size()
-rank   = MPI.COMM_WORLD.Get_rank()
+rank = MPI.COMM_WORLD.Get_rank()
 procnm = MPI.Get_processor_name()
 comm = MPI.COMM_WORLD
 
 target_dir = "."
-target_pattern ="cl_"
+target_pattern = "cl_"
 
-parser = argparse.ArgumentParser(description='Puts bad pixels to median value, based on darks.')
+parser = argparse.ArgumentParser(
+        description='Puts bad pixels to median value, based on darks.')
 parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
-parser.add_argument('--pattern', action="store", dest="pattern",  default='*', help='Filename pattern')
-parser.add_argument('--dark_pattern', action="store", dest="dark_pattern", required=True, help='Darks filename pattern')
-parser.add_argument('--dark_dir', action="store", dest="dark_dir", required=True, help='Directory containing the darks')
-parser.add_argument('--coef', action="store", dest="coef", type=float, default=5, help='The sigma threshold for pixels to be rejected')
-parser.add_argument('--cut', action="store", dest="cut", type=float, default=9999999, help='cut above which a pixel will be considered hot pix')
-parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
+parser.add_argument('--pattern', action="store", dest="pattern",  default='*',
+                    help='Filename pattern')
+parser.add_argument('--dark_pattern', action="store", dest="dark_pattern",
+                    required=True, help='Darks filename pattern')
+parser.add_argument('--dark_dir', action="store", dest="dark_dir",
+                    required=True, help='Directory containing the darks')
+parser.add_argument('--coef', action="store", dest="coef", type=float,
+                    default=5,
+                    help='The sigma threshold for pixels to be rejected')
+parser.add_argument('--cut', action="store", dest="cut", type=float,
+                    default=9999999,
+                    help='cut above which a pixel will be considered hot pix')
+parser.add_argument('--log_file', action="store", dest="log_file",
+                    default='GRAPHIC', help='Log filename')
 parser.add_argument('-s', dest='stat', action='store_const',
-                   const=True, default=False,
-                   help='Print benchmarking statistics')
+                    const=True, default=False,
+                    help='Print benchmarking statistics')
 parser.add_argument('-interactive', dest='interactive', action='store_const',
-                   const=True, default=False,
-                   help='Switch to set execution to interactive mode')
+                    const=True, default=False,
+                    help='Switch to set execution to interactive mode')
 parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
-                   const=True, default=False,
-                   help='Use bottleneck module instead of numpy for nanmedian.')
+                    const=True, default=False, help='Use bottleneck module'
+                    + ' instead of numpy for nanmedian.')
 parser.add_argument('--flat_filename', dest='flat_filename', action='store',
-                   default=None, help='Name of flat field to be used. If this argument is not set, the data will use flat fiel for the badpixel map')
+                    default=None, help='Name of flat field to be used.'
+                    + ' If this argument is not set, the data will use'
+                    + 'flat fiel for the badpixel map')
 parser.add_argument('-sphere', dest='sphere', action='store_const',
-                   const=True, default=False,
-                   help='Switch to set sphere to sphere mode')
+                    const=True, default=False,
+                    help='Switch to set sphere to sphere mode')
 
 
 args = parser.parse_args()
-d=args.d
-pattern=args.pattern
-dark_pattern=args.dark_pattern
-dark_dir=args.dark_dir
-coef=args.coef
-cut=args.cut
-log_file=args.log_file
-use_bottleneck=args.use_bottleneck
-sphere=args.sphere
-flat_filename=args.flat_filename
+d = args.d
+pattern = args.pattern
+dark_pattern = args.dark_pattern
+dark_dir = args.dark_dir
+coef = args.coef
+cut = args.cut
+log_file = args.log_file
+use_bottleneck = args.use_bottleneck
+sphere = args.sphere
+flat_filename = args.flat_filename
 
 if use_bottleneck:
     from bottleneck import median as median
@@ -77,9 +87,10 @@ else:
     from numpy import median as median
 
 
-comments=[]
+comments = []
 
-def gen_badpix(sky ,coef, comments, cut):
+
+def gen_badpix(sky, coef, comments, cut):
     """Create badpixel map by searching for pixels
 
     Input:
@@ -88,9 +99,8 @@ def gen_badpix(sky ,coef, comments, cut):
     """
     global median
 
-
     med = nanmedian(sky)
-    sigma=1.4826*nanmedian(np.abs(sky-med)) # the 1.4826 converts the Median Absolute Deviation to the standard deviation for a Normal distribution
+    sigma = 1.4826*nanmedian(np.abs(sky-med)) # the 1.4826 converts the Median Absolute Deviation to the standard deviation for a Normal distribution
 
     print("Sigma: "+str(sigma)+", median: "+str(med))
 
@@ -296,30 +306,30 @@ if not rank==0:
     dprint(d>2, 'Received dirlist, start, and bad_pix')
 
 
-t0=MPI.Wtime()
+t0 = MPI.Wtime()
 
 for i in range(len(dirlist)):
-    print(str(rank)+': ['+str(start+i)    +'/'+str(len(dirlist)+start-1)+"] "+dirlist[i]+" Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1)))
+    print(str(rank) + ': ['+str(start+i) + '/'+str(len(dirlist)+start-1) + "] "
+          + dirlist[i] + " Remaining time: " + graphic_nompi_lib.humanize_time(
+                  (MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1)))
 
-    # Read cube header and data
-    ## hdulist = fits.open(dirlist[i],memmap=True)
-    ## header=hdulist[0].header
-    ## cube=hdulist[0].data
-    cube,header=pyfits.getdata(dirlist[i], header=True)
-    cube=clean_bp(bad_pix, cube)
+    cube, header = pyfits.getdata(dirlist[i], header=True)
+    cube = clean_bp(bad_pix, cube)
     if sphere:
-        cube=cube*mask_nan
+        cube = cube*mask_nan
 
-    header["HIERARCH GC BAD_PIX"]=(__version__+'.'+__subversion__, "")
-    ## graphic_nompi_lib.save_fits( target_pattern+dirlist[i],  target_dir, cube, header )
-    graphic_nompi_lib.save_fits(target_pattern+dirlist[i], cube, header=header,backend='pyfits')
-    ## graphic_nompi_lib.save_fits(target_pattern+dirlist[i], hdulist, backend='astropy', verify='fix')
+    header["HIERARCH GC BAD_PIX"] = (__version__+'.'+__subversion__, "")
+    graphic_nompi_lib.save_fits(target_pattern+dirlist[i],
+                                cube, header=header, backend='pyfits')
 
 if 'ESO OBS TARG NAME' in header.keys():
-    log_file=log_file+"_"+string.replace(header['ESO OBS TARG NAME'],' ','')+"_"+str(__version__)+".log"
+    log_file = log_file+"_"+header['ESO OBS TARG NAME'].replace(' ', '')
+    + "_"+str(__version__)+".log"
 else:
-    log_file=log_file+"_"+string.replace(header['OBJECT']+"_"+str(__version__),' ','')+".log"
+    log_file = log_file+"_"+header['OBJECT'].replace(' ', '')
+    + "_"+str(__version__)+".log"
 
-print(str(rank)+": Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
+print(str(rank)+": Total time: "
+      + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
 graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments)
 sys.exit(0)
