@@ -498,10 +498,10 @@ def send_dirlist(dirlist):
     if nfiles < nprocs:
         for n in range(nprocs):
             if n+1 == nfiles:
-                start=n
-                dirlist=dirlist[n:] # take the list to the end
-                if n+1 < nfiles:
-                    for k in range(n+1,nprocs): # kill useless slaves
+                start = n
+                dirlist = dirlist[n:]  # take the list to the end
+                if nfiles < n+2:
+                    for k in range(n+1, nprocs):  # kill useless slaves
                         comm.send(None, dest=k)
                 break
             else:
