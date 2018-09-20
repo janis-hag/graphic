@@ -63,58 +63,59 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
     Generate a dirlist and checks for file acces rights.
     """
     # import glob
-    ## import string
+    # import string
 
-    dirlist=glob.glob(pattern+'*'+extension)
+    dirlist = glob.glob(pattern + '*' + extension)
 
-    if len(dirlist)>0:
-        iprint(interactive, '\r\r\r Found '+str(len(dirlist))+' files.\n')
-        ## sys.stdout.write("\r\r\r Found "+str(len(dirlist))+" files.\n")
-        ## sys.stdout.flush()
+    if len(dirlist) > 0:
+        iprint(interactive, '\r\r\r Found ' + str(len(dirlist)) + ' files.\n')
+        # sys.stdout.write("\r\r\r Found "+str(len(dirlist))+" files.\n")
+        # sys.stdout.flush()
     else:
         print('No files found.')
         return None
 
-    ## dirlist.sort() # Sort the list alphabetically
-    ## dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
-
+    # dirlist.sort() # Sort the list alphabetically
+    # dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
 
     # Check values in dirlist and remove dodgy files.
     for i in range(len(dirlist)):
-        if not os.access(dirlist[i], os.F_OK | os.R_OK): # Check if file exists
-            ## print("")
+        if not os.access(dirlist[i], os.F_OK | os.R_OK):  # Check if file exists
             print(': Error, cannot access: '+dirlist[i])
-            dirlist[i]=None
+            dirlist[i] = None
             continue
-        if not target_pattern==None:
-            if os.access(target_dir+os.sep+target_pattern+dirlist[i].split(os.sep)[-1], os.F_OK | os.R_OK): # Check if file exists
-                print(dirlist[i]+' already processed.')
-                dirlist[i]=None
+        if target_pattern is not None:
+            if os.access(os.join(target_dir, target_pattern
+                                 + dirlist[i].split(os.sep)[-1]),
+                                 os.F_OK | os.R_OK):  # Check if file exists
+                print(dirlist[i] + ' already processed.')
+                dirlist[i] = None
                 continue
 
     # Sort dirlist in order to have all the Nones at the start
     dirlist.sort()
 
     # Clean dirlist of discarded values:
-    skipped=0
+    skipped = 0
     for i in range(len(dirlist)):
-        if dirlist[0]==None:
+        if dirlist[0] is None:
             dirlist.pop(0)
-            skipped=skipped+1
-        else: break
-    if skipped>0:
-        print(" Skipped "+str(skipped)+" files.")
+            skipped = skipped+1
+        else:
+            break
+    if skipped > 0:
+        print(" Skipped " + str(skipped) + " files.")
 
-    if extension=='.rdb': #sort list chronologically
-        file_date_tuple_list = [(x,os.path.getmtime(x)) for x in dirlist]
+    if extension == '.rdb':  # sort list chronologically
+        file_date_tuple_list = [(x, os.path.getmtime(x)) for x in dirlist]
         file_date_tuple_list.sort(key=lambda x: x[1], reverse=True)
-        dirlist=[x[0] for x in file_date_tuple_list]
+        dirlist = [x[0] for x in file_date_tuple_list]
     else:
-        dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
-    ## dirlist.sort()
+        # Sort the list alphanumerically (a3 before a10)
+        dirlist = sort_nicely(dirlist)
+    # dirlist.sort()
 
-
-    if len(dirlist)==0:
+    if len(dirlist) == 0:
         return None
     else:
         return dirlist
@@ -343,7 +344,7 @@ def create_parang_list_naco(hdr):
                 return np.zeros((hdr['NAXIS3'],10))
             else:
                 for i in range(1,1): #NAXIS3=1 for none cube mode
-                    pa=hdr['HIERARCH ESO ADA POSANG']    
+                    pa=hdr['HIERARCH ESO ADA POSANG']
                     parang_array=numpy.array([0,mjdstart,pa])
                     parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
                 print(parang_array[0])
@@ -352,7 +353,7 @@ def create_parang_list_naco(hdr):
             print('Data does not seem to be taken in pupil tracking.')
             print ('Take the keyword [HIERARCH ESO ADA POSANG] for Position angle.')
             for i in range(1,1): #NAXIS3=1 for none cube mode
-                pa=hdr['HIERARCH ESO ADA POSANG']    
+                pa=hdr['HIERARCH ESO ADA POSANG']
                 parang_array=numpy.array([0,mjdstart,pa])
                 parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(dit+dit_delay)/86400.,pa]))
             return parang_array
@@ -593,7 +594,7 @@ def create_parang_list_sphere(hdr):
     """
 
     from numpy import sin, cos, arctan2, pi
-    
+
     r2d = 180/pi
     d2r = pi/180
 
@@ -611,22 +612,22 @@ def create_parang_list_sphere(hdr):
         # Get the correct RA and Dec from the header
         actual_ra = hdr['HIERARCH ESO INS4 DROT2 RA']
         actual_dec = hdr['HIERARCH ESO INS4 DROT2 DEC']
-        
+
         # These values were in weird units: HHMMSS.ssss
         actual_ra_hr = np.floor(actual_ra/10000.)
         actual_ra_min = np.floor(actual_ra/100. - actual_ra_hr*100.)
         actual_ra_sec = (actual_ra - actual_ra_min*100. - actual_ra_hr*10000.)
-        
+
         ra_deg = (actual_ra_hr + actual_ra_min/60. + actual_ra_sec/60./60.) * 360./24.
-        
+
         # the sign makes this complicated, so remove it now and add it back at the end
         sgn = np.sign(actual_dec)
         actual_dec *= sgn
-        
+
         actual_dec_deg = np.floor(actual_dec/10000.)
         actual_dec_min = np.floor(actual_dec/100. - actual_dec_deg*100.)
         actual_dec_sec = (actual_dec - actual_dec_min*100. - actual_dec_deg*10000.)
-        
+
         dec_deg = (actual_dec_deg + actual_dec_min/60. + actual_dec_sec/60./60.)*sgn
 
 #        geolat_deg=float(hdr['ESO TEL GEOLAT'])
@@ -649,7 +650,7 @@ def create_parang_list_sphere(hdr):
     else:
         delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
     ###########################
-    
+
 
     try:
         ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
@@ -812,6 +813,32 @@ def cut_cube(centroname,cube_in, R, d):
     ## return frame
 
 
+def error3(par, im):
+    """
+    error function for the fit of a moffat profile on a psf in an image. The
+    parameters of the fit are par and the data are the image data[0], and the
+    median of the entire image (not calculated here in because we use a sub
+    image to make the fit faster)
+    """
+
+    size = np.shape(im)[0]
+    S0 = float(par[0])
+    A1 = float(par[1])
+    x01 = float(par[2])
+    y01 = float(par[3])
+    fwhm1 = float(par[4])
+    fwhm2 = float(par[5])
+    beta1 = float(par[6])
+    theta1 = float(par[7])
+
+    moffat1 = moffat3(size, S0, A1, x01, y01, fwhm1, fwhm2, beta1, theta1)
+
+    im_simulated = moffat1
+    e = np.nansum((im_simulated-im)**2)
+
+    return e
+
+
 def fft_3shear_rotate(in_frame, alpha,x1,x2,y1,y2):
     """
     3 FFT shear based rotation, following Larkin et al 1997
@@ -901,7 +928,7 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4, return_full = False):
 
     Return the rotated array
     """
-    
+
     #################################################
     # Check alpha validity and correcting if needed
     #################################################
@@ -933,18 +960,18 @@ def fft_3shear_rotate_pad(in_frame, alpha, pad=4, return_full = False):
     ###################################
 
     # Calculate the position that the input array will be in the padded array to simplify
-    #  some lines of code later 
+    #  some lines of code later
     px1=np.int(((pad-1)/2.)*in_frame.shape[0])
     px2=np.int(((pad+1)/2.)*in_frame.shape[0])
     py1=np.int(((pad-1)/2.)*in_frame.shape[1])
     py2=np.int(((pad+1)/2.)*in_frame.shape[1])
 
-    # Make the padded array    
+    # Make the padded array
     pad_frame=np.ones((in_frame.shape[0]*pad,in_frame.shape[1]*pad))*np.NaN
     pad_mask=np.ones((pad_frame.shape), dtype=bool)
     pad_frame[px1:px2,py1:py2]=in_frame
     pad_mask[px1:px2,py1:py2]=np.where(np.isnan(in_frame),True,False)
-    
+
     # Rotate the mask, to know what part is actually the image
     pad_mask=ndimage.interpolation.rotate(pad_mask, np.rad2deg(-alpha_rad),
           reshape=False, order=0, mode='constant', cval=True, prefilter=False)
@@ -1956,6 +1983,38 @@ def inject_FP_nopad(image, rhoVect_as, FluxPrimary_adu, DeltaMagVect, hdr, alpha
         return image
 
 
+def low_pass(image, r, order, cut_off, threads=4):
+    """
+    Low pass filter of an image by fourier transform. Use fftw
+    """
+    # Remove NaNs from image
+    image = np.nan_to_num(image).astype(float)
+
+    # Shift to Fourier plane
+    fft = fftpack.fftshift(fftpack.fft2(image, threads=threads))
+    # Set up the coordinate and distance arrays
+    length = np.shape(image)[1]
+    x = np.arange(-length//2, length//2)
+    y = np.arange(-length//2, length//2)
+    X, Y = np.meshgrid(x, y)
+    R = np.sqrt(X**2 + Y**2)
+    R_ent = np.round(R).astype(int)  # partie entiere
+
+    # Use a Butterworth filter
+    B, A = signal.butter(order, cut_off/(length/2.) - r/(length/2.))
+    z = np.zeros(length)
+    z[0] = 1.
+    zf = signal.lfilter(B, A, z)
+    fft_zf = fftpack.fftshift(fftpack.fft(zf))
+    fft_zf = np.append(fft_zf[int(length/2.):length], np.zeros(length//2))
+
+    F_bas = np.zeros((length, length)) + 0j
+    F_bas = np.where(R_ent < length/2., np.abs(fft_zf[R_ent]), F_bas)
+    f_bas = fftpack.ifftshift(fft*F_bas)
+    im_bis = np.real(fftpack.ifft2(f_bas, threads=threads))
+
+    return im_bis
+
 def mask_centre(frame, R, x0, y0):
     """
     Mask out the saturated centre of the frame. And draw a cross with frame median value at the centre (x0, y0).
@@ -2032,9 +2091,29 @@ def mask_cube(x0, y0,cube_in, R, d):
 
     return masked_cube
 
+
+def moffat3(size, S0, A, x0, y0, alpha1, alpha2, beta, theta):
+    x = np.arange(-size/2., size/2.)
+    y = x
+    X, Y = np.meshgrid(x, y)
+    theta_rad = np.pi*theta/180.
+    alpha1 = float(alpha1)
+    alpha2 = float(alpha2)
+    # alpha=fwhm/(2*np.sqrt(2.**(1./beta)-1.))
+    a = (np.cos(theta_rad)/alpha1)**2 + (np.sin(theta_rad)/alpha2)**2
+    b = (np.sin(theta_rad)/alpha1)**2 + (np.cos(theta_rad)/alpha2)**2
+    c = 2*np.sin(theta_rad)*np.cos(theta_rad)*(1./alpha1**2-1/alpha2**2)
+
+    mof = S0 + A*(np.power(1 + (a*(X - x0)**2 + b*(Y - y0)**2
+                                + c*(X - x0)*(Y - y0)), -float(beta)))
+
+    return mof
+
+
 def parang(dec, ha, geolat):
     """
-    Read a header and calculates the paralactic angle, using method derived by Arthur Vigan
+    Read a header and calculates the paralactic angle,
+    using method derived by Arthur Vigan
     """
     from numpy import sin, cos, arctan, pi
 
@@ -2331,11 +2410,27 @@ def save_fits(filename, img, **keywords):
             pyfits.writeto(target_dir + os.sep +filename, img, output_verify=verify)
     else:
         ## img.verify(option='silentfix')
-        img.writeto(target_dir + os.sep +filename,output_verify=verify)
+        img.writeto(target_dir + os.sep +filename, output_verify = verify)
+
+
+def twoD_Gaussian(x, y, amplitude, xo, yo, sigma_x, sigma_y, theta):
+    ''' Returns a 2D gaussian function
+    (x,y): the 2D coordinate arrays
+    amplitude, xo,yo, sigma_x,sigma_y,theta = Gaussian parameters
+    '''
+    xo = float(xo)
+    yo = float(yo)
+    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
+    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
+    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
+
+    return amplitude*np.exp(- (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+
 
 def scale_flux(reference_image,scaled_image,r_int=30,r_ext=80):
     ''' Calculate the factor needed to scale the flux to best subtract the PSF
-    r_int and r_ext are the interior and exterior radii of the donut shaped mask used to calculate the flux ratio.
+    r_int and r_ext are the interior and exterior radii of the donut shaped
+    mask used to calculate the flux ratio.
     '''
 
     # Make a donut shaped mask
@@ -2346,27 +2441,27 @@ def scale_flux(reference_image,scaled_image,r_int=30,r_ext=80):
     R1=np.sqrt(X**2+Y**2)
     donut=np.where(R1>r_int,1,np.nan)
     donut=np.where(R1>r_ext,np.nan,donut)
-    
+
     # Calculate the ratio of mean flux in the donut in each image
    # flux_factors = np.nanmean(reference_image*donut,axis=(1,2))/np.nanmean(scaled_image*donut,axis=(1,2))
     # flux_factor = np.nanmedian((reference_image/scaled_image)*donut,axis=(1,2))
     # flux_factor = np.nanmedian((reference_image/scaled_image)*donut)
     flux_factor = np.nanmean((reference_image*donut)/(scaled_image*donut))
-    
+
     return flux_factor
 
 def put_image_into_another_image(input_array,output_array):
     ''' Takes one array and inserts a second one into it, in a way that the centres
     of both arrays are the same. If one array is too big, it will be cropped at the edges.
     This probably only works if both arrays are even sized.
-    
+
     This works for arrays larger than 2D by centring the last two dimenions only
     '''
-    
+
     # What is the minimum size of each axis of the arrays
     min_xsz = int(np.min([output_array.shape[-1],input_array.shape[-1]]))
     min_ysz = int(np.min([output_array.shape[-2],input_array.shape[-2]]))
-    
+
     # Centred on the middle of each array, take a min_ysz x min_xsz region from one
     #  array and put it into the other
     # The ... means we apply this to only the last two dimensions
@@ -2382,23 +2477,23 @@ def rescale_image(im1_3d,x,y):
     im1_3d: Input image cube to be scaled
     x: the factor of rescaling on x direction of the input cube
     y: the factor of rescaling on y direction of the input cube
-    
+
     if x==1 -> no rescaling on x direction
     if x>1 -> streching of im1_3d in x direction by factor x
     if x<1 -> compression of im1_3d in x direction by factor x
     '''
     import pyfftw
-    
+
     print("\n")
     print("rescaling factor in x direction:",x)
     print("rescaling factor in y direction:",y,"\n")
-    
+
     # Find the NaNs in the image
     mask_nan=np.where(np.isnan(im1_3d),0,1.)
     im1_3d=np.nan_to_num(im1_3d).astype(float)
-    
+
     shape=np.shape(im1_3d)
-    
+
     # Make the image in a power of 2 shape
     next_power_of_2_y = int(pow(2, np.ceil(np.log(shape[-2])/np.log(2))))
     next_power_of_2_x = int(pow(2, np.ceil(np.log(shape[-1])/np.log(2))))
@@ -2406,63 +2501,63 @@ def rescale_image(im1_3d,x,y):
     temp_nan_image = 1*temp_image
     im1_3d = put_image_into_another_image(im1_3d,temp_image)
     mask_nan = put_image_into_another_image(mask_nan,temp_nan_image)
-    
+
     shape_bis=np.shape(im1_3d)
-    
+
     #FFT the data
     pyfftw.interfaces.cache.enable()
     pyfftw.interfaces.cache.set_keepalive_time(30)
-    
+
     # "fourier transforming the cube"
     fft_3d=pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
     fft_nan_mask = pyfftw.n_byte_align_empty(shape_bis, 16, 'complex128')
     for i in range(shape_bis[0]):
         fft_3d[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(im1_3d[i,:,:], planner_effort='FFTW_MEASURE', threads=4))
         fft_nan_mask[i,:,:] = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(mask_nan[i,:,:], planner_effort='FFTW_MEASURE', threads=4))
-    
-    
+
+
     # "0 padding in fourier space to rescale images"
     nbr_pix_x=int((int((x)*np.shape(im1_3d)[2])-np.shape(im1_3d)[2])/2.)
     nbr_pix_y=int((int((y)*np.shape(im1_3d)[1])-np.shape(im1_3d)[1])/2.)
-    
+
     # Make an array with the right number of pixels to scale the image
     rescaled_fft = np.zeros((im1_3d.shape[0],im1_3d.shape[1]+2*nbr_pix_y,im1_3d.shape[2]+2*nbr_pix_x),dtype=fft_3d.dtype)
     rescaled_nan_mask = 1*rescaled_fft
     # Put the FFT array into the new rescaled array (and do the same for the nan_mask)
     rescaled_fft = put_image_into_another_image(fft_3d,rescaled_fft)
     rescaled_nan_mask = put_image_into_another_image(fft_nan_mask,rescaled_nan_mask)
-    
+
     # Rename the variables
     fft_3d = rescaled_fft
     fft_nan_mask = rescaled_nan_mask
-    
+
     # "preparing the inverse fourier transform"
     #with fftw
     im1_3d_rescale=pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
     nan_mask_rescale = pyfftw.n_byte_align_empty(np.shape(fft_3d), 16, 'complex128')
-    
+
     # "inverse fourier transforming the cube"
     for i in range(np.shape(fft_3d)[0]):
         im1_3d_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_3d[i,:,:]), planner_effort='FFTW_MEASURE', threads=4)
         nan_mask_rescale[i,:,:]=pyfftw.interfaces.scipy_fftpack.ifft2(fftpack.ifftshift(fft_nan_mask[i,:,:]), planner_effort='FFTW_MEASURE', threads=4)
     im1_3d_rescale=np.real(im1_3d_rescale)
-    
+
     nan_mask_rescale = np.real(nan_mask_rescale)
-    
+
     # Make an array with the same size as the original image
     im1_3d_rescale_cut = np.zeros(shape,dtype=im1_3d_rescale.dtype)
     nan_mask_rescale_cut = np.zeros(shape)
-    
+
     # Put the rescaled image into the array we just created
     im1_3d_rescale_cut = put_image_into_another_image(im1_3d_rescale,im1_3d_rescale_cut)
     nan_mask_rescale_cut = put_image_into_another_image(nan_mask_rescale,nan_mask_rescale_cut)
-    
+
     # Convert the NaN mask back into NaNs
     mask_nan = np.where(nan_mask_rescale_cut < 0.5*np.nanmax(nan_mask_rescale_cut),np.nan,1.)
-    
+
     # Multiply by the NaN mask to add the NaNs back in
     im1_3d_rescale_cut = im1_3d_rescale_cut*mask_nan
-    
+
     return im1_3d_rescale_cut
 
 
@@ -2762,16 +2857,16 @@ def fix_naco_bad_cols(cube):
     columns.
     Bad columns are detected by considering the top and bottom half of the detector separately.
     And columns with standard deviation = 0 will be marked as bad.'''
-    
+
     # Consider the top half and bottom half of the detectors separately
     for x_ix in range(2):
         x1 = x_ix*cube.shape[-2]/2
         x2 = (x_ix+1)*cube.shape[-2]/2
-        
+
         # Take the maximum of each column
         dims_to_collapse = tuple(ix for ix in range(cube.ndim -1))
         max_col = np.max(cube[...,x1:x2,:],axis=dims_to_collapse)
-        
+
         # The bad columns appear to always have the same value
         # Several ways to detect them...
         # The variation is zero
@@ -2786,7 +2881,7 @@ def fix_naco_bad_cols(cube):
             # Make sure the indices dont become negative
             ix1 = np.max([col-2,0])
             ix2 = np.min([col+2,cube.shape[-1]])
-            
+
             cube[...,x1:x2,col] = np.nanmean(cube[...,x1:x2,ix1:ix2],axis=(-1))
 
     # Also fix the slightly bad columns on the top right quadrant
@@ -2804,13 +2899,13 @@ def fix_naco_bad_cols(cube):
             # Just in case if you were wondering if the stripes are multiplicative:
             # Spoiler: they're not
             # mult_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2,col] / ((frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2)
-        
+
         # Now replace the model by the mean of the stripes
         stripe_amp = np.nanmedian(add_stripe_model[cube.shape[1]/2:,second_bad_cols])
         stripe_model[cube.shape[1]/2:,second_bad_cols] = stripe_amp
-        
+
         cube[frame_ix] -= stripe_model
-            
+
     return cube
 
 
@@ -2852,9 +2947,9 @@ def low_pass(image, r, order, cut_off,threads=4):
         # Remove NaNs from image
         nan_mask = np.isnan(image)
         image=np.nan_to_num(image).astype(float)
-        
+
         # Shift to Fourier plane
-        fft=fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(image,threads=threads))
+        fft=fftpack.fftshift(fftpack.fft2(image,threads=threads))
         # Set up the coordinate and distance arrays
         l=np.shape(image)[1]
         x=np.arange(-l/2,l/2)
@@ -2862,20 +2957,20 @@ def low_pass(image, r, order, cut_off,threads=4):
         X,Y=np.meshgrid(x,y)
         R = np.sqrt(X**2 + Y**2)
         R_ent=np.round(R).astype(int) #partie entiere
-        
+
         # Use a Butterworth filter
         B,A=signal.butter(order,cut_off/(l/2.)-r/(l/2.))
         z=np.zeros(l)
         z[0]=1.
         zf=signal.lfilter(B,A,z)
         fft_zf=fftpack.fftshift(fftpack.fft(zf))
-        fft_zf = np.append(fft_zf[int(l/2.):l],np.zeros(l/2))
-        
+        fft_zf = np.append(fft_zf[int(l/2.):l],np.zeros(int(l/2)))
+
         F_bas=np.zeros((l,l))+0j
         F_bas=np.where(R_ent<l/2.,np.abs(fft_zf[R_ent]),F_bas)
         f_bas=fftpack.ifftshift(fft*F_bas)
         im_bis=np.real(fftpack.ifft2(f_bas,threads=threads))
-        
+
         im_bis[nan_mask] = np.nan
-        
+
         return im_bis
