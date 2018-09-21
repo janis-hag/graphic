@@ -3,12 +3,13 @@ import numpy as np
 import sys
 from scipy.optimize import minimize
 from scipy import signal
-from mpi4py import MPI
+# from mpi4py import MPI
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import argparse
 import astropy.io.fits as pyfits
+import time
 
-rank = MPI.COMM_WORLD.Get_rank()
+# rank = MPI.COMM_WORLD.Get_rank()
 
 target_dir = "."
 parser = argparse.ArgumentParser(description='Detection of the star centre '
@@ -49,6 +50,8 @@ lowpass_r = args.lowpass_r
 default_centre = args.default_centre
 manual_rough_centre = args.manual_rough_centre
 ignore_frame = args.ignore_frame
+
+rank = 0
 
 if rank == 0:
     if ignore_frame is not None:
@@ -91,17 +94,13 @@ if rank == 0:
                     cube_waffle = np.append(cube_waffle, temp, axis=0)
                 count += 1
             if bad_frame:
-                sys.stdout.write('Bad frame to be deleted '
-                                 + str(ignore_frame)+'\n')
-                sys.stdout.flush()
+                print('Bad frame to be deleted ' + str(ignore_frame)+'\n')
                 cube_waffle = np.delete(cube_waffle, ignore_frame-1, axis=0)
                 star_centre_bad_frame_deleted_filename = 'STAR_CENTER_cube_bad_frame_del.fits'
                 pyfits.writeto(star_centre_bad_frame_deleted_filename, cube_waffle, header=hdr, clobber=True)
             if cube_waffle.ndim > 2:
                 # If it is a cube we take the median over frames
-                sys.stdout.write(
-                        'More than one frame found, taking the median \n')
-                sys.stdout.flush()
+                print('More than one frame found, taking the median ')
                 # taking the median
                 cube_waffle = np.nanmedian(cube_waffle, axis=0)
             size_cube = 1
@@ -141,12 +140,13 @@ if rank == 0:
                 low_pass_im = graphic_nompi_lib.low_pass(im_waffle,
                                                          lowpass_r, 2, 100)
 
+                graphic_nompi_lib.dump_fits('low_pass_im', low_pass_im) # DEBUG
                 if default_centre:
                     # Based on regular 1024x2048 frames
                     # channel 1 : 510, 486
                     # channel 2: 510, 1510
-                    # default_rough_centre = np.array([510, 486])
-                    default_rough_centre = np.array([486, 510])
+                    default_rough_centre = np.array([510, 486])
+                    #default_rough_centre = np.array([486, 510])
                     print('Using default rough centre position: '
                           + str(default_rough_centre[0]) + ' '
                           + str(default_rough_centre[1]))
@@ -171,9 +171,12 @@ if rank == 0:
                     window = 200  # H band will be outside of 128 pix, so take a larger area
                 else:
                     window = 192  # 128
-                im = im_waffle[centre[1] - window//2:centre[1] + window//2,
-                               centre[0] - window//2:centre[0] + window//2]
+#                im = im_waffle[centre[1] - window//2:centre[1] + window//2,
+#                               centre[0] - window//2:centre[0] + window//2]
+                im = im_waffle[centre[0] - window//2:centre[0] + window//2,
+                               centre[1] - window//2:centre[1] + window//2]
 
+                graphic_nompi_lib.dump_fits('im_waffle', im) # DEBUG
                 # apply a donut shape mask on the central bright region to
                 # find the waffles
                 if ifs:
@@ -202,8 +205,9 @@ if rank == 0:
                 else:
                     print('Problem, no filter mode not detected!')
 
-                x = np.arange(window/2., window/2.)
-                y = np.arange(window/2., window/2.)
+                # Set all pixels outside the donut to 0
+                x = np.arange(-window/2., window/2.)
+                y = np.arange(-window/2., window/2.)
                 X, Y = np.meshgrid(x, y)
                 R = np.sqrt(X**2 + Y**2)
                 donut = np.where(R > r_int, 1, 0)
@@ -236,20 +240,40 @@ if rank == 0:
                     max_index = np.array(np.where(
                             low_pass_im == np.nanmax(low_pass_im)))
 
-                    # take the first one (in case there are multiple peaks
+                    # Take the first one (in case there are multiple peaks
                     # with the same value)
+                    print(max_index, max_index[...,0])
                     max_index = max_index[..., 0]
-                    # we need to add 1 to each direction because the
+                    # We need to add 1 to each direction because the
                     # correlation above shifts the image by 1 pixel
                     max_index += [1, 1]
-                    # Sotre the peak in a new array
+                    # Store the peak in a new array
                     max_index_vec1 = np.append(max_index_vec1, max_index)
 
                     # Mask out detected spot for next iteration
                     R = np.sqrt((X + (window/2 - max_index[1]))**2
                                 + (Y + (window/2 - max_index[0]))**2)
-                    mask = np.where(R < 30, 0, 1)
+#                    R = np.sqrt((X + (window/2 - max_index[0]))**2
+#                                + (Y + (window/2 - max_index[1]))**2)
+                    mask = np.where(R < 15, 0, 1)
+
+                    # !!!!!! Quadrant should be masked out instead!
+                    mask = np.ones(low_pass_im.shape)
+                    print(max_index[0], max_index[1], window/2)
+                    if max_index[0] > window/2:
+                        if max_index[1] > window/2:
+                            mask[window//2:, window//2:] = 0
+                        else:
+                            mask[window//2:, :window//2] = 0
+                    else:
+                        if max_index[1] > window/2:
+                            mask[:window//2, window//2:] = 0
+                        else:
+                            mask[:window//2, :window//2] = 0
+
                     low_pass_im = low_pass_im*mask
+                    graphic_nompi_lib.dump_fits(
+                            'low_pass_mask'+str(i), low_pass_im)
 
                 # moffat fit with a levenberg-markardt arlgorithm on the
                 # waffles to have the best positions
@@ -263,12 +287,16 @@ if rank == 0:
 
                 # Loop over waffle spots
                 cutout_sz = 10  # pix, size around waffle to fit
+                centre_spot = np.zeros((4, 2))
+
                 for i in range(4):
-                    sys.stdout.write('\r Waffle '+str(i+1)+' of '+str(4))
-                    sys.stdout.flush()
+                    print('\r Waffle '+str(i+1)+' of '+str(4))
+                    centre_spot[i] = ([max_index_vec1[2*i],
+                                    max_index_vec1[2*i+1]])
+
                     Prim_x = max_index_vec1[2*i+1]
                     Prim_y = max_index_vec1[2*i]
-                    #print(Prim_x, Prim_y)
+                    print(Prim_x, Prim_y)
                     #print(int(Prim_y) - cutout_sz, int(Prim_y) + cutout_sz, int(Prim_x) - cutout_sz, int(Prim_x) + cutout_sz)
 
                     # cutting the image just around the waffle to make the fit faster
@@ -278,13 +306,22 @@ if rank == 0:
                     x0 = int(Prim_x) - cutout_sz
                     x1 = int(Prim_x) + cutout_sz
 
-                    im_temp = im_donut[y0: y1, x0: x1]
+                    # im_temp = im_donut[y0: y1, x0: x1]
+                    im_temp = im_donut[
+                            int(centre_spot[i][0]) - cutout_sz:
+                            int(centre_spot[i][0]) + cutout_sz,
+                            int(centre_spot[i][1]) - cutout_sz:
+                            int(centre_spot[i][1]) + cutout_sz]
 
-                    Prim_x_temp = np.shape(im_temp)[0]/2.
-                    Prim_y_temp = np.shape(im_temp)[0]/2.
+                    # Prim_x_temp = np.shape(im_temp)[0]/2.
+                    # Prim_y_temp = np.shape(im_temp)[0]/2.
 
-                    #test in which quadrant to initiate the angle
-                    if ((Prim_x < centre[0]) & (Prim_y < centre[1])) or ((Prim_x>centre[0]) & (Prim_y>centre[1])):
+                    # Test in which quadrant to initiate the angle
+                    # if ((Prim_x < centre[0]) & (Prim_y < centre[1])) or ((Prim_x>centre[0]) & (Prim_y>centre[1])):
+                    if (((centre_spot[i][0] < centre[0])
+                        & (centre_spot[i][1] < centre[1]))
+                        or ((centre_spot[i][0]>centre[0])
+                        & (centre_spot[i][1]>centre[1]))):
                             theta_init = -40
                     else:
                             theta_init = 40
@@ -295,12 +332,19 @@ if rank == 0:
                     # fitobj.fit(params0=paramsinitial)
                     res = minimize(graphic_nompi_lib.error3, paramsinitial,
                                    args=(im_temp), method='nelder-mead')
+                    # The solution of the optimization:.A1, x01, y01, fwhm1
                     par_vec_temp = np.copy(res.x)[1:4]
                     par_vec_temp[1] = par_vec_temp[1] + cutout_sz#+int(Prim_x)#-10
                     par_vec_temp[2] = par_vec_temp[2] + cutout_sz#+int(Prim_y)#-10
                     par_vec = np.append(par_vec, par_vec_temp)
                     par_init = np.append(par_init, paramsinitial)
-                    #err_leastsq_vec=np.append(err_leastsq_vec,fitobj.stderr)
+
+                    centre_spot[i] = ([centre[0] + centre_spot[i][0] + par_vec_temp[1]+ cutout_sz - np.shape(low_pass_im)[0]/2. - np.shape(im_temp)[0]/2.,
+                                      centre[1] + centre_spot[i][1] + par_vec_temp[2] + cutout_sz - np.shape(low_pass_im)[1]/2. - np.shape(im_temp)[1]/2.])
+                    correction = np.array([par_vec_temp[1]-im_temp.shape[0]/2.,
+                                           par_vec_temp[2]-im_temp.shape[0]/2.])
+                    print('Correction to rough estimate: '+str(correction))
+                    # err_leastsq_vec=np.append(err_leastsq_vec,fitobj.stderr)
 
 #                    mof_init = graphic_nompi_lib.moffat3(20, paramsinitial[0], paramsinitial[1],
 #                                       paramsinitial[2], paramsinitial[3],
@@ -312,46 +356,61 @@ if rank == 0:
 
                 # !!!!! Something seems to be wrong here, causing an offset
                 # in the detected spot positions
-                centre_spot1 = np.array([centre[0] + max_index_vec1[1]
-                                         - np.shape(low_pass_im)[1]/2.
-                                         + par_vec[1] - np.shape(im_temp)[0]/2.,
-                                         centre[1] + max_index_vec1[0]
-                                         - np.shape(low_pass_im)[0]/2.
-                                         + par_vec[2] - np.shape(im_temp)[0]/2.])
-                centre_spot2 = np.array([centre[0] + max_index_vec1[3]
-                                         - np.shape(low_pass_im)[1]/2.
-                                         + par_vec[4] - np.shape(im_temp)[0]/2.,
-                                         centre[1] + max_index_vec1[2]
-                                         - np.shape(low_pass_im)[0]/2.
-                                         + par_vec[5] - np.shape(im_temp)[0]/2.])
-                centre_spot3 = np.array([centre[0] + max_index_vec1[5]
-                                         - np.shape(low_pass_im)[1]/2.
-                                         + par_vec[7]-np.shape(im_temp)[0]/2.,
-                                         centre[1] + max_index_vec1[4]
-                                         - np.shape(low_pass_im)[0]/2.
-                                         + par_vec[8] - np.shape(im_temp)[0]/2.])
-                centre_spot4 = np.array([centre[0]+max_index_vec1[7]
-                                         - np.shape(low_pass_im)[1]/2.
-                                         + par_vec[10]-np.shape(im_temp)[0]/2.,
-                                         centre[1] + max_index_vec1[6]
-                                         - np.shape(low_pass_im)[0]/2.
-                                         + par_vec[11] - np.shape(im_temp)[0]/2.])
-                #determination of the star position with a "gravity centre" determination of the waffles
-                centre_star=[
-                        np.mean(np.array([centre_spot1[0], centre_spot2[0],
-                                          centre_spot3[0], centre_spot4[0]])),
-                        np.mean(np.array([centre_spot1[1], centre_spot2[1],
-                                          centre_spot3[1], centre_spot4[1]]))]
-                star_centre = np.array(centre_star)
+#                print(centre[0], max_index_vec1[1],
+#                      - np.shape(low_pass_im)[1]/2.,
+#                      par_vec[1], - np.shape(im_temp)[0]/2.)
 
-                print("Spot 1 centre (x,y): (",
-                      centre_spot1[0], ",", centre_spot1[1], ")")
-                print("Spot 2 centre (x,y): (",
-                      centre_spot2[0], ",", centre_spot2[1], ")")
-                print("Spot 3 centre (x,y): (",
-                      centre_spot3[0], ",", centre_spot3[1], ")")
-                print("Spot 4 centre (x,y): (",
-                      centre_spot4[0], ",", centre_spot4[1], ")")
+#                centre_spot1 = np.array([centre[0] + max_index_vec1[1]
+#                                         - np.shape(low_pass_im)[1]/2.
+#                                         + par_vec[1] - np.shape(im_temp)[0]/2.,
+#                                         centre[1] + max_index_vec1[0]
+#                                         - np.shape(low_pass_im)[0]/2.
+#                                         + par_vec[2] - np.shape(im_temp)[0]/2.])
+#
+#                centre_spot2 = np.array([centre[0] + max_index_vec1[3]
+#                                         - np.shape(low_pass_im)[1]/2.
+#                                         + par_vec[4] - np.shape(im_temp)[0]/2.,
+#                                         centre[1] + max_index_vec1[2]
+#                                         - np.shape(low_pass_im)[0]/2.
+#                                         + par_vec[5] - np.shape(im_temp)[0]/2.])
+#
+#                centre_spot3 = np.array([centre[0] + max_index_vec1[5]
+#                                         - np.shape(low_pass_im)[1]/2.
+#                                         + par_vec[7]-np.shape(im_temp)[0]/2.,
+#                                         centre[1] + max_index_vec1[4]
+#                                         - np.shape(low_pass_im)[0]/2.
+#                                         + par_vec[8] - np.shape(im_temp)[0]/2.])
+#
+#                centre_spot4 = np.array([centre[0]+max_index_vec1[7]
+#                                         - np.shape(low_pass_im)[1]/2.
+#                                         + par_vec[10]-np.shape(im_temp)[0]/2.,
+#                                         centre[1] + max_index_vec1[6]
+#                                         - np.shape(low_pass_im)[0]/2.
+#                                         + par_vec[11] - np.shape(im_temp)[0]/2.])
+
+                # Determination of the star position with a "centre of mass"
+                # determination of the waffles
+#                centre_star=[
+#                        np.mean(np.array([centre_spot1[0], centre_spot2[0],
+#                                          centre_spot3[0], centre_spot4[0]])),
+#                        np.mean(np.array([centre_spot1[1], centre_spot2[1],
+#                                          centre_spot3[1], centre_spot4[1]]))]
+                # Take the mean along the "waffles" axis to have mean_x, mean_y
+                star_centre = centre_spot.mean(axis=0)
+                # star_centre = np.array(centre_star)
+
+#                print("Spot 1 centre (x,y): (",
+#                      centre_spot1[0], ",", centre_spot1[1], ")")
+#                print("Spot 2 centre (x,y): (",
+#                      centre_spot2[0], ",", centre_spot2[1], ")")
+#                print("Spot 3 centre (x,y): (",
+#                      centre_spot3[0], ",", centre_spot3[1], ")")
+#                print("Spot 4 centre (x,y): (",
+#                      centre_spot4[0], ",", centre_spot4[1], ")")
+
+                for s in range(4):
+                    print("Spot ", str(s), " centre (x,y): (",
+                          centre_spot[s][0], ",", centre_spot[s][1], ")")
 
                 if ifs:
                     channel_name = 'wavelength_'+str(channel_ix)
@@ -360,15 +419,17 @@ if rank == 0:
                         channel_name = 'left_im'
                     else:
                         channel_name = 'right_im'
+                # !!!File is open for writing during the whole spot search
                 # creating and filling the asci file with the star position
                 with open('star_centre.txt','a') as f:
                     f.write(channel_name+'\t' + str(round(star_centre[0], 3))
                     + '\t'+str(round(star_centre[1], 3)) + '\n')
 
-    t0 = MPI.Wtime()
-    sys.stdout.write("Beginning of star centring")
-    sys.stdout.write("\n")
-    sys.stdout.flush()
+                print('Star centre: ', channel_name, star_centre)
+
+    # t0 = MPI.Wtime()
+    t0 = time.time()
+    print("Beginning of star centring")
 
     f = open('star_centre.txt', 'w')
     f.write('image'+'\t'+'x_axis'+'\t'+'y_axis'+'\n')
@@ -376,13 +437,11 @@ if rank == 0:
     f.close()
 
     if science_waffle:
-        sys.stdout.write("Science waffle frames: finding the centre for each frame in the cubes")
-        sys.stdout.write("\n")
+        print("Science waffle frames: finding the centre for each frame in the cubes")
         allfiles = graphic_nompi_lib.create_dirlist(pattern)
         # for allfiles in glob.iglob(pattern+"*"):
         if True:
-            sys.stdout.write(allfiles)
-            sys.stdout.write("\n")
+            print(allfiles)
             f = open('star_centre.txt', 'a')
             f.write(allfiles+' \n')
             f.close()
@@ -393,12 +452,9 @@ if rank == 0:
         star_centre(pattern+'*', ifs=args.ifs, lowpass_r=lowpass_r,
                     manual_rough_centre=manual_rough_centre)
 
-    sys.stdout.write("Total time: "
-                     + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
-    sys.stdout.write("\n")
-    sys.stdout.write("Star centre detected and file <<star_centre.txt>> created -> end of star centre")
-    sys.stdout.write("\n")
-    sys.stdout.flush()
+    # print("Total time: " + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
+    print("Total time: " + graphic_nompi_lib.humanize_time((time.time()-t0)))
+    print("Star centre detected and file <<star_center.txt>> created.")
     # MPI_Finalize()
     # sys.exit(1)
     # os._exit(1)s
