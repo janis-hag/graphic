@@ -14,10 +14,11 @@ __subversion__='0'
 
 import numpy, os, shutil, sys, glob
 import numpy as np
+import datetime
 ## from scipy.signal import correlate2d
 #from gaussfit_330 import fitgaussian
 from scipy import ndimage,signal
-#import astropy.io.fits as pyfits
+import astropy.io.fits as pyfits
 #from astropy.io import fits
 #import pyfftw
 
@@ -755,6 +756,16 @@ def determine_instrument(hdr):
     print('Insrument detected as: '+inst)
     return inst
 
+def dump_fits(filename, array):
+    '''
+    Dumps an array into a fits file for quick debugging.
+    '''
+    filename = (filename
+                + '_'
+                + datetime.datetime.now().strftime("%Y-%m-%d_%H.%M.%S")
+                + '.fits')
+    pyfits.writeto(filename, array)
+
 def cut_cube(centroname,cube_in, R, d):
     import tables
 
@@ -839,7 +850,7 @@ def error3(par, im):
     return e
 
 
-def fft_3shear_rotate(in_frame, alpha,x1,x2,y1,y2):
+def fft_3shear_rotate(in_frame, alpha, x1, x2, y1, y2):
     """
     3 FFT shear based rotation, following Larkin et al 1997
 
