@@ -3,6 +3,7 @@ import numpy as np
 import sys
 from scipy.optimize import minimize
 from scipy import signal
+from scipy import ndimage
 # from mpi4py import MPI
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import argparse
@@ -137,8 +138,10 @@ if rank == 0:
 
                 # Rough approximation of the centre by detection of
                 # the max after a low pass filter
-                low_pass_im = graphic_nompi_lib.low_pass(im_waffle,
-                                                         lowpass_r, 2, 100)
+                #low_pass_im = graphic_nompi_lib.low_pass(im_waffle,
+                #                                         lowpass_r, 2, 100)
+                low_pass_im = ndimage.filters.median_filter(
+                    im_waffle, size=4, mode='reflect')
 
                 graphic_nompi_lib.dump_fits('low_pass_im', low_pass_im) # DEBUG
                 if default_centre:
@@ -242,7 +245,7 @@ if rank == 0:
 
                     # Take the first one (in case there are multiple peaks
                     # with the same value)
-                    print(max_index, max_index[...,0])
+                    print(max_index, max_index[..., 0])
                     max_index = max_index[..., 0]
                     # We need to add 1 to each direction because the
                     # correlation above shifts the image by 1 pixel
@@ -339,8 +342,10 @@ if rank == 0:
                     par_vec = np.append(par_vec, par_vec_temp)
                     par_init = np.append(par_init, paramsinitial)
 
-                    centre_spot[i] = ([centre[0] + centre_spot[i][0] + par_vec_temp[1]+ cutout_sz - np.shape(low_pass_im)[0]/2. - np.shape(im_temp)[0]/2.,
-                                      centre[1] + centre_spot[i][1] + par_vec_temp[2] + cutout_sz - np.shape(low_pass_im)[1]/2. - np.shape(im_temp)[1]/2.])
+                    centre_spot[i] = ([centre[0] + centre_spot[i][0] + par_vec_temp[1] - np.shape(low_pass_im)[0]/2. - np.shape(im_temp)[0]/2.,
+                                      centre[1] + centre_spot[i][1] + par_vec_temp[2] - np.shape(low_pass_im)[1]/2. - np.shape(im_temp)[1]/2.])
+
+
                     correction = np.array([par_vec_temp[1]-im_temp.shape[0]/2.,
                                            par_vec_temp[2]-im_temp.shape[0]/2.])
                     print('Correction to rough estimate: '+str(correction))
