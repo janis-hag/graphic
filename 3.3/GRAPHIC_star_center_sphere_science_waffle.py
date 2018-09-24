@@ -143,7 +143,6 @@ if rank == 0:
                 low_pass_im = ndimage.filters.median_filter(
                     im_waffle, size=4, mode='reflect')
 
-                graphic_nompi_lib.dump_fits('low_pass_im', low_pass_im) # DEBUG
                 if default_centre:
                     # Based on regular 1024x2048 frames
                     # channel 1 : 510, 486
@@ -179,7 +178,6 @@ if rank == 0:
                 im = im_waffle[centre[0] - window//2:centre[0] + window//2,
                                centre[1] - window//2:centre[1] + window//2]
 
-                graphic_nompi_lib.dump_fits('im_waffle', im) # DEBUG
                 # apply a donut shape mask on the central bright region to
                 # find the waffles
                 if ifs:
@@ -275,8 +273,6 @@ if rank == 0:
                             mask[:window//2, :window//2] = 0
 
                     low_pass_im = low_pass_im*mask
-                    graphic_nompi_lib.dump_fits(
-                            'low_pass_mask'+str(i), low_pass_im)
 
                 # moffat fit with a levenberg-markardt arlgorithm on the
                 # waffles to have the best positions
