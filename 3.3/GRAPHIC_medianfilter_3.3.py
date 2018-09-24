@@ -154,7 +154,7 @@ for i in range(len(dirlist)):
         elif all_info[frame, 6] == -1:
             continue
         else:
-            cube[frame] = cube[frame]-ndimage.filters.median_filter(
+            cube[frame] = cube[frame] - ndimage.filters.median_filter(
                     cube[frame], size=(window_size, window_size),
                     mode='reflect')
 
