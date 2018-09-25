@@ -422,7 +422,7 @@ if rank == 0:
                         channel_name = 'right_im'
                 # !!!File is open for writing during the whole spot search
                 # creating and filling the asci file with the star position
-                with open('star_centre.txt','a') as f:
+                with open('star_center.txt','a') as f:
                     f.write(channel_name+'\t' + str(round(star_centre[0], 3))
                     + '\t'+str(round(star_centre[1], 3)) + '\n')
 
@@ -432,7 +432,7 @@ if rank == 0:
     t0 = time.time()
     print("Beginning of star centring")
 
-    f = open('star_centre.txt', 'w')
+    f = open('star_center.txt', 'w')
     f.write('image'+'\t'+'x_axis'+'\t'+'y_axis'+'\n')
     f.write('----------------------------'+'\n')
     f.close()
@@ -443,7 +443,7 @@ if rank == 0:
         # for allfiles in glob.iglob(pattern+"*"):
         if True:
             print(allfiles)
-            f = open('star_centre.txt', 'a')
+            f = open('star_center.txt', 'a')
             f.write(allfiles+' \n')
             f.close()
             star_centre(allfiles, science_waffle, ifs=args.ifs,

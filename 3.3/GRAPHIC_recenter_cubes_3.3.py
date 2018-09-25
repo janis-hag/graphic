@@ -470,7 +470,7 @@ else:
                 for fn in range(bigstack.shape[0]):
                     dprint(d>2, "recentreing frame: "+str(fn)+" with shape: "+str(bigstack[fn].shape))
 
-                    if info_stack[s+fn,4] == -1 or info_stack[s+fn,5] == -1:
+                    if info_stack[s+fn, 4] == -1 or info_stack[s+fn, 5] == -1:
                         bigstack[fn] = np.NaN
                         continue
                     # Shift is given by (image centre position)-(star position)

@@ -233,7 +233,8 @@ else:
     print("  Not using fitted values. Ignoring flux and psf width!")
 
 # Count the invalid frames due to psf width
-n_invalid[:, 3] -= np.sum(n_invalid, axis=1) # first subtract the already known ones
+# first subtract the already known ones
+n_invalid[:, 3] -= np.sum(n_invalid, axis=1)
 n_invalid[:, 3] += [np.sum(valid_frames[these_frames] == False) for these_frames in cube_frames]
 
 # Now loop through the cubes again and record the results
