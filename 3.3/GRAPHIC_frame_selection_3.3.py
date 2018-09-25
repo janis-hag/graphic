@@ -3,10 +3,11 @@
 """
 Janis Hagelberg <janis.hagelberg@unige.ch>
 
-This program is part of GRAPHIC: "The Geneva Reduction and Analysis Pipeline for
-High-contrast Imaging of planetary Companions".
+This program is part of GRAPHIC: "The Geneva Reduction and Analysis Pipeline
+for High-contrast Imaging of planetary Companions".
 
-Its purpose is to look at the statistics of the frames within a cube and reject those that fall outside some bounds.
+Its purpose is to look at the statistics of the frames within a cube and reject
+those that fall outside some bounds.
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
@@ -17,14 +18,10 @@ import time
 import numpy as np
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
-from scipy import ndimage
 import argparse
-from graphic_mpi_lib_330 import dprint
-import astropy.io.fits as pyfits
 
-
-__version__='3.3'
-__subversion__='0'
+__version__ = '3.3'
+__subversion__ = '0'
 
 parser = argparse.ArgumentParser(
         description='Creates cubes with less frames by median-combining frames.')
@@ -62,7 +59,7 @@ args = parser.parse_args()
 d = args.d
 pattern = args.pattern
 info_pattern = args.info_pattern
-info_dir=args.info_dir
+info_dir = args.info_dir
 log_file = args.log_file
 centering_nsigma = args.centering_nsigma
 flux_nsigma = args.flux_nsigma
