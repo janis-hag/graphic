@@ -375,7 +375,7 @@ if rank == 0:
                 hdr['HIERARCH GC WAVELENGTH'] = (filter_wav*1e-3,'Wavelength in microns')
 
             out_name = prefixes[wav]+file_name
-            pyfits.writeto(out_name,cube_translat[wav],header=hdr,output_verify='warn',clobber=True)
+            pyfits.writeto(out_name,cube_translat[wav],header=hdr,output_verify='warn',overwrite=True)
 
 
 

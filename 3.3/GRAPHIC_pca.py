@@ -1,22 +1,22 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 This script runs PCA (or a simple cADI reduction) on a data cube.
 The output will go into the directory that the data is in (wdir)
 e.g.
-	- smart_annular_pca.fits for the PCA-subtracted frames
-	- smart_annular_pca_derot.fits for the final derotated and combined image
+    - smart_annular_pca.fits for the PCA-subtracted frames
+    - smart_annular_pca_derot.fits for the final derotated and combined image
 
 pca_type must be:
-	'pca','smart_pca','annular_pca','smart_annular_pca', or 'cadi' 
+    'pca','smart_pca','annular_pca','smart_annular_pca', or 'cadi'
 """
-from mpi4py import MPI
 import argparse
 import graphic_nompi_lib_330 as graphic_nompi_lib
 import sys, os
 from pca import *
 import astropy.io.fits as pf
+import time
 
-rank   = MPI.COMM_WORLD.Get_rank()
 
 target_dir = "."
 parser = argparse.ArgumentParser(description='Detection of the star center for corono images with the waffle pattern')
@@ -59,85 +59,81 @@ threads = args.threads
 
 # Fix r_max
 if r_max ==0:
-	r_max='Default'
+    r_max='Default'
 
-if rank==0:
 
-	t0=MPI.Wtime()
-	sys.stdout.write("beginning of pca")
-	sys.stdout.write("\n")
-	sys.stdout.flush()
-	
-	### The directory that the data cubes are in:
-	wdir=''
+t0 = time.time()
 
-	# The name of the input image cube file and the parallactic angle file
-	image_file=wdir+cube_filename
-	parang_file=wdir+parallactic_filename
+print("Beginning of pca")
 
-	# The name of the output files
-	pca_reduced_cube_file = output_dir+pca_type+'.fits'
-	derotated_final_image = output_dir+pca_type+'_derot.fits'
 
-	# Check that the output directory exists and create it if necessary
-	dir_exists=os.access(output_dir, os.F_OK)
-	if not dir_exists:
-		os.makedirs(output_dir)
+### The directory that the data cubes are in:
+wdir = ''
 
-	# Now convert n_modes to an integer if it is a fraction of the available modes
-	if (n_modes < 1) and (n_modes > 0):
-		n_frames = pf.getheader(image_file)['NAXIS3']
-		n_modes = np.int(n_modes*n_frames)
-		print('  Taking n_modes as a fraction of the total frames')
-		print('  i.e. '+str(n_modes))
-	else:
-		n_modes = np.int(n_modes)
+# The name of the input image cube file and the parallactic angle file
+image_file=wdir+cube_filename
+parang_file=wdir+parallactic_filename
 
-	# Convert min_reference_frames to an integer if it is a fraction of the available modes
-	if (min_reference_frames < 1) and (min_reference_frames > 0):
-		n_frames = pf.getheader(image_file)['NAXIS3']
-		min_reference_frames = np.int(min_reference_frames*n_frames)
-		print('  Taking min_reference_frames as a fraction of the total frames')
-		print('  i.e. '+str(min_reference_frames))
-	else:
-		min_reference_frames = np.int(min_reference_frames)
-	
-	#########
-	# Everything below here should be automatic
-	#########
+# The name of the output files
+pca_reduced_cube_file = output_dir+pca_type+'.fits'
+derotated_final_image = output_dir+pca_type+'_derot.fits'
 
-	if pca_type=='pca':
-		simple_pca(image_file,n_modes,pca_reduced_cube_file)
-	elif pca_type=='smart_pca':
-		smart_pca(image_file,n_modes,pca_reduced_cube_file,
-								 parang_file,protection_angle=15.)
-	elif pca_type=='annular_pca':
-		annular_pca(image_file,n_modes,pca_reduced_cube_file,n_annuli=n_annuli,arc_length=arc_length,r_min=r_min,r_max=r_max)
-	elif pca_type=='smart_annular_pca':
-		smart_annular_pca(image_file,n_modes,pca_reduced_cube_file,parang_file,n_annuli=n_annuli,
-				   arc_length=arc_length,r_min=r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,r_max=r_max,
-				   min_reference_frames = min_reference_frames)
-	elif pca_type.lower() == 'cadi':
-		classical_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine)
-	elif pca_type.lower() == 'noadi':
-		pca_reduced_cube_file = image_file
-	elif pca_type.lower() == 'smart_adi':
-		smart_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine,protection_angle=15.)
+# Check that the output directory exists and create it if necessary
+dir_exists=os.access(output_dir, os.F_OK)
+if not dir_exists:
+    os.makedirs(output_dir)
 
-	###
-	if pca_type !='':
-		derot_cube=derotate_and_combine_multi(pca_reduced_cube_file,parang_file,
-				   threads=threads,save_name=derotated_final_image,
-				   median_combine=median_combine,return_cube=save_derot_cube)
-		if save_derot_cube:
-			pf.writeto(output_dir+pca_type+'_derot_cube.fits',derot_cube,clobber=True)
-
-	sys.stdout.write("Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
-	sys.stdout.write("\n")
-	sys.stdout.write("pca finished")
-	sys.stdout.flush()
-	
-	sys.exit(0)
+# Now convert n_modes to an integer if it is a fraction of the available modes
+if (n_modes < 1) and (n_modes > 0):
+    n_frames = pf.getheader(image_file)['NAXIS3']
+    n_modes = np.int(n_modes*n_frames)
+    print('  Taking n_modes as a fraction of the total frames')
+    print('  i.e. '+str(n_modes))
 else:
-	
-	sys.exit(0)
+    n_modes = np.int(n_modes)
+
+# Convert min_reference_frames to an integer if it is a fraction of the available modes
+if (min_reference_frames < 1) and (min_reference_frames > 0):
+    n_frames = pf.getheader(image_file)['NAXIS3']
+    min_reference_frames = np.int(min_reference_frames*n_frames)
+    print('  Taking min_reference_frames as a fraction of the total frames')
+    print('  i.e. '+str(min_reference_frames))
+else:
+    min_reference_frames = np.int(min_reference_frames)
+
+#########
+# Everything below here should be automatic
+#########
+
+if pca_type=='pca':
+    simple_pca(image_file,n_modes,pca_reduced_cube_file)
+elif pca_type=='smart_pca':
+    smart_pca(image_file,n_modes,pca_reduced_cube_file,
+                             parang_file,protection_angle=15.)
+elif pca_type=='annular_pca':
+    annular_pca(image_file,n_modes,pca_reduced_cube_file,n_annuli=n_annuli,arc_length=arc_length,r_min=r_min,r_max=r_max)
+elif pca_type=='smart_annular_pca':
+    smart_annular_pca(image_file,n_modes,pca_reduced_cube_file,parang_file,n_annuli=n_annuli,
+               arc_length=arc_length,r_min=r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,r_max=r_max,
+               min_reference_frames = min_reference_frames)
+elif pca_type.lower() == 'cadi':
+    classical_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine)
+elif pca_type.lower() == 'noadi':
+    pca_reduced_cube_file = image_file
+elif pca_type.lower() == 'smart_adi':
+    smart_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine,protection_angle=15.)
+
+###
+if pca_type !='':
+    derot_cube=derotate_and_combine_multi(pca_reduced_cube_file,parang_file,
+               threads=threads,save_name=derotated_final_image,
+               median_combine=median_combine,return_cube=save_derot_cube)
+    if save_derot_cube:
+        pf.writeto(output_dir+pca_type+'_derot_cube.fits', derot_cube, overwrite=True)
+
+sys.stdout.write("Total time: "+graphic_nompi_lib.humanize_time((time.time()-t0)))
+sys.stdout.write("\n")
+sys.stdout.write("pca finished")
+sys.stdout.flush()
+
+sys.exit(0)

@@ -123,7 +123,7 @@ for allfiles in glob.iglob(pattern+'*'):
         hdr = hdr_r
         rescaled_channel_name = 'left'
 
-    if count==1:
+    if count == 1:
         sys.stdout.write('\n')
         sys.stdout.write('filter: ' + hdr_l["HIERARCH ESO INS COMB IFLT "])
         sys.stdout.flush()
@@ -156,7 +156,7 @@ for allfiles in glob.iglob(info_dir+'/'+info_pattern+'*'):
     shutil.copyfile(allfiles,allfiles.replace('left','sdi'))
 
 sys.stdout.write('\n')
-print("Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
+print("Total time: "+graphic_nompi_lib.humanize_time((time.time()-t0)))
 print("sdi finished")
 sys.exit(0)
 

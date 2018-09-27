@@ -61,17 +61,13 @@ collapse_cube = args.collapse_cube
 # Initialising tiemr
 t0 = time.time()
 
-sys.stdout.write("beginning of convert")
-sys.stdout.write("\n")
-sys.stdout.flush()
+print("Beginning of convert")
 
 # Get the list of files
-dirlist = glob.glob(pattern+"*")
+dirlist = glob.glob(pattern + "*")
 dirlist.sort()
 for i, allfiles in enumerate(dirlist):
-    sys.stdout.write('  '+allfiles)
-    sys.stdout.write('\n')
-sys.stdout.flush()
+    print('  '+allfiles)
 
 # Check that the output directory exists, and make it if needed
 if not output_dir.endswith(os.sep):
@@ -90,7 +86,7 @@ for ix, allfiles in enumerate(dirlist):
         master_cube = np.append(master_cube, cube_temp, axis=0)
 
     # Read in the cube info file to get the parallactic angles
-    with open(glob.glob("cube-info/*"+allfiles.replace(".fits",".rdb"))[0],'r') as f:
+    with open(glob.glob("cube-info/*"+allfiles.replace(".fits", ".rdb"))[0], 'r') as f:
         lines = f.readlines()
 
     for line in lines:
@@ -109,7 +105,7 @@ if len(dirlist) == 1 and not collapse_cube:
     shutil.copy(dirlist[0], output_dir + output_file)
 else:
     pyfits.writeto(output_dir + output_file, master_cube, header=hdr,
-                   clobber=True)
+                   overwrite=True)
 
 # Write an output file with the parallactic angles
 if not skip_parang:

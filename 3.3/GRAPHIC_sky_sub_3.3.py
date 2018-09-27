@@ -137,7 +137,7 @@ if rank == 0:
             comm.Abort()
         else:
             cube_list, dirlist = graphic_nompi_lib.create_megatable(
-                    dirlist,i nfolist,keys = header_keys,nici=nici,fit=fit)
+                    dirlist, infolist, keys=header_keys, nici=nici, fit=fit)
 
     print('Distributing dirlist to slaves.')
     start, dirlist = graphic_mpi_lib.send_dirlist(dirlist)

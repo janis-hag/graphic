@@ -352,10 +352,10 @@ for i in range(len(dirlist)):
 
 if 'ESO OBS TARG NAME' in header.keys():
     log_file = log_file+"_"+header['ESO OBS TARG NAME'].replace(' ', '')
-    + "_"+str(__version__)+".log"
+    + "_"+__version__+".log"
 else:
     log_file = log_file+"_"+header['OBJECT'].replace(' ', '')
-    + "_"+str(__version__)+".log"
+    + "_"+str__version__+".log"
 
 print(str(rank)+": Total time: "
       + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))

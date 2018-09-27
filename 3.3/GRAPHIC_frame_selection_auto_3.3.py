@@ -6,7 +6,7 @@ Janis Hagelberg <janis.hagelberg@unige.ch>
 This program is part of GRAPHIC, the
 Geneva Reduction and Analysis Pipeline for High-contrast Imaging of Companions.
 
-Its purpose is to substract a generated PSF from each frame in a cube.
+Its purpose is to create a list of frames that should be kept.
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """

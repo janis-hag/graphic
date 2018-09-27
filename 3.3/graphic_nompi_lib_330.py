@@ -8,10 +8,6 @@ These are function common to different programs of the pipeline.
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
-__version__='3.3'
-
-__subversion__='0'
-
 import numpy, os, shutil, sys, glob
 import numpy as np
 import datetime
@@ -20,11 +16,11 @@ import datetime
 from scipy import ndimage,signal
 import astropy.io.fits as pyfits
 #from astropy.io import fits
-#import pyfftw
+import pyfftw
 
+__version__ = '3.3'
+__subversion__ = '0'
 
-## sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
-## import bottleneck
 
 try:
     import pyfftw.interfaces.scipy_fftpack as fftpack
@@ -86,7 +82,7 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
             dirlist[i] = None
             continue
         if target_pattern is not None:
-            if os.access(os.join(target_dir, target_pattern
+            if os.access(os.path.join(target_dir, target_pattern
                                  + dirlist[i].split(os.sep)[-1]),
                                  os.F_OK | os.R_OK):  # Check if file exists
                 print(dirlist[i] + ' already processed.')
@@ -2257,6 +2253,7 @@ def read_iers_a():
 
     return iers_a
 
+
 def read_rdb(file, h=0, comment=None):
     """
     Reads an rdb file
@@ -2360,6 +2357,7 @@ def rebin(a, new_shape):
     else:
         return np.repeat(np.repeat(a, m/M, axis=0), n/N, axis=1)
 
+
 def save_fits(filename, img, **keywords):
     ## def save_fits(filename, img, hdr=None, backup_dir='prev', target_dir='.',backend='astropy'):
     """
@@ -2435,23 +2433,23 @@ def twoD_Gaussian(x, y, amplitude, xo, yo, sigma_x, sigma_y, theta):
     b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
     c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
 
-    return amplitude*np.exp(- (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+    return amplitude*np.exp(-(a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
 
 
-def scale_flux(reference_image,scaled_image,r_int=30,r_ext=80):
+def scale_flux(reference_image, scaled_image, r_int=30, r_ext=80):
     ''' Calculate the factor needed to scale the flux to best subtract the PSF
     r_int and r_ext are the interior and exterior radii of the donut shaped
     mask used to calculate the flux ratio.
     '''
 
     # Make a donut shaped mask
-    l=np.shape(reference_image)[1]
-    x=np.arange(-l/2.,l/2.)
-    y=np.arange(-l/2.,l/2.)
-    X,Y=np.meshgrid(x,y)
-    R1=np.sqrt(X**2+Y**2)
-    donut=np.where(R1>r_int,1,np.nan)
-    donut=np.where(R1>r_ext,np.nan,donut)
+    length = np.shape(reference_image)[1]
+    x = np.arange(-length/2., length/2.)
+    y = np.arange(-length/2., length/2.)
+    X, Y = np.meshgrid(x,y)
+    R1 = np.sqrt(X**2+Y**2)
+    donut = np.where(R1 > r_int, 1, np.nan)
+    donut = np.where(R1 > r_ext, np.nan, donut)
 
     # Calculate the ratio of mean flux in the donut in each image
    # flux_factors = np.nanmean(reference_image*donut,axis=(1,2))/np.nanmean(scaled_image*donut,axis=(1,2))
@@ -2461,29 +2459,37 @@ def scale_flux(reference_image,scaled_image,r_int=30,r_ext=80):
 
     return flux_factor
 
-def put_image_into_another_image(input_array,output_array):
-    ''' Takes one array and inserts a second one into it, in a way that the centres
-    of both arrays are the same. If one array is too big, it will be cropped at the edges.
-    This probably only works if both arrays are even sized.
 
-    This works for arrays larger than 2D by centring the last two dimenions only
+def put_image_into_another_image(input_array, output_array):
+    ''' Takes one array and inserts a second one into it, in a way that the
+    centres of both arrays are the same. If one array is too big, it will be
+    cropped at the edges. This probably only works if both arrays are even
+    sized.
+
+    This works for arrays larger than 2D by centring the last two dimenions
+    only
     '''
 
     # What is the minimum size of each axis of the arrays
-    min_xsz = int(np.min([output_array.shape[-1],input_array.shape[-1]]))
-    min_ysz = int(np.min([output_array.shape[-2],input_array.shape[-2]]))
+    min_xsz = int(np.min([output_array.shape[-1], input_array.shape[-1]]))
+    min_ysz = int(np.min([output_array.shape[-2], input_array.shape[-2]]))
 
     # Centred on the middle of each array, take a min_ysz x min_xsz region from one
     #  array and put it into the other
     # The ... means we apply this to only the last two dimensions
-    output_array[...,output_array.shape[-2]/2-min_ysz/2:output_array.shape[-2]/2+min_ysz/2,
-                     output_array.shape[-1]/2-min_xsz/2:output_array.shape[-1]/2+min_xsz/2] = \
-             input_array[...,input_array.shape[-2]/2-min_ysz/2:input_array.shape[-2]/2+min_ysz/2,
-                     input_array.shape[-1]/2-min_xsz/2:input_array.shape[-1]/2+min_xsz/2]
+    output_array[..., output_array.shape[-2]//2-min_ysz//2:
+        output_array.shape[-2]//2+min_ysz//2,
+        output_array.shape[-1]//2-min_xsz//2:
+        output_array.shape[-1]//2+min_xsz//2] = \
+        input_array[...,input_array.shape[-2]//2-min_ysz//2:
+        input_array.shape[-2]//2+min_ysz//2,
+        input_array.shape[-1]//2-min_xsz//2:
+        input_array.shape[-1]//2+min_xsz//2]
 
     return output_array
 
-def rescale_image(im1_3d,x,y):
+
+def rescale_image(im1_3d, x, y):
     ''' Rescales an image using Fourier transforms
     im1_3d: Input image cube to be scaled
     x: the factor of rescaling on x direction of the input cube
@@ -2493,15 +2499,14 @@ def rescale_image(im1_3d,x,y):
     if x>1 -> streching of im1_3d in x direction by factor x
     if x<1 -> compression of im1_3d in x direction by factor x
     '''
-    import pyfftw
 
     print("\n")
-    print("rescaling factor in x direction:",x)
-    print("rescaling factor in y direction:",y,"\n")
+    print("rescaling factor in x direction:", x)
+    print("rescaling factor in y direction:", y, "\n")
 
     # Find the NaNs in the image
-    mask_nan=np.where(np.isnan(im1_3d),0,1.)
-    im1_3d=np.nan_to_num(im1_3d).astype(float)
+    mask_nan = np.where(np.isnan(im1_3d), 0,1.)
+    im1_3d = np.nan_to_num(im1_3d).astype(float)
 
     shape=np.shape(im1_3d)
 
@@ -2752,17 +2757,16 @@ def write_array2rdb(filename,data,keys,s=''):
     f.close()
 
 
-def write_rdb(filename,data,keys,s=''):
+def write_rdb(filename, data, keys, s=''):
     '''
     s is used for string formating
     '''
-    ## import string
 
-    if s=='':
+    if s == '':
         for k in range(len(keys)):
-            s=s+'%F\t'
+            s = s+'%F\t'
 
-        s=s+'\n'
+        s = s+'\n'
 
 
     f = open(filename, 'w')

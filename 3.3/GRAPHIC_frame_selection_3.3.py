@@ -137,7 +137,9 @@ for cube_ix in range(ncubes):
 
 # Make everything into numpy arrays ?
 valid_frames = np.array(valid_frames)
+print(xcens)
 xcens = np.array(xcens)
+print(xcens)
 ycens = np.array(ycens)
 fluxes = np.array(fluxes)
 xwidths = np.array(xwidths)
@@ -148,7 +150,6 @@ n_invalid = np.zeros((ncubes, 4))
 
 # Count the initially invalid frames
 n_invalid[:, 0] = [np.sum(valid_frames[these_frames] == False) for these_frames in cube_frames]
-
 # Now make the cuts
 #################
 # SELECTION 1 : Centering
@@ -175,11 +176,15 @@ if dithered:
         valid_frames[cube_frames[cube_ix][ycen_diff >
                      (centering_nsigma*ycen_sigma)]] = False
 else:
+    print('TEST')
 
     # Calculate the scatter in the centre positions and ignore
     # anything far away
     xcen_sigma = np.median(np.abs(xcens-np.median(xcens)))
+    print('TEST2')
+
     ycen_sigma = np.median(np.abs(ycens-np.median(ycens)))
+
 
     xcen_diff = np.abs(xcens-np.median(xcens))
     ycen_diff = np.abs(ycens-np.median(ycens))

@@ -10,10 +10,6 @@ Its purpose is to substract a generated PSF from each frame in a cube.
 
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
-
-__version__='3.3'
-__subversion__='0'
-
 import os, sys
 import numpy as np
 from scipy import ndimage
@@ -23,6 +19,9 @@ import graphic_nompi_lib_330 as graphic_nompi_lib
 import graphic_mpi_lib_330 as graphic_mpi_lib
 import random
 import astropy.io.fits as fits
+
+__version__ = '3.3'
+__subversion__ = '0'
 
 sys.path.append("/home/spectro/hagelber/Astro/lib64/python/")
 import bottleneck
