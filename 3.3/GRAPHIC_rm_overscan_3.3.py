@@ -140,10 +140,15 @@ for i in range(len(dirlist)):
         else:
             cenx=centre_offset[0]
             ceny=centre_offset[1]
+
+        # Add the offset position to the header. I made a mistake with the coordinate variable names that I'll fix here
+        header["HIERARCH GC RM_OVERSCAN_CENTRE_OFFSET_X"] = cube.shape[2]/2-ceny
+        header["HIERARCH GC RM_OVERSCAN_CENTRE_OFFSET_Y"] = cube.shape[1]/2-cenx
         if cube.ndim==3:    
             cube=cube[:,cenx-l_max//2:cenx+l_max//2,ceny-l_max//2:ceny+l_max//2] 
         elif cube.ndim==2:    
             cube=cube[cenx-l_max//2:cenx+l_max//2,ceny-l_max//2:ceny+l_max//2] 
+
 
     # This used to only work if the difference in size was 2 pixels, but this is no longer the case for NACO. ACC edit Feb 2016
     elif cube.shape[1]>cube.shape[2]:
