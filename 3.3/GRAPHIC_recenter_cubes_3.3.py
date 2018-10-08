@@ -325,9 +325,9 @@ if rank == 0:
                        "Number of output frames requested")
 
                 # Remove the bad frames that contain only NaNs
-                bad_frames = (np.sum(np.isnan(cube) is False,axis=(1,2)) == 0)
-                cube = cube[bad_frames is False]
-                cube_list['info'][c+n] = cube_list['info'][c+n][bad_frames == False]
+                bad_frames = (np.sum(~np.isnan(cube),axis=(1,2)) == 0)
+                cube = cube[~bad_frames] # ~ inverts the boolean array
+                cube_list['info'][c+n] = cube_list['info'][c+n][~bad_frames]
                 cube_list['info'][c+n][:, 0] = range(cube.shape[0])
                 cube_list['info'][c+n][:, 9] = range(cube.shape[0])
                 hdr['HIERARCH GC NAN_FRAMES_REMOVED'] = (np.sum(bad_frames),
@@ -338,7 +338,7 @@ if rank == 0:
                 cube = cube.astype(np.float32)
 
                 # Only save if there are some frames to save:
-                n_good_frames = np.sum(bad_frames is False)
+                n_good_frames = np.sum(~bad_frames)
                 if n_good_frames == 0:
                     psf_sub_filename = psf_sub_filename+'.EMPTY'
                     open(psf_sub_filename, 'a').close()
@@ -367,10 +367,10 @@ if rank == 0:
                 new_cube = np.nanmean(new_cube,axis = 0)
             else:
                 # Remove the bad frames that contain only NaNs
-                bad_frames = (np.sum(np.isnan(new_cube) is False,
+                bad_frames = (np.sum(np.isfinite(new_cube),
                                      axis=(1,2)) == 0)
-                new_cube = new_cube[bad_frames is False]
-                new_info = new_info[bad_frames is False]
+                new_cube = new_cube[~bad_frames]
+                new_info = new_info[~bad_frames]
                 hdr['HIERARCH GC NAN_FRAMES_REMOVED'] = (np.sum(bad_frames),
                    "NaN-only frames removed during recentring")
 
