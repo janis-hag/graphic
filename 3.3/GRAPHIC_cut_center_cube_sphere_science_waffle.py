@@ -79,7 +79,6 @@ if rank == 0:
         cube_translate = np.real(cube_translate)
         return cube_translate
 
-
     def cut_irdis_cube(cube, hdr):
         '''
         Cuts an IRDIS data cube into left and right images, and masks out the
@@ -145,17 +144,18 @@ if rank == 0:
 
         #  Get rid of high frequency structure (e.g. bad pixels) using a
         #  lowpass filter
-        pyfftw.interfaces.cache.enable()
-        pyfftw.interfaces.cache.set_keepalive_time(30)
-        for i in range(np.shape(im_left)[0]):
-            fft_l = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(
-                    im_left[i, :, :], threads=4))*mask_l
-            im_left[i, :, :] = pyfftw.interfaces.scipy_fftpack.ifft2(
-                    fftpack.ifftshift(fft_l), threads=4)
-            fft_r = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(
-                    im_right[i, :, :], threads=4))*mask_r
-            im_right[i, :, :] = pyfftw.interfaces.scipy_fftpack.ifft2(
-                    fftpack.ifftshift(fft_r), threads=4)
+        #  DEBUG commented out low pass filter code below JHa
+#        pyfftw.interfaces.cache.enable()
+#        pyfftw.interfaces.cache.set_keepalive_time(30)
+#        for i in range(np.shape(im_left)[0]):
+#            fft_l = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(
+#                    im_left[i, :, :], threads=4))*mask_l
+#            im_left[i, :, :] = pyfftw.interfaces.scipy_fftpack.ifft2(
+#                    fftpack.ifftshift(fft_l), threads=4)
+#            fft_r = fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.fft2(
+#                    im_right[i, :, :], threads=4))*mask_r
+#            im_right[i, :, :] = pyfftw.interfaces.scipy_fftpack.ifft2(
+#                    fftpack.ifftshift(fft_r), threads=4)
 
         # Mask out the pixels outside of the field of view
         im_left = im_left*mask_nan_l
@@ -235,8 +235,6 @@ if rank == 0:
 
         return cube, mask_nan
 
-    ###############
-
     def cut_and_center_cub(file_name, science_waffle=False, ifs=False):
         """
         cut an IRDIS cube in left and right image, center them with the file
@@ -262,8 +260,9 @@ if rank == 0:
             cube, mask_nan = cut_irdis_cube(cube, hdr)
 
             # Get the detector dithering position from the headers.
-            dithering_x = hdr["HIERARCH ESO INS1 DITH POSX"]
-            dithering_y = hdr["HIERARCH ESO INS1 DITH POSY"]
+            # TODO give more coherence. dithering X,Y are related to 0, 1 axis
+            dithering_y = hdr["HIERARCH ESO INS1 DITH POSX"]
+            dithering_x = hdr["HIERARCH ESO INS1 DITH POSY"]
 
             n_wav = 2  # the number of wavelengths
         else:
