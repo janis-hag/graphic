@@ -2871,17 +2871,20 @@ def fix_naco_bad_cols(cube):
     ''' Fix the new bad columns on the NACO detector by averaging the neighbouring 4
     columns.
     Bad columns are detected by considering the top and bottom half of the detector separately.
-    And columns with standard deviation = 0 will be marked as bad.'''
-
+    And columns with standard deviation = 0 will be marked as bad.
+    
+    This also tries to fix the second bad quadrant, which has 1/8 columns with a small offset.
+    '''
+    
     # Consider the top half and bottom half of the detectors separately
     for x_ix in range(2):
         x1 = x_ix*cube.shape[-2]/2
         x2 = (x_ix+1)*cube.shape[-2]/2
-
+        
         # Take the maximum of each column
         dims_to_collapse = tuple(ix for ix in range(cube.ndim -1))
         max_col = np.max(cube[...,x1:x2,:],axis=dims_to_collapse)
-
+        
         # The bad columns appear to always have the same value
         # Several ways to detect them...
         # The variation is zero
@@ -2896,30 +2899,57 @@ def fix_naco_bad_cols(cube):
             # Make sure the indices dont become negative
             ix1 = np.max([col-2,0])
             ix2 = np.min([col+2,cube.shape[-1]])
-
+            
             cube[...,x1:x2,col] = np.nanmean(cube[...,x1:x2,ix1:ix2],axis=(-1))
 
+    return cube
+
+def fix_naco_second_bad_columns(cube,offset=(0,0)):
+    ''' A second quadrant of the NACO detector has bad columns. These are not a single value like the bottom-left quadrant,
+    but seem to have a constant offset that changes frame-to-frame.
+
+    Worse, in some datasets it changes with the row. Maybe the readout electronics are changing so quickly that while the columns
+    are being read out, their offsets are changing?
+
+    Offset:
+         the coordinates of the centre of the detector. Normally we cut the array around the centre of the AGPM, so the middle 
+         of the detector (where the quadrants meet) is offset from (cube.shape[1]/2,cube.shape[2]/2). This accounts for that.
+    '''
     # Also fix the slightly bad columns on the top right quadrant
-    second_bad_cols = np.arange(cube.shape[2]/2+6,cube.shape[2],8) # This column number is hard-coded because it is hard to detect
+    second_bad_cols = np.arange(cube.shape[2]/2+offset[1]+6,cube.shape[2],8) # The column numbers are hard-coded because it is hard to detect
+
     stripe_model = 0*cube[0] # this will hold the offsets for each column
     # mult_stripe_model = 0*cube[0]
     add_stripe_model = 0*cube[0]
 
-    # Do the correction frame-by-frame
+    # Do the correction frame-by-frame for the second bad quadrant
     for frame_ix,frame in enumerate(cube):
         # Loop through columns to subtract the neighbouring flux and measure the offset
-        for col in second_bad_cols:
-            # Subtract the neighbouring pixels
-            add_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2:,col] - (frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2
-            # Just in case if you were wondering if the stripes are multiplicative:
-            # Spoiler: they're not
-            # mult_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2,col] / ((frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2)
 
+        for col in second_bad_cols:
+            # Clever way to deal with the bad columns being at the edge of the array.
+            # In that case we would want to just use the neighbouring column
+            col_left = np.abs(col-1) # == col-1 unless col = 0
+            col_right = cube.shape[1]-1-np.abs(cube.shape[1]-1-(col+1)) # == col+1 unless col = cube.shape[1]
+            # Subtract the neighbouring pixels (i.e. assume it is additive noise)
+            add_stripe_model[cube.shape[1]/2+offset[0]:,col] = frame[cube.shape[1]/2+offset[0]:,col] - \
+                        (frame[cube.shape[1]/2+offset[0]:,col_left]+frame[cube.shape[1]/2+offset[0]:,col_right])/2
+            # Just in case if you were wondering if the noise is multiplicative, this will divide it by the neighbouring columns:
+            # Spoiler: it's not
+            # mult_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2,col] / ((frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2)
+        
         # Now replace the model by the mean of the stripes
         stripe_amp = np.nanmedian(add_stripe_model[cube.shape[1]/2:,second_bad_cols])
-        stripe_model[cube.shape[1]/2:,second_bad_cols] = stripe_amp
+        stripe_model[cube.shape[1]/2+offset[0]:,second_bad_cols] = stripe_amp
 
-        cube[frame_ix] -= stripe_model
+        # Also subtract the mean of every row
+        row_mean = np.nanmedian(add_stripe_model[add_stripe_model.shape[0]/2+offset[0]:,
+                               second_bad_cols]-stripe_amp,axis=1)
+        stripe_row_model = 0*stripe_model
+        for row_ix,row in enumerate(range(cube.shape[1]/2+offset[0],cube.shape[1])):
+            stripe_row_model[row,second_bad_cols] = row_mean[row_ix]
+
+        cube[frame_ix] -= (stripe_model+stripe_row_model)
 
     return cube
 

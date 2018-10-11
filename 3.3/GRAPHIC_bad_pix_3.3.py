@@ -23,6 +23,7 @@ from mpi4py import MPI
 import argparse
 from graphic_mpi_lib_330 import dprint
 import astropy.io.fits as pyfits
+from scipy import ndimage
 
 nprocs = MPI.COMM_WORLD.Get_size()
 rank = MPI.COMM_WORLD.Get_rank()
@@ -65,7 +66,10 @@ parser.add_argument('--flat_filename', dest='flat_filename', action='store',
 parser.add_argument('-sphere', dest='sphere', action='store_const',
                     const=True, default=False,
                     help='Switch to set sphere to sphere mode')
-
+parser.add_argument('--bad_pixel_file', action="store", dest="bad_pixel_file",
+                    default=None, help='Fits file containing an image with some bad pixels marked')
+parser.add_argument('-clean_cosmic_rays', dest='clean_cosmic_rays', action='store_const',
+                    const=True, default=False,help='Apply a simple check for cosmic rays after the normal bad pixel cleaning (Very slow!)')
 
 args = parser.parse_args()
 d = args.d
@@ -78,6 +82,8 @@ log_file = args.log_file
 use_bottleneck = args.use_bottleneck
 sphere = args.sphere
 flat_filename = args.flat_filename
+bad_pixel_file = args.bad_pixel_file
+clean_cosmic_rays = args.clean_cosmic_rays
 
 if use_bottleneck:
     from bottleneck import median as median
@@ -207,6 +213,41 @@ def clean_bp(badpix, cub_in):
                                             cub_in[f, y+1, x+1]])
     return cub_in
 
+def cosmic_ray_detect(image,box_width=3,n_sigma=7):
+    """ Cosmic ray detection function
+    """
+
+    box_size = np.int(2*box_width + 5)  #make sure width is odd.
+
+    # Convolve image with a Gaussian to get the local average
+    x,y = np.indices((box_size,box_size)).astype(float)
+    x -= box_size/2
+    y -= box_size/2
+    gauss = np.exp(-(x**2+y**2)/(2*box_width**2))
+
+    gauss[box_size/2,box_size/2]=0 # Ignore the middle pixel
+    gauss /= np.sum(gauss)
+    
+    smooth_im = ndimage.convolve(image,gauss)
+#    smooth_im = ndimage.median_filter(image,size=box_size) # Could use a median filter instead but it seems to be worse and slower
+    
+    resid_im = smooth_im - image
+    
+    # Now calculate the mean of the squared residuals the same way (i.e. the RMS)
+#    var_im = ndimage.convolve(resid_im**2,gauss)
+    var_im = ndimage.median_filter(resid_im**2,size=box_size) # this time we do need a median to avoid the bad pixel increasing the variance
+    stdev_im = np.sqrt(var_im)
+    bad_array = np.abs(resid_im/stdev_im) > n_sigma
+
+
+    cosmic_rays = np.where(bad_array)
+    n_ok = cosmic_rays[0].size
+
+    n_pix = image.size
+    n_change = n_pix - n_ok
+    print(str(n_change)+'Cosmic rays detected using n_sigma='+str(n_sigma))
+
+    return cosmic_rays
 
 t_init=MPI.Wtime()
 
@@ -318,6 +359,13 @@ if rank == 0:
         # bad_pix=tuple(numpy.append(numpy.array(badpix),numpy.array(badpix_flat), axis=1))
         hdr_badpix['flat'] = comments[1]
 
+    # Also add the bad pixels from the input bad pixel map
+    if bad_pixel_file:
+        badpix_map_input = pyfits.getdata(bad_pixel_file)
+        badpix_map += badpix_map_input
+        badpix_map = (badpix_map > 0)+0 # +0 turns it back to float
+        bad_pix = tuple(np.where(badpix_map))
+
     pyfits.writeto("badpixel_map.fits", badpix_map, header=hdr_badpix,
                    clobber=True)
     comm.bcast(bad_pix, root=0)
@@ -342,20 +390,27 @@ for i in range(len(dirlist)):
                   (MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1)))
 
     cube, header = pyfits.getdata(dirlist[i], header=True)
+
+    # if sphere:
+        # cube = cube*mask_nan
+
     cube = clean_bp(bad_pix, cube)
-    if sphere:
-        cube = cube*mask_nan
+
+    # Use a median filter to detect cosmic rays (ACC edit)
+    if clean_cosmic_rays:
+        for ix,frame in enumerate(cube):
+            cosmic_rays = cosmic_ray_detect(frame,box_width=1.5,n_sigma=7)
+            cube[ix] = clean_bp(cosmic_rays,np.array([frame]))
+
 
     header["HIERARCH GC BAD_PIX"] = (__version__+'.'+__subversion__, "")
     graphic_nompi_lib.save_fits(target_pattern+dirlist[i],
                                 cube, header=header, backend='pyfits')
 
 if 'ESO OBS TARG NAME' in header.keys():
-    log_file = log_file+"_"+header['ESO OBS TARG NAME'].replace(' ', '')
-    + "_"+__version__+".log"
+    log_file = log_file+"_"+header['ESO OBS TARG NAME'].replace(' ', '') + "_"+__version__+".log"
 else:
-    log_file = log_file+"_"+header['OBJECT'].replace(' ', '')
-    + "_"+str__version__+".log"
+    log_file = log_file+"_"+header['OBJECT'].replace(' ', '') + "_"+str__version__+".log"
 
 print(str(rank)+": Total time: "
       + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))

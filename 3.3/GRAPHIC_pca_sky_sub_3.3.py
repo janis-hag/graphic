@@ -78,6 +78,8 @@ parser.add_argument('--pca_modes', dest='pca_modes', action='store', default=Non
                    help='Subtract the sky by PCA, using the principal components calculated on the sky frames to subtract from the data. Set to the number of modes.')
 parser.add_argument('--star_window', dest='star_window', action='store', default=0, type=int,
                    help='Size of the window used to block out the star when calculating the PCA coefficients. Assumes the star is centred in the array.')
+parser.add_argument('-fix_naco_bad_columns',dest='fix_naco_bad_columns',action='store_const',default=False,const=True,
+                    help='Fix the second quadrant of bad columns on the NACO detector.')
 
 
 args = parser.parse_args()
@@ -97,6 +99,7 @@ sky_interp=args.sky_interp
 sphere=args.sphere
 pca_modes=args.pca_modes
 star_window = args.star_window
+fix_naco_bad_columns = args.fix_naco_bad_columns
 
 header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
     'frame_num', 'frame_time', 'paralactic_angle']
@@ -251,6 +254,18 @@ for i in range(len(dirlist)):
 
     # Make 3D again
     cube=np.reshape(cube,orig_cube_shape)
+
+    # Fix the NACO bad columns if requested
+    if fix_naco_bad_columns:
+        # Sometimes when cropping the images we might want to centre it away from the centre of the detector
+        # This should be saved in the header if this is the case
+        if 'GC RM_OVERSCAN_CENTRE_OFFSET_X' in header.keys():
+            offset_x = header['HIERARCH GC RM_OVERSCAN_CENTRE_OFFSET_X']
+            offset_y = header['HIERARCH GC RM_OVERSCAN_CENTRE_OFFSET_Y']
+        else:
+            offset_x = 0
+            offset_y = 0
+        cube = graphic_nompi_lib.fix_naco_second_bad_columns(cube,offset=(offset_y,offset_x))
 
     # Flat field the data if a filename was provided
     if flat_filename:
