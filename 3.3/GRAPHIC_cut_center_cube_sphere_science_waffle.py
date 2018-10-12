@@ -40,11 +40,16 @@ parser.add_argument('-science_waffle', dest='science_waffle',
 parser.add_argument('-ifs', dest='ifs', action='store_const', const=True,
                     default=False,
                     help='Switch for IFS data, which only need to be centered')
+parser.add_argument('--star_center_file', action="store", dest="star_center_file",
+                    default='star_center.txt',
+                    help='Name of the star center file')
+
 
 args = parser.parse_args()
 pattern = args.pattern
 science_waffle = args.science_waffle
 ifs = args.ifs
+star_center_file = args.star_center_file
 
 if rank == 0:
     def translat_cube(cube, x, y):
@@ -284,7 +289,7 @@ if rank == 0:
         # Now cube is 4D: n_wav x n_frames x nX x nY
 
         # reading the star center file
-        with open('star_center.txt', 'r') as f:
+        with open(star_center_file, 'r') as f:
             lines = f.readlines()
 
         if science_waffle:
@@ -295,8 +300,7 @@ if rank == 0:
                 # format of the star_center.txt file for IFS waffle data and
                 # this wasn't clearly defined at the time ACC added IFS support
                 raise Exception(
-                        "Someone needs to fix the science_waffle mode for IFS\
-                        in cut_center_cube")
+                        "Someone needs to fix the science_waffle mode for IFS in cut_center_cube")
 
             next_cube = 0
             for i, line in enumerate(lines):
@@ -344,13 +348,13 @@ if rank == 0:
             if science_waffle:
                 cube_translat[wav] = translat_cube(
                         cube[wav],
-                        np.shape(cube)[-1]/2.-center[wav, :, 0]-dithering_x,
-                        np.shape(cube)[-2]/2.-center[wav, :, 1]-dithering_y)
+                        np.shape(cube)[-1]/2.-center[wav, :, 1]-dithering_x,
+                        np.shape(cube)[-2]/2.-center[wav, :, 0]-dithering_y)
             else:
                 cube_translat[wav] = translat_cube(
                         cube[wav],
-                        np.shape(cube)[-1]/2.-center[wav, 0]-dithering_x,
-                        np.shape(cube)[-2]/2.-center[wav, 1]-dithering_y)
+                        np.shape(cube)[-1]/2.-center[wav, 1]-dithering_x,
+                        np.shape(cube)[-2]/2.-center[wav, 0]-dithering_y)
 
         # find the position of the NaN mask after translation of the image.
         # IF science_waffle we use the first frame as the position will change
@@ -436,8 +440,7 @@ if rank == 0:
                 # The filter wavelenth file should be in a subdirectory from
                 # the location of this file
                 filter_wavelength_file = os.path.dirname(
-                        os.path.realpath(__file__)) + os.sep
-                        + 'SPHERE_characterization/photometry_SPHERE/filter_wavelength.dat'
+                        os.path.realpath(__file__)) + os.sep + 'SPHERE_characterization/photometry_SPHERE/filter_wavelength.dat'
                 filters, filter_wavs = np.loadtxt(
                         filter_wavelength_file, skiprows=2, unpack=True,
                         dtype=str)
