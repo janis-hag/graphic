@@ -751,8 +751,9 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     else: # assume it is an array
         parangs = parang_file
 
-    
-    out_cube=np.zeros(cube.shape*np.array([1,2,2]))+np.nan # assuming pad=2 in fft_rotate
+    # In the following line, the *2 is because pad = 2, and 
+    # the +2 is because we fft_3shear_rotate adds 2 pixels to the array before padding
+    out_cube = np.zeros((cube.shape[0],(cube.shape[1]+2)*2,(cube.shape[2]+2)*2)) 
     t_start=time.time()
 
     if not silent:
