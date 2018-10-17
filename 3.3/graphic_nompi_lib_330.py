@@ -580,7 +580,6 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
         parang_array[i]=numpy.array([i,obs_time.mjd,pa ])
     return parang_array
 
-
 def create_parang_list_sphere(hdr):
     """
     Reads the header and creates an array giving the paralactic angle for each frame,
@@ -636,52 +635,31 @@ def create_parang_list_sphere(hdr):
 #        geolat_deg=0
         geolat_rad=0
 
-    ######################ajouter par Seb
-    from astropy.time import Time
-    date_start=hdr['DATE-OBS']
-    date_end=hdr['DATE']
-    t_start = Time(date_start, format='isot', scale='utc')
-    t_end = Time(date_end, format='isot', scale='utc')
-    if hdr['NAXIS3']==1:
-        delta_dit=0
+    n_frames = hdr['NAXIS3']
+
+    # We want the exposure time per frame, derived from the total time from when the shutter
+    # opens for the first frame until it closes at the end.
+    total_exptime = hdr['ESO DET SEQ1 EXPTIME']
+    delta_dit = total_exptime / hdr['NAXIS3']
+
+    # Set up the array to hold the parangs
+    parang_array = np.zeros((n_frames,3))
+
+    # CHeck some things are in the header
+    if 'LST' in hdr.keys():
+        lst = float(hdr['LST'])
     else:
-        delta_dit=(t_end.jd-t_start.jd)*24*3600/(hdr['NAXIS3']-1) #real time of the exposure counting the overheads in second
-    ###########################
-
-
-    try:
-        ha_deg=(float(hdr['LST'])*15./3600)-ra_deg
-    except:
         ha_deg=0
         print('WARNING: No LST keyword found in header')
-
-    # VLT TCS formula
-    f1 = cos(geolat_rad) * sin(d2r*ha_deg)
-    f2 = sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg)
 
     mjdstart=float(hdr['MJD-OBS'])
 
     if 'ESO INS4 COMB ROT' in hdr.keys() and hdr['ESO INS4 COMB ROT']=='PUPIL':
 
-        pa = -r2d*arctan2(-f1,f2)
+        for i in range(n_frames):
 
-        pa = pa +offset
+            ha_deg=((float(hdr['LST'])+i*delta_dit + delta_dit/2.)*15./3600)-ra_deg
 
-        # Also correct for the derotator issues that were fixed on 12 July 2016 (MJD = 57581)
-        if hdr['MJD-OBS'] < 57581:
-            alt = hdr['ESO TEL ALT']
-            drot_begin = hdr['ESO INS4 DROT2 BEGIN']
-            correction = np.arctan(np.tan((alt-2*drot_begin)*np.pi/180))*180/np.pi # Formula from Anne-Lise Maire
-            pa += correction
-            print('  Correcting for SPHERE time reference issue affecting data before 12 July 2016')
-
-        pa = ((pa + 360) % 360)
-        parang_array=numpy.array([0,mjdstart,pa])
-        ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
-
-        for i in range(1,hdr['NAXIS3']):
-            #ha_deg=((float(hdr['LST'])+i*(dit+dit_delay))*15./3600)-ra_deg
-            ha_deg=((float(hdr['LST'])+i*delta_dit)*15./3600)-ra_deg
             # VLT TCS formula
             f1 = float(cos(geolat_rad) * sin(d2r*ha_deg))
             f2 = float(sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg))
@@ -698,24 +676,23 @@ def create_parang_list_sphere(hdr):
                 pa += correction
 
             pa = ((pa + 360) % 360)
-            ## parang_array=numpy.vstack((parang_array,[i,float(hdr['LST'])+i*(dit+dit_delay),r2d*arctan((f1)/(f2))+ROT_PT_OFF]))
-            parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,pa]))
+            parang_array[i] = [i,mjdstart+i*(delta_dit)/86400.,pa]
+
     else:
         if 'ARCFILE' in hdr.keys():
             print(hdr['ARCFILE']+' does seem to be taken in pupil tracking.')
         else:
             print('Data does not seem to be taken in pupil tracking.')
 
-        parang_array=numpy.array([0,mjdstart,0])
-        ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
-
-        for i in range(1,hdr['NAXIS3']):
-            parang_array=numpy.vstack((parang_array,[i,mjdstart+i*(delta_dit)/86400.,0]))
+        for i in range(n_frames):
+            parang_array[i] = [i,mjdstart+i*(delta_dit)/86400.,0]
 
     # And a sanity check at the end
     try:
-        expected_delta_parang = hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']
-        delta_parang = parang_array[-1,2]-parang_array[0,2]
+        # The parang start and parang end refer to the start and end of the sequence, not in the middle of the first and last frame.
+        # So we need to correct for that
+        expected_delta_parang = (hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']) * (n_frames-1)/n_frames
+        delta_parang = (parang_array[-1,2]-parang_array[0,2]) 
         if np.abs(expected_delta_parang - delta_parang) > 1.:
             print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
 
