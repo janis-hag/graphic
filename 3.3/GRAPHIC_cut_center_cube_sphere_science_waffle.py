@@ -266,8 +266,9 @@ if rank == 0:
 
             # Get the detector dithering position from the headers.
             # TODO give more coherence. dithering X,Y are related to 0, 1 axis
-            dithering_y = hdr["HIERARCH ESO INS1 DITH POSX"]
-            dithering_x = hdr["HIERARCH ESO INS1 DITH POSY"]
+            # ACC swapped the axes
+            dithering_x = hdr["HIERARCH ESO INS1 DITH POSX"]
+            dithering_y = hdr["HIERARCH ESO INS1 DITH POSY"]
 
             n_wav = 2  # the number of wavelengths
         else:
@@ -338,7 +339,7 @@ if rank == 0:
                         np.float(lines[wav+2].strip().split()[2])]
 
         print('Centering cube')
-
+        
         # Set up the output array
         cube_translat = 0*cube
 
