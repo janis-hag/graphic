@@ -225,7 +225,7 @@ def cosmic_ray_detect(image,box_width=3,n_sigma=7):
     y -= box_size/2
     gauss = np.exp(-(x**2+y**2)/(2*box_width**2))
 
-    gauss[box_size/2,box_size/2]=0 # Ignore the middle pixel
+    gauss[box_size//2, box_size//2] = 0 # Ignore the middle pixel
     gauss /= np.sum(gauss)
     
     smooth_im = ndimage.convolve(image,gauss)
@@ -245,7 +245,7 @@ def cosmic_ray_detect(image,box_width=3,n_sigma=7):
 
     n_pix = image.size
     n_change = n_pix - n_ok
-    print(str(n_change)+'Cosmic rays detected using n_sigma='+str(n_sigma))
+    print(str(n_change)+' cosmic rays detected using n_sigma='+str(n_sigma))
 
     return cosmic_rays
 
@@ -367,7 +367,7 @@ if rank == 0:
         bad_pix = tuple(np.where(badpix_map))
 
     pyfits.writeto("badpixel_map.fits", badpix_map, header=hdr_badpix,
-                   clobber=True)
+                overwrite=True)
     comm.bcast(bad_pix, root=0)
 
 if not rank == 0:
