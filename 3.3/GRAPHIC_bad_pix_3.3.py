@@ -391,8 +391,8 @@ for i in range(len(dirlist)):
 
     cube, header = pyfits.getdata(dirlist[i], header=True)
 
-    # if sphere:
-        # cube = cube*mask_nan
+    if sphere:
+        cube = cube*mask_nan
 
     cube = clean_bp(bad_pix, cube)
 
