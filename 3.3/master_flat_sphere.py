@@ -61,7 +61,7 @@ if rank==0:
 		a,c=np.linalg.lstsq(x, y)[0]
 		master_flat=np.reshape(c,(shape_y[1],shape_y[2]))
 		master_flat=master_flat/np.median(master_flat)
-		pyfits.writeto("master_flat.fits",master_flat,header=hdr_masterflat,output_verify='warn',clobber=True)
+		pyfits.writeto("master_flat.fits",master_flat,header=hdr_masterflat,output_verify='warn',overwrite=True)
 		sys.stdout.write("saving flats")
 		sys.stdout.flush()
 
