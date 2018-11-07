@@ -71,6 +71,9 @@ parser.add_argument('-s', dest='stat', action='store_const',
 parser.add_argument('-nici', dest='nici', action='store_const',
                     const=True, default=False,
                     help='Switch for GEMINI/NICI data')
+parser.add_argument('-sphere', dest='sphere', action='store_const',
+                    const=True, default=False,
+                    help='Switch for SPHERE data')
 parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
                     const=True, default=False, help='Use bottleneck module \
                     instead of numpy for nanmedian.')
@@ -97,6 +100,7 @@ use_bottleneck = args.use_bottleneck
 l_max = args.l_max
 update_crpix = args.update_crpix
 output_n_frames = args.output_n_frames
+sphere = args.sphere
 
 if use_bottleneck:
     from bottleneck import median as median
@@ -161,7 +165,7 @@ if rank == 0:
     infolist.sort()  # Sort the list alphabetically
 
 
-    cube_list,dirlist = graphic_nompi_lib.create_megatable(dirlist,infolist,keys = header_keys,nici = nici,fit = fit)
+    cube_list,dirlist = graphic_nompi_lib.create_megatable(dirlist,infolist,keys = header_keys,nici = nici,fit = fit,sphere=sphere)
 
     skipped = 0
 

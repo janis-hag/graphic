@@ -47,6 +47,8 @@ parser.add_argument('--psf_width_nsigma', action="store",
                     width")
 parser.add_argument('-nici', dest='nici', action='store_const', const=True,
                     default=False, help='Switch for GEMINI/NICI data')
+parser.add_argument('-sphere', dest='sphere', action='store_const', const=True,
+                    default=False, help='Switch for SPHERE data')
 parser.add_argument('-nofit', dest='fit', action='store_const', const=False,
                     default=True, help='Do not use PSF fitting values.')
 parser.add_argument('-dithered', dest='dithered', action='store_const',
@@ -67,6 +69,7 @@ psf_width_nsigma = args.psf_width_nsigma
 nici = args.nici
 fit = args.fit
 dithered = args.dithered
+sphere = args.sphere
 
 header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
                'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
@@ -86,7 +89,7 @@ infolist.sort() # Sort the list alphabetically
 
 
 cube_list, dirlist = graphic_nompi_lib.create_megatable(
-        dirlist, infolist, keys=header_keys, nici=nici, fit=fit)
+        dirlist, infolist, keys=header_keys, nici=nici, fit=fit,sphere=sphere)
 
 ncubes = len(dirlist)
 
