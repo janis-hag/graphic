@@ -70,6 +70,10 @@ parser.add_argument('--bad_pixel_file', action="store", dest="bad_pixel_file",
                     default=None, help='Fits file containing an image with some bad pixels marked')
 parser.add_argument('-clean_cosmic_rays', dest='clean_cosmic_rays', action='store_const',
                     const=True, default=False,help='Apply a simple check for cosmic rays after the normal bad pixel cleaning (Very slow!)')
+parser.add_argument('--cosmic_ray_radius', action="store", dest="cosmic_ray_radius",type=int,
+                    default=2, help='Radius of the box used to determine if a pixel is an outlier in the cosmic ray detection.')
+parser.add_argument('--cosmic_ray_nsigma', action="store", dest="cosmic_ray_nsigma",type=float,
+                    default=9, help='Number of standard deviations from the median before a pixel is called a cosmic ray.')
 
 args = parser.parse_args()
 d = args.d
@@ -84,6 +88,8 @@ sphere = args.sphere
 flat_filename = args.flat_filename
 bad_pixel_file = args.bad_pixel_file
 clean_cosmic_rays = args.clean_cosmic_rays
+cosmic_ray_radius = args.cosmic_ray_radius
+cosmic_ray_nsigma = args.cosmic_ray_nsigma
 
 if use_bottleneck:
     from bottleneck import median as median
@@ -213,39 +219,46 @@ def clean_bp(badpix, cub_in):
                                             cub_in[f, y+1, x+1]])
     return cub_in
 
-def cosmic_ray_detect(image,box_width=3,n_sigma=7):
-    """ Cosmic ray detection function
+def cosmic_ray_detect(image,box_radius=3,n_sigma=7):
+    """ Cosmic ray detection function.
+    Works by comparing each pixel to the local median absolute deviation.
+    If the pixel value is more than n_sigma * MAD from the local median, it is called bad
     """
 
-    box_size = np.int(2*box_width + 5)  #make sure width is odd.
+    box_radius = np.int(box_radius)
+    box_size = np.int(2*box_radius + 1)  #make sure width is odd so the target pixel is centred
 
-    # Convolve image with a Gaussian to get the local average
-    x,y = np.indices((box_size,box_size)).astype(float)
-    x -= box_size/2
-    y -= box_size/2
-    gauss = np.exp(-(x**2+y**2)/(2*box_width**2))
+    # Get the median value in a box around each pixel (to use to calculate the MAD)
+    median_vals = ndimage.median_filter(image,size=box_size)
 
-    gauss[box_size//2, box_size//2] = 0 # Ignore the middle pixel
-    gauss /= np.sum(gauss)
-    
-    smooth_im = ndimage.convolve(image,gauss)
-#    smooth_im = ndimage.median_filter(image,size=box_size) # Could use a median filter instead but it seems to be worse and slower
-    
-    resid_im = smooth_im - image
-    
-    # Now calculate the mean of the squared residuals the same way (i.e. the RMS)
-#    var_im = ndimage.convolve(resid_im**2,gauss)
-    var_im = ndimage.median_filter(resid_im**2,size=box_size) # this time we do need a median to avoid the bad pixel increasing the variance
-    stdev_im = np.sqrt(var_im)
-    bad_array = np.abs(resid_im/stdev_im) > n_sigma
+    # Rather than loop through pixels, loop through the shifts and calculate 
+    #  the deviation for all pixels in the image at the same time
+    n_stdev_vals = box_size**2 -1 # We will ignore the centre pixel
+    stdev_array = np.zeros((image.shape[0],image.shape[1],n_stdev_vals))
+    shift_index = 0
+    for yshift in np.arange(-box_radius,box_radius+1):
+        for xshift in np.arange(-box_radius,box_radius+1):
 
+            # Don't include the pixel in the MAD calculation
+            if xshift ==0 and yshift == 0:
+                continue
+
+            shifted_image = np.roll(image,(yshift,xshift),axis=(0,1))
+            stdev_array[:,:,shift_index] = (shifted_image - median_vals)
+
+            shift_index += 1
+
+    med_abs_dev = np.nanmedian(np.abs(stdev_array),axis=2)
+    n_sig_array = image / (med_abs_dev*1.4826) # this number is to convert MAD to std. deviation
+
+    bad_array = np.abs(n_sig_array) > n_sigma    
+
+    # In case we want to check the bad pixels that we detected:
+    # pyfits.writeto('cosmic_ray_array.fits',np.abs(n_sig_array),overwrite=True)
 
     cosmic_rays = np.where(bad_array)
-    n_ok = cosmic_rays[0].size
-
-    n_pix = image.size
-    n_change = n_pix - n_ok
-    print(str(n_change)+' cosmic rays detected using n_sigma='+str(n_sigma))
+    n_bad = np.sum(bad_array)
+    print('  '+str(n_bad)+' cosmic rays detected using n_sigma='+str(n_sigma))
 
     return cosmic_rays
 
@@ -396,10 +409,10 @@ for i in range(len(dirlist)):
 
     cube = clean_bp(bad_pix, cube)
 
-    # Use a median filter to detect cosmic rays (ACC edit)
+    # Use a median filter to detect cosmic rays
     if clean_cosmic_rays:
         for ix,frame in enumerate(cube):
-            cosmic_rays = cosmic_ray_detect(frame,box_width=1.5,n_sigma=7)
+            cosmic_rays = cosmic_ray_detect(frame,box_radius=cosmic_ray_radius,n_sigma=cosmic_ray_nsigma)
             cube[ix] = clean_bp(cosmic_rays,np.array([frame]))
 
 
