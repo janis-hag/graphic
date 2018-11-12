@@ -249,7 +249,7 @@ def cosmic_ray_detect(image,box_radius=3,n_sigma=7):
             shift_index += 1
 
     med_abs_dev = np.nanmedian(np.abs(stdev_array),axis=2)
-    n_sig_array = image / (med_abs_dev*1.4826) # this number is to convert MAD to std. deviation
+    n_sig_array = (image-median_vals) / (med_abs_dev*1.4826) # this number is to convert MAD to std. deviation
 
     bad_array = np.abs(n_sig_array) > n_sigma    
 
