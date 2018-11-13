@@ -14,7 +14,7 @@ import glob
 import sys
 import os
 import astropy.io.fits as pyfits
-from scipy import signal, fftpack
+from scipy import fftpack
 import pyfftw
 from mpi4py import MPI
 import graphic_nompi_lib_330 as graphic_nompi_lib
@@ -339,7 +339,7 @@ if rank == 0:
                         np.float(lines[wav+2].strip().split()[2])]
 
         print('Centering cube')
-        
+
         # Set up the output array
         cube_translat = 0*cube
 
