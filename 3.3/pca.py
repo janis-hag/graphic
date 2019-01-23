@@ -423,7 +423,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
 
         if (ix % 10) ==9:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
-            print('  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining')
+            print('  Done '+str(ix+1)+' of '+str(cube.shape[0])+'. '+str(np.round(time_left/60.,2))+' mins remaining')
 
     cube_out[nan_mask]=np.nan
     # Make the cube 3d again
@@ -697,7 +697,7 @@ def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False)
 
     t_start=time.time()
     # Loop through frames in the cube
-    print('smart_pca: starting loop over frames in image')
+    print('smart_adi: starting loop over frames in image')
     for ix,frame in enumerate(cube):
 
         parang=parangs[ix]
@@ -715,7 +715,7 @@ def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False)
 
         if (ix % 10) ==9:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
-            print('  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining')
+            print('  Done '+str(ix+1)+' of '+str(cube.shape[0])+'. '+str(np.round(time_left/60.,2))+' mins remaining')
 
     cube_out[nan_mask]=np.nan
     # Make the cube 3d again
@@ -767,7 +767,7 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
 
         if ((ix % 20) ==19) and not silent:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
-            print('  Done',ix+1,'of',cube.shape[0],np.round(time_left/60.,2),'mins remaining')
+            print('  Done '+str(ix+1)+' of '+str(cube.shape[0])+'. '+str(np.round(time_left/60.,2))+' mins remaining')
 
     # now sum into a final image
     if median_combine:
