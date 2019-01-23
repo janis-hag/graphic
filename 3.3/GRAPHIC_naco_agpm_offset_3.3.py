@@ -113,6 +113,8 @@ else: # Slave processes
 
     # Receive dirlist and star frame number
     proc_dirlist=comm.recv(None)
+    if proc_dirlist is None:
+        sys.exit(0)
     proc_start_ix = comm.recv(None)
 
 # Now process the files
@@ -219,7 +221,9 @@ if rank ==0:
     agpm_rad[start_ix:start_ix+nfiles_proc] = proc_agpm_rad
 
     # Recover data from slaves
-    for n in range(nprocs-1):
+    # How many datasets do we expect to receive?
+    n_data = np.min([nprocs-1,nfiles_tot-1])
+    for n in range(n_data):
         start_ix = comm.recv(source=n+1)
         proc_offsets = comm.recv(source=n+1)
         proc_agpm_pos = comm.recv(source=n+1)
