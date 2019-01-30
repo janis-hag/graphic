@@ -17,7 +17,7 @@ import bottleneck
 import graphic_nompi_lib_330
 import graphic_contrast_lib
 import pca
-
+import pickle
 
 ########################
 
@@ -75,16 +75,28 @@ def neg_fake_planet_loglikelihood(params,cube=None,parangs_rad=None,psf=None,
     min_reference_frames = pca_settings['min_reference_frames']
     threads = pca_settings['threads']
     median_combine = pca_settings['median_combine']
+    if 'pca_type' in pca_settings.keys():
+        pca_type = pca_settings['pca_type']
+    else:
+        pca_type = 'smart_annular_pca'
     
     # Now run PCA with the right settings
-    pca_cube=pca.smart_annular_pca(cube,n_modes,None,parangs_deg,
-                   n_fwhm=n_fwhm,fwhm=fwhm,n_annuli=n_annuli,r_min=r_min,r_max=r_max,
-                   arc_length=arc_length,min_reference_frames=min_reference_frames,
-                   threads=threads,silent=True)
+    if pca_type == 'smart_annular_pca':
+        pca_cube=pca.smart_annular_pca(cube,n_modes,None,parangs_deg,
+                       n_fwhm=n_fwhm,fwhm=fwhm,n_annuli=n_annuli,r_min=r_min,r_max=r_max,
+                       arc_length=arc_length,min_reference_frames=min_reference_frames,
+                       threads=threads,silent=True)
+    elif pca_type == 'noadi':
+        pca_cube = cube
     
     # Derotate
-    derot_cube=pca.derotate_and_combine_multi(pca_cube,parangs_deg,save_name=None,
+    if threads > 1:
+        derot_cube=pca.derotate_and_combine_multi(pca_cube,parangs_deg,save_name=None,
                                    median_combine=False,threads=threads,silent=True)
+    else:
+        derot_cube=pca.derotate_and_combine(pca_cube,parangs_deg,save_name=None,
+                                   median_combine=False,silent=True)
+
     
     # Combine
     if median_combine:
@@ -122,16 +134,12 @@ def neg_fake_planet_loglikelihood(params,cube=None,parangs_rad=None,psf=None,
 
     if plot:
         plt.clf()
-        plt.imshow(final_im,vmin=-1,vmax=1)
+        plt.imshow(final_im,vmin=-1,vmax=1,origin='lowerleft')
+#        plt.imshow(area,vmin=-20,vmax=20,origin='lowerleft')
         plt.colorbar()
 
     return -chi2/2.
 
-########################
-
-def neg_fake_planet_emcee(params,cube=None,parangs_rad=None,psf=None,hdr=None,
-                       plot=False,uncert=1,pca_settings=None,fit_params = None):
-    pass
 
 ########################
 
@@ -152,7 +160,7 @@ def simple_companion_resids(params, image, psf_image):
     # Do a FFT to shift the psf image by a fraction of a pixel
     integer_cen = np.round(params[0:2]).astype(np.int)
     subinteger_cen = params[0:2] - integer_cen
-    shifted_psf = params[2]*graphic_nompi_lib_330.fft_shift_pad(psf_image,subinteger_cen[0],subinteger_cen[1])
+    shifted_psf = params[2]*graphic_nompi_lib_330.fft_shift_pad(psf_image,subinteger_cen[0],subinteger_cen[1],pad=2)
     
     # and a roll to shift the rest
     shifted_psf = np.roll(shifted_psf,integer_cen[0],axis=0)
@@ -161,6 +169,8 @@ def simple_companion_resids(params, image, psf_image):
     # Now subtract the shifted psf frame from the image
     resids = image-shifted_psf
     
+#    plt.imshow(shifted_psf,cmap='ds9cool',origin='lowerleft')
+    
     # And return the residuals
     return resids
 
@@ -168,7 +178,7 @@ def simple_companion_resids(params, image, psf_image):
 
 ########################
 
-def simple_companion_loglikelihood(params,image,psf_image,image_err=1.):
+def simple_companion_loglikelihood(params,image,psf_image,image_err=1.,plot=False):
     ''' A wrapper for the loglikelihood function for companion_resids
     params = [x_centre, y_centre, flux, nuisance parameter]
     The nuisance parameter is optional.
@@ -181,6 +191,9 @@ def simple_companion_loglikelihood(params,image,psf_image,image_err=1.):
             return -np.inf
     
     resids = simple_companion_resids(params,image,psf_image)    
+    
+    if plot:
+        plt.imshow(resids)
 
     # Turn into chi2 and loglikelihood
     if len(params) >3:
@@ -214,8 +227,9 @@ def simple_companion_stdev(params,image,psf_image,image_err=1.):
 
 ########################
     
-def simple_companion_mcmc(image,psf_image,initial_guess,image_err=1.,n_walkers=50.,n_iterations=1e3,
-                   threads=3,plot=False,burn_in=200):
+def companion_mcmc(image,psf_image,initial_guess,image_err=1.,n_walkers=50.,n_iterations=1e3,
+                   threads=3,plot=False,burn_in=200,pca_settings=None,parangs_rad=None,
+                   likelihood_method = 'neg_fake_planet',fit_params=None,save_name = None):
     ''' Run emcee, the MCMC Hammer on an image, subtracting a shifted and scaled 
     version of the psf image from the derotated image.
     initial_guess = [x_centre, y_centre, flux] to start the MCMC chains around
@@ -230,11 +244,24 @@ def simple_companion_mcmc(image,psf_image,initial_guess,image_err=1.,n_walkers=5
     n_params = len(initial_guess) # number of parameters
     scatter = np.array([0.5,0.5,0.5*initial_guess[2],0.1*initial_guess[-1]]) # 0.5 pix scatter for the positions, 50% for the flux
     p0 = [initial_guess + scatter[0:n_params] * np.random.normal(size=n_params) for i in range(n_walkers)]
+    
+    if  likelihood_method == 'neg_fake_planet':
+        like_func = neg_fake_planet_loglikelihood
+        paramnames = ['Sep','PA','Flux']
+        paramdims = ['(pix)', '(deg)','Ratio','']
+        args = [image,parangs_rad,psf_image,False,image_err,pca_settings,fit_params]
+
+    elif likelihood_method == 'simple_companion_fit':
+        like_func = simple_companion_loglikelihood
+        paramnames = ['Xpos','Ypos','Flux','Nuisance']
+        paramdims = ['(pix)', '(pix)','Ratio','']
+        args = [image,psf_image,image_err]
+
 
     # Set up the sampler
     t0 = time.time()
-    sampler = emcee.EnsembleSampler(n_walkers, n_params, companion_loglikelihood,
-            args=[image,psf_image,image_err],threads=threads)
+    sampler = emcee.EnsembleSampler(n_walkers, n_params, like_func,
+            args=args,threads=threads)
     
 
     # Run it
@@ -250,16 +277,23 @@ def simple_companion_mcmc(image,psf_image,initial_guess,image_err=1.,n_walkers=5
     # and clean up
     if threads >1:
         sampler.pool.terminate()
+
+    # Save the output if needed (before burn in)
+    if save_name:
+        mcmc_data = {'chain':chain,'param_names':paramnames,
+                     'param_dims':paramdims,'likelihood_method':likelihood_method}
+        
+        with open(save_name,'w') as myf:
+            pickle.dump(mcmc_data,myf)
+        
         
     # Remove the burn in
     burn_in = np.int(burn_in)
     chain = chain[:,burn_in:,:]
     flatchain = flatchain[burn_in:]
+    
         
     if plot==True:
-
-        paramnames = ['Xpos','Ypos','Flux','Nuisance']
-        paramdims = ['(pix)', '(pix)','Ratio','']
         
         plt.figure(2)
         plt.clf()
@@ -331,3 +365,20 @@ def simple_companion_flux_leastsq(image,psf_image,initial_guess,image_err=1.,thr
     return result
 
 ######################## 
+    
+def neg_fake_planet_companion_leastsq(cube,parangs_rad,psf,initial_guess,image_err=1.,threads=3,
+              method='Powell',pca_settings=None,fit_params = None):
+    ''' Run least squares fitting on the companion position and flux
+    initial_guess = array of [x_centre, y_centre, flux_multiplier] of companion
+    '''
+    
+    # Define the function to use
+    def min_funct(params,cube,parangs_rad,psf,image_err,pca_settings,fit_params):
+        loglike = neg_fake_planet_loglikelihood(params,cube=cube,parangs_rad=parangs_rad,psf=psf,
+                       plot=False,uncert=image_err,pca_settings=pca_settings,
+                       fit_params = fit_params)
+        return (-loglike)
+    
+    result = optimize.minimize(min_funct, initial_guess, args=(cube,parangs_rad,psf,image_err,pca_settings,fit_params),tol=1e-3,method=method)
+
+    return result
