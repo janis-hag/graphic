@@ -171,9 +171,6 @@ for ix,filename in enumerate(proc_dirlist):
     
     # Fit to the position
     psf_fit = gaussfit.psf_gaussfit(im_cut,saturated=False,width=psf_width)
-    xc = np.arange(im_cut.shape[0])
-    xxc,yyc = np.meshgrid(xc,xc)
-    psf_model = psf_fit(xxc,yyc)
     
     agpm_offset = [rough_agpm_offset[0]+psf_fit.x_mean-cut_sz,
                    rough_agpm_offset[1]+psf_fit.y_mean-cut_sz]
@@ -186,9 +183,9 @@ for ix,filename in enumerate(proc_dirlist):
     proc_agpm_pos[ix] = agpm_pos
     proc_offsets[ix] = agpm_offset
 
-    # # Hack to check it is working
+    # # # Hack to check it is working
     # x,y = np.indices(im_cut.shape)
-    # model = psf_fit(x,y)
+    # model = psf_fit(y,x)
     # plt.figure(1)
     # plt.clf()
     # plt.subplot(131)
