@@ -233,12 +233,13 @@ if rank == 0:
 
                 # Find the maximum amount of pixels that we need to shift the
                 # image. Then we can make the output image big enough to store
-                positions = [(this_cube_list[:, 4:6]) for this_cube_list in cube_list['info']]
-                positions = np.array(positions)
-                positions = positions[positions != -1]
-                positions = np.abs(positions - max_dim/2)
-
-                l_max = np.int(max_dim + np.max(positions))
+                xpos = [temp_pos for this_cube_list in cube_list['info'] for temp_pos in this_cube_list[:, 4]]
+                ypos = [temp_pos for this_cube_list in cube_list['info'] for temp_pos in this_cube_list[:, 5]]
+                xpos = xpos[xpos != -1] # Remove bad frames
+                ypos = ypos[ypos != -1] # Remove bad frames
+                xpos -= max_dim/2
+                ypos -= max_dim/2
+                l_max = np.int(max_dim + np.max([xpos,ypos]))
 
             cube, t0_trans = read_recentre_cube(c+n, cube, cube_list, l_max)
 
