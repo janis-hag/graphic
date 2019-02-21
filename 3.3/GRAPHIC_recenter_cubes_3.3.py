@@ -239,7 +239,7 @@ if rank == 0:
                 ypos = ypos[ypos != -1] # Remove bad frames
                 xpos -= max_dim/2
                 ypos -= max_dim/2
-                l_max = np.int(max_dim + np.max([xpos,ypos]))
+                l_max = np.int(max_dim + np.max(np.abs([xpos,ypos])))
 
             cube, t0_trans = read_recentre_cube(c+n, cube, cube_list, l_max)
 
