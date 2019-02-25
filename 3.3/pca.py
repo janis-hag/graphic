@@ -388,7 +388,13 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
     '''
 
     # Load the datacube and make it 2d
-    cube,hdr = pyfits.getdata(image_file,header=True)
+    if isinstance(image_file,str):
+        cube,hdr = pyfits.getdata(image_file,header=True)
+    else:
+        cube = image_file
+        hdr = pyfits.Header({})
+        image_file = 'None - input was array'
+        
     initial_shape=cube.shape
     cube=cube.reshape([cube.shape[0],cube.shape[1]*cube.shape[2]])
     # Load the parallactic angles
