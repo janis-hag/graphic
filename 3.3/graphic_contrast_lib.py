@@ -423,7 +423,7 @@ def prepare_detection_image(filename,save_name=None,smooth_image_length=None,
         hdr['HIERARCH GC CONTRAST CONVOL CIRC'] = convolve_with_circular_aperture
 
     if save_name:
-        pf.writeto(save_name,image,header=hdr,clobber=True)
+        pf.writeto(save_name,image,header=hdr,overwrite=True)
     
     return image
 
@@ -617,7 +617,7 @@ def snr_map_quick(image_file,fwhm_pix,n_radii,r_min=3.,plot=False,
         plt.clf()
         plt.imshow(noise_image)
     if save_name:
-        pf.writeto(save_name,snr_map,header=header,clobber=True,output_verify='silentfix')
+        pf.writeto(save_name,snr_map,header=header,overwrite=True,output_verify='silentfix')
     else:
         return snr_map
 
@@ -669,7 +669,7 @@ def snr_map(image_file,noise_file,plot=False,
         im1=plt.imshow(snr_map)
         plt.colorbar(im1)
     if save_name:
-        pf.writeto(save_name,snr_map,header=header,clobber=True,output_verify='silentfix')
+        pf.writeto(save_name,snr_map,header=header,overwrite=True,output_verify='silentfix')
     
 
 ##################
@@ -768,7 +768,7 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
     cube = cube2[:,cube_extra_pad:-cube_extra_pad,cube_extra_pad:-cube_extra_pad]
     if save_name:
         hdr['HIERARCH GC INJECT AZOFFSET']=azimuth_offset
-        pf.writeto(save_name,cube,clobber=True,header=hdr,output_verify='silentfix')
+        pf.writeto(save_name,cube,overwrite=True,header=hdr,output_verify='silentfix')
 
     # The companions should be in cube already due to the way python handles objects
     # So no need to return anything, but just in case, here it is
