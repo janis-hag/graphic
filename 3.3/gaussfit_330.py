@@ -506,7 +506,8 @@ def fit_to_big_circle(image):
     initial_guess = [image.shape[0]/2,image.shape[1]/2,295.6]    
     
     # Try fitting
-    method = 'Powell'
+    # method = 'Powell'
+    method = 'Nelder-Mead'
     result = optimize.minimize(agpm_centre_min_func, initial_guess,
                                args=(image.shape,npix_x,npix_y),tol=1e-4,method=method)
     
