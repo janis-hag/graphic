@@ -24,7 +24,8 @@ __version__ = '3.3'
 __subversion__ = '0'
 
 parser = argparse.ArgumentParser(
-        description='Creates cubes with less frames by median-combining frames.')
+        description='Performs frame selection on the data by removing bad frames \
+        that fall outside a range of criteria (PSF shape, flux, star position etc.).')
 parser.add_argument('--debug', action="store", dest="d", type=int, default=0)
 parser.add_argument('--pattern', action="store", dest="pattern", default='*',
                     help='Filename pattern')
@@ -56,6 +57,12 @@ parser.add_argument('-dithered', dest='dithered', action='store_const',
                     data, so that centring rejection is performed \
                     cube-by-cube instead of globally.')
 
+parser.add_argument('-agpm_centre', dest='agpm_centre', action='store_const',
+                    const=True, default=False, help='Switch for AGPM data \
+                    so that the distance between the star and AGPM is used \
+                    instead of the star position when performing the rejection.')
+
+
 args = parser.parse_args()
 # Some options:
 d = args.d
@@ -70,6 +77,7 @@ nici = args.nici
 fit = args.fit
 dithered = args.dithered
 sphere = args.sphere
+agpm_centre = args.agpm_centre
 
 header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
                'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
@@ -77,6 +85,8 @@ header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
                'frame_num', 'frame_time', 'paralactic_angle']
 
 target_dir = "."
+
+mad_to_stdev = 1.4826
 
 # Test the graphic frame rejection code:
 print(sys.argv[0] + ' started on ' + time.strftime("%c"))
@@ -88,9 +98,16 @@ infolist = glob.glob(info_dir+os.sep+info_pattern+'*.rdb')
 infolist.sort() # Sort the list alphabetically
 
 
+# If we want to fit to the distance between the AGPM and star we need to run 
+# create_megatable twice (to get the fit=True values, i.e. star) and fit=False
+# (i.e. AGPM )
+if agpm_centre:
+    cube_list2, dirlist = graphic_nompi_lib.create_megatable(
+        dirlist, infolist, keys=header_keys, nici=nici, fit=False,sphere=sphere)
+
+
 cube_list, dirlist = graphic_nompi_lib.create_megatable(
         dirlist, infolist, keys=header_keys, nici=nici, fit=fit,sphere=sphere)
-
 ncubes = len(dirlist)
 
 # Loop through the cubes and stack the values so we can compare them all
@@ -102,6 +119,9 @@ xwidths = []
 ywidths = []
 cube_frames = []
 frame_ix = 0
+
+agpm_xcens = []
+agpm_ycens = []
 
 for cube_ix in range(ncubes):
 
@@ -126,6 +146,11 @@ for cube_ix in range(ncubes):
 
     xcens.extend(xcen)
     ycens.extend(ycen)
+
+    if agpm_centre:
+        cube_info2 = cube_list2['info'][cube_ix]
+        agpm_xcens.extend(cube_info2[:,1])
+        agpm_ycens.extend(cube_info2[:,2])
 
     # Fluxes
     fluxes.extend(cube_info[:, 6])
@@ -162,9 +187,9 @@ if dithered:
 
         # Calculate the scatter in the centre positions and
         # ignore anything far away
-        xcen_sigma = np.median(np.abs(xcens[cube_frames[cube_ix]] - np.median(
+        xcen_sigma = mad_to_stdev*np.median(np.abs(xcens[cube_frames[cube_ix]] - np.median(
                 xcens[cube_frames[cube_ix]])))
-        ycen_sigma = np.median(np.abs(ycens[cube_frames[cube_ix]] - np.median(
+        ycen_sigma = mad_to_stdev*np.median(np.abs(ycens[cube_frames[cube_ix]] - np.median(
                 ycens[cube_frames[cube_ix]])))
 
         xcen_diff = np.abs(xcens[cube_frames[cube_ix]] - np.median(
@@ -176,12 +201,23 @@ if dithered:
                      (centering_nsigma*xcen_sigma)]] = False
         valid_frames[cube_frames[cube_ix][ycen_diff >
                      (centering_nsigma*ycen_sigma)]] = False
+elif agpm_centre:
+
+    # Calculate the scatter in the distance between star and AGPM and ignore
+    # anything far away
+    dists = np.sqrt((xcens-agpm_xcens)**2 + (ycens-agpm_ycens)**2)
+    dist_sigma = mad_to_stdev*np.median(np.abs(dists-np.median(dists)))
+
+    dist_diff = np.abs(dists-np.median(dists))
+
+    valid_frames[dist_diff > (centering_nsigma*dist_sigma)] = False
+
 else:
 
     # Calculate the scatter in the centre positions and ignore
     # anything far away
-    xcen_sigma = np.median(np.abs(xcens-np.median(xcens)))
-    ycen_sigma = np.median(np.abs(ycens-np.median(ycens)))
+    xcen_sigma = mad_to_stdev*np.median(np.abs(xcens-np.median(xcens)))
+    ycen_sigma = mad_to_stdev*np.median(np.abs(ycens-np.median(ycens)))
 
     xcen_diff = np.abs(xcens-np.median(xcens))
     ycen_diff = np.abs(ycens-np.median(ycens))
@@ -202,7 +238,7 @@ if fit:
 
     # Calculate the scatter in the flux and ignore anything far away
     flux_med = np.median(fluxes)
-    flux_sigma = np.median(np.abs(fluxes-flux_med))
+    flux_sigma = mad_to_stdev*np.median(np.abs(fluxes-flux_med))
     flux_diff = np.abs(fluxes-flux_med)
     valid_frames[flux_diff > (flux_nsigma*flux_sigma)] = False
 
@@ -219,8 +255,8 @@ if fit:
     # Calculate the scatter in the psf widths and ignore anything far away
     xwidth_med = np.median(xwidths)
     ywidth_med = np.median(ywidths)
-    xwidth_sigma = np.median(np.abs(xwidths-xwidth_med))
-    ywidth_sigma = np.median(np.abs(ywidths-np.median(ywidths)))
+    xwidth_sigma = mad_to_stdev*np.median(np.abs(xwidths-xwidth_med))
+    ywidth_sigma = mad_to_stdev*np.median(np.abs(ywidths-np.median(ywidths)))
 
     xwidth_diff = np.abs(xwidths-xwidth_med)
     ywidth_diff = np.abs(ywidths-np.median(ywidths))
@@ -240,10 +276,9 @@ n_invalid[:, 3] += [np.sum(valid_frames[these_frames] == False) for these_frames
 for cube_ix in range(ncubes):
 
     # Calculate how many frames were removed:
-    print("  Cube:", cube_ix,": ", np.sum(n_invalid[cube_ix]),
-          " invalid frames")
-    print_string = "    Breakdown: (initial, centering, flux, width): "
-    graphic_mpi_lib.dprint(True, print_string + str(n_invalid[cube_ix]))
+    print_string = "  Cube: "+str(cube_ix)+": "+str(np.sum(n_invalid[cube_ix]).astype(int))+" invalid frames. "
+    # print_string += " (initial, centering, flux, width): "
+    print(print_string + str(n_invalid[cube_ix]))
 
     #################
     # Update the rdb file based on the frame selection
@@ -254,5 +289,8 @@ for cube_ix in range(ncubes):
     info_filename='all_info_framesel_' + cube_list['cube_filename'][cube_ix].replace('.fits', '.rdb')
     graphic_nompi_lib.write_array2rdb(info_dir + os.sep + info_filename,
                                       cube_info, header_keys)
+print('Total: '+str(np.sum(n_invalid,axis=0).astype(int)))
+print("Format for bad frames above: [initial, centering, flux, PSF width]")
+print("")
 
 sys.exit(0)

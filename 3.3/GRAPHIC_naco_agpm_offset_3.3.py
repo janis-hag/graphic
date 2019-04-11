@@ -113,6 +113,8 @@ else: # Slave processes
 
     # Receive dirlist and star frame number
     proc_dirlist=comm.recv(None)
+    if proc_dirlist is None:
+        sys.exit(0)
     proc_start_ix = comm.recv(None)
 
 # Now process the files
@@ -169,9 +171,6 @@ for ix,filename in enumerate(proc_dirlist):
     
     # Fit to the position
     psf_fit = gaussfit.psf_gaussfit(im_cut,saturated=False,width=psf_width)
-    xc = np.arange(im_cut.shape[0])
-    xxc,yyc = np.meshgrid(xc,xc)
-    psf_model = psf_fit(xxc,yyc)
     
     agpm_offset = [rough_agpm_offset[0]+psf_fit.x_mean-cut_sz,
                    rough_agpm_offset[1]+psf_fit.y_mean-cut_sz]
@@ -184,9 +183,9 @@ for ix,filename in enumerate(proc_dirlist):
     proc_agpm_pos[ix] = agpm_pos
     proc_offsets[ix] = agpm_offset
 
-    # # Hack to check it is working
+    # # # Hack to check it is working
     # x,y = np.indices(im_cut.shape)
-    # model = psf_fit(x,y)
+    # model = psf_fit(y,x)
     # plt.figure(1)
     # plt.clf()
     # plt.subplot(131)
@@ -219,7 +218,9 @@ if rank ==0:
     agpm_rad[start_ix:start_ix+nfiles_proc] = proc_agpm_rad
 
     # Recover data from slaves
-    for n in range(nprocs-1):
+    # How many datasets do we expect to receive?
+    n_data = np.min([nprocs-1,nfiles_tot-1])
+    for n in range(n_data):
         start_ix = comm.recv(source=n+1)
         proc_offsets = comm.recv(source=n+1)
         proc_agpm_pos = comm.recv(source=n+1)

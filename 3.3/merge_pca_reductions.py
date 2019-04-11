@@ -43,4 +43,4 @@ for ix in range(len(nmodes)):
     outputhdr['HIERARCH GC PCA FRAME' + str(ix)+' NMODES'] = nmodes[ix]
     outputhdr['HIERARCH GC PCA FRAME' + str(ix)+' MINREFFRAMES'] = nminmodes[ix]
     
-fits.writeto(basedirectory + 'pca_multimodes.fits',cube,outputhdr,clobber=True)
+fits.writeto(basedirectory + 'pca_multimodes.fits',cube,outputhdr,overwrite=True)

@@ -488,11 +488,30 @@ def agpm_centre_min_func(params,image_shape=(600,600),npix_x=0,npix_y=0):
 def pix_inside_big_circle(image):
     ''' Calculate the number of pixels inside the big circle of the NACO AGPM
     as a function of x and y position. Used to calculate the centre of the circle,
-    and then the position of the AGPM.'''
+    and then the position of the AGPM.
+    Pixels inside the circle are detected based on being above a background level.
+    The background level is chosen as the value n_sigma from both a region inside
+    the circle and a region outside the circle.
+    This assumes the top-left corner is outside the circle and the central 200x200 
+    pixels is inside the circle'''
 
-    outside_bckgrd = np.nanmedian(image[0:50,0:50])
-    outside_scatter = np.median(np.abs(image[0:50,0:50]-outside_bckgrd))
-    above_bckgrd = image > (9*outside_scatter+outside_bckgrd)
+    central_region = image[image.shape[0]/2-100:image.shape[0]/2+100,
+                           image.shape[1]/2-100:image.shape[1]/2+100]
+    inside_bckgrd = np.nanmedian(central_region)
+    inside_scatter = np.median(np.abs(central_region-inside_bckgrd))
+
+    corner_region = image[0:50,0:50]
+    outside_bckgrd = np.nanmedian(corner_region)
+    outside_scatter = np.median(np.abs(corner_region-outside_bckgrd))
+
+    # Pick the background as the point n_sigma from both the background and
+    # the agpm region
+    # This comes from solving:
+    ## level = in_bckgrd - n * in_scatter = out_bckgrd + n * out_scatter
+    level = (outside_bckgrd*inside_scatter+inside_bckgrd*outside_scatter)/(inside_scatter+outside_scatter)
+
+    # above_bckgrd = image > (inside_bckgrd - n_sigma*inside_scatter)
+    above_bckgrd = image > level
     npix_x = np.sum(above_bckgrd,axis=1)
     npix_y = np.sum(above_bckgrd,axis=0)
     
@@ -506,7 +525,8 @@ def fit_to_big_circle(image):
     initial_guess = [image.shape[0]/2,image.shape[1]/2,295.6]    
     
     # Try fitting
-    method = 'Powell'
+    # method = 'Powell'
+    method = 'Nelder-Mead'
     result = optimize.minimize(agpm_centre_min_func, initial_guess,
                                args=(image.shape,npix_x,npix_y),tol=1e-4,method=method)
     

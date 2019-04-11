@@ -272,9 +272,26 @@ else: # Slave processes
     x0_i=0
     y0_i=0
 
+    # Some hard-coded parameters
+    cut_sz = 6
+    mindist = 1.5
+    maxdist = 7
+
     while not type(data_in)==type("over"):
         if not data_in is None and isinstance(data_in, np.ndarray):
 
+            # Where is the AGPM?
+            agpm_pos_pix = np.round(agpm_pos).astype(int)
+            cut_agpm_pos = agpm_pos - agpm_pos_pix + cut_sz # this is the position of the agpm in im_cut
+            cut_agpm_pos = cut_agpm_pos[::-1] # I think I got the axes wrong again...
+
+            # Since the fit does not give a reliable measurement of the flux and PSF size, we can instead replace them 
+            # with the flux around the donut and the standard deviation around the donut.
+            # Set up a small array to select the donut from the cut images
+            xarr = np.arange(0,2*cut_sz)-cut_sz
+            xx,yy = np.meshgrid(xarr,xarr)
+            dist = np.sqrt((xx-(agpm_pos[1]-agpm_pos_pix[1]))**2+(yy-(agpm_pos[0]-agpm_pos_pix[0]))**2)
+            donut = (dist < maxdist) & (dist > mindist)
 
             for frame in range(data_in.shape[0]):
                 sys.stdout.write('\n  [Rank '+str(rank)+', cube '+str(cube_count)+']  Frame '+str(frame+startframe)+' of '+str(startframe+data_in.shape[0]))
@@ -283,12 +300,6 @@ else: # Slave processes
                 image=data_in[frame]
 
                 # Cut out a small region to do the fitting
-                cut_sz = 6
-                agpm_pos_pix = np.round(agpm_pos).astype(int)
-                cut_agpm_pos = agpm_pos - agpm_pos_pix + cut_sz # this is the position of the agpm in im_cut
-
-                cut_agpm_pos = cut_agpm_pos[::-1] # I think I got the axes wrong again...
-                
                 im_cut = image[agpm_pos_pix[0]-cut_sz:agpm_pos_pix[0]+cut_sz,
                                     agpm_pos_pix[1]-cut_sz:agpm_pos_pix[1]+cut_sz]
                 
@@ -306,20 +317,28 @@ else: # Slave processes
                 agpm_params=fit.parameters[6:]  # (amplitude, x0, y0, sigmax, sigmay, theta)
                 centre_fit=star_params[2:0:-1]+ agpm_pos_pix - cut_sz # the output of agpm_gaussfit is relative to the edge of the cut frame
                 # centre_fit=star_params[1:3]+ agpm_pos_pix - cut_sz # the output of agpm_gaussfit is relative to the edge of the cut frame
-                cluster_array_ref=np.array([frame+startframe,agpm_pos[0],agpm_pos[1],0., centre_fit[0],centre_fit[1],star_params[0],star_params[3],star_params[4]])
+
+                # Now measure the flux and standard deviation around the AGPM donut to use for frame selection later
+                donut_pix=im_cut[donut]
+                
+                # Take the stddev and mean
+                donut_sigma = np.nanstd(donut_pix)
+                donut_mean = np.nanmean(donut_pix)
+
+                # cluster_array_ref=np.array([frame+startframe,agpm_pos[0],agpm_pos[1],0., centre_fit[0],centre_fit[1],star_params[0],star_params[3],star_params[4]])
+                cluster_array_ref=np.array([frame+startframe,agpm_pos[0],agpm_pos[1],0., centre_fit[0],centre_fit[1],donut_mean,donut_sigma,donut_sigma])
 
                 # y,x = np.indices(im_cut.shape)
                 # model = fit(x,y)
-
                 # plt.figure(1)
                 # plt.clf()
                 # plt.subplot(131)
-                # plt.imshow(im_cut,vmin=-500,vmax=500)
+                # plt.imshow(im_cut,origin='lowerleft')#,vmin=-500,vmax=500)
                 # plt.subplot(132)
-                # plt.imshow(model,vmin=-500,vmax=500)
+                # plt.imshow(model,origin='lowerleft')#,vmin=-500,vmax=500)
                 # plt.subplot(133)
-                # plt.imshow(im_cut-model,vmin=-500,vmax=500)
-
+                # plt.imshow(im_cut-model,origin='lowerleft',vmin=-500,vmax=500)
+                # # plt.imshow(donut,origin='lowerleft')
                 # plt.show()
 
 
