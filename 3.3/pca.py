@@ -290,7 +290,9 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
         # Make a header to store the reduction parameters
         hdr = make_pca_header('simple_pca',n_modes, hdr=hdr, image_file=image_file)
 
-        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+#        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
+                                    backend='pyfits')
         print('  PCA subtracted cube saved as:',save_name)
 
     if pc_name:
@@ -362,7 +364,9 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
                   arc_length=arc_length, hdr=hdr,
                   r_min=r_min, r_max=r_max, image_file=image_file)
 
-        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+#        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
+                                    backend='pyfits')
         print('  PCA subtracted cube saved as: '+save_name)
 
     if pc_name:
@@ -432,7 +436,9 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
         # Make a header to store the reduction parameters
         hdr = make_pca_header('smart_pca',n_modes, hdr=hdr, image_file=image_file)
 
-        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+#        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
+                                    backend='pyfits')
         print('  PCA subtracted cube saved as:',save_name)
 
     if pc_name:
@@ -584,8 +590,11 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
                   hdr=hdr, r_min=r_min, r_max=r_max, image_file=image_file,
                   min_reference_frames=min_reference_frames)
 
-        pyfits.writeto(save_name, cube_out, header=hdr, overwrite=True,
-                       output_verify='silentfix')
+#        pyfits.writeto(save_name, cube_out, header=hdr, overwrite=True,
+#                       output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
+                                    backend='pyfits')
+
         if not silent:
             print('  PCA subtracted cube saved as: '+save_name)
 
@@ -659,7 +668,9 @@ def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr
     if save_name:
         hdr = make_pca_header('cADI',1,
                   hdr=hdr, image_file=image_file)
-        pyfits.writeto(save_name,out_cube,header=hdr,clobber=True)
+#        pyfits.writeto(save_name,out_cube,header=hdr,clobber=True)
+        graphic_nompi_lib.save_fits(save_name, out_cube, hdr=hdr,
+                                    backend='pyfits')
     else:
         return out_cube
 
@@ -724,7 +735,9 @@ def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False)
         # Make a header to store the reduction parameters
         hdr = make_pca_header('smart_adi',1, hdr=hdr, image_file=image_file)
 
-        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+#        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
+                                    backend='pyfits')
         print('  ADI subtracted cube saved as:'+save_name)
 
     return cube_out
@@ -795,7 +808,9 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
                         out_frame.shape[1]//2-yradius:out_frame.shape[1]//2+yradius]
 
     if save_name:
-        pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
+#        pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, out_frame, hdr=hdr,
+                                    backend='pyfits')
         if not silent:
             print('Combined image saved as:',save_name)
     if return_cube:
@@ -882,7 +897,9 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
                         out_frame.shape[1]//2-yradius:out_frame.shape[1]//2+yradius]
 
     if save_name:
-        pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
+#        pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
+        graphic_nompi_lib.save_fits(save_name, out_frame, hdr=hdr,
+                                    backend='pyfits')
         if not silent:
             print('Combined image saved as:',save_name)
 
