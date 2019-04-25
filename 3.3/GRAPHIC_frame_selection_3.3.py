@@ -259,13 +259,15 @@ n_invalid[:, 1] += [np.sum(valid_frames[these_frames] == False) for these_frames
 # SELECTION 2 : Flux (only for fitted data)
 #################
 if fit:
+    # mask out frames that are already considered bad
+    fluxes[~valid_frames] = np.nan
 
     if split_normal:
         split_normal_rejection(fluxes,flux_nsigma,valid_frames)
     else:
         # Calculate the scatter in the flux and ignore anything far away
-        flux_med = np.median(fluxes)
-        flux_sigma = mad_to_stdev*np.median(np.abs(fluxes-flux_med))
+        flux_med = np.nanmedian(fluxes)
+        flux_sigma = mad_to_stdev*np.nanmedian(np.abs(fluxes-flux_med))
         flux_diff = np.abs(fluxes-flux_med)
         valid_frames[flux_diff > (flux_nsigma*flux_sigma)] = False
 
@@ -279,18 +281,22 @@ n_invalid[:, 2] += [np.sum(valid_frames[these_frames] == False) for these_frames
 # First, get the widths
 if fit:
 
+    # mask out frames that are already considered bad
+    xwidths[~valid_frames] = np.nan
+    ywidths[~valid_frames] = np.nan
+
     if split_normal:
         split_normal_rejection(xwidths,psf_width_nsigma,valid_frames)
         split_normal_rejection(ywidths,psf_width_nsigma,valid_frames)
     else:
         # Calculate the scatter in the psf widths and ignore anything far away
-        xwidth_med = np.median(xwidths)
-        ywidth_med = np.median(ywidths)
-        xwidth_sigma = mad_to_stdev*np.median(np.abs(xwidths-xwidth_med))
-        ywidth_sigma = mad_to_stdev*np.median(np.abs(ywidths-np.median(ywidths)))
+        xwidth_med = np.nanmedian(xwidths)
+        ywidth_med = np.nanmedian(ywidths)
+        xwidth_sigma = mad_to_stdev*np.nanmedian(np.abs(xwidths-xwidth_med))
+        ywidth_sigma = mad_to_stdev*np.nanedian(np.abs(ywidths-ywidth_med))
 
         xwidth_diff = np.abs(xwidths-xwidth_med)
-        ywidth_diff = np.abs(ywidths-np.median(ywidths))
+        ywidth_diff = np.abs(ywidths-ywidth_med)
 
         valid_frames[xwidth_diff > (psf_width_nsigma*xwidth_sigma)] = False
         valid_frames[ywidth_diff > (psf_width_nsigma*ywidth_sigma)] = False
