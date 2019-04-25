@@ -293,7 +293,7 @@ if fit:
         xwidth_med = np.nanmedian(xwidths)
         ywidth_med = np.nanmedian(ywidths)
         xwidth_sigma = mad_to_stdev*np.nanmedian(np.abs(xwidths-xwidth_med))
-        ywidth_sigma = mad_to_stdev*np.nanedian(np.abs(ywidths-ywidth_med))
+        ywidth_sigma = mad_to_stdev*np.nanmedian(np.abs(ywidths-ywidth_med))
 
         xwidth_diff = np.abs(xwidths-xwidth_med)
         ywidth_diff = np.abs(ywidths-ywidth_med)
