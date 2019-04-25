@@ -85,6 +85,9 @@ parser.add_argument('--sky_interp', dest='sky_interp', action='store',
 parser.add_argument('-sphere', dest='sphere', action='store_const',
                     const=True, default=False,
                     help='Switch for raw SPHERE data')
+parser.add_argument('-fix_naco_bad_columns',dest='fix_naco_bad_columns',action='store_const',default=False,const=True,
+                    help='Fix the second quadrant of bad columns on the NACO detector.')
+
 
 args = parser.parse_args()
 d = args.d
@@ -100,6 +103,8 @@ nici = args.nici
 flat_filename = args.flat_filename
 sky_interp = args.sky_interp
 sphere = args.sphere
+fix_naco_bad_columns = args.fix_naco_bad_columns
+
 
 header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
                'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
@@ -350,6 +355,19 @@ for i in range(len(dirlist)):
     if flat_filename:
         cube=cube/flat # this should work if cube is 2d or 3d
         header['HIERARCH GC FLAT_FIELD']=(flat_filename,'Filename of flat field')
+
+    # Fix the NACO bad columns if requested
+    if fix_naco_bad_columns:
+        # Sometimes when cropping the images we might want to centre it away from the centre of the detector
+        # This should be saved in the header if this is the case
+        if 'GC RM_OVERSCAN_CENTRE_OFFSET_X' in header.keys():
+            offset_x = header['HIERARCH GC RM_OVERSCAN_CENTRE_OFFSET_X']
+            offset_y = header['HIERARCH GC RM_OVERSCAN_CENTRE_OFFSET_Y']
+        else:
+            offset_x = 0
+            offset_y = 0
+        cube = graphic_nompi_lib.fix_naco_second_bad_columns(cube,offset=(offset_y,offset_x))
+
 
     if args.normalise:
         header['HIERARCH GC SUB_SK_MED']=(skymed,'Median of sub. sky')
