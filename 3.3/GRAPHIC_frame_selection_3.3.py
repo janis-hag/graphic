@@ -61,6 +61,13 @@ parser.add_argument('-agpm_centre', dest='agpm_centre', action='store_const',
                     const=True, default=False, help='Switch for AGPM data \
                     so that the distance between the star and AGPM is used \
                     instead of the star position when performing the rejection.')
+# In ISPY AGPM data, the flux and PSF width are sometimes better fit by
+# a split-normal. The position should still be Gaussian, and so we only 
+# apply this on the flux and PSF width
+parser.add_argument('-split_normal', dest='split_normal', action='store_const',
+                    const=True, default=False, help='Switch to assume that \
+                    the flux and PSF width follow split-normal distributions \
+                    i.e. different scatter either side of the median.')
 
 
 args = parser.parse_args()
@@ -78,6 +85,7 @@ fit = args.fit
 dithered = args.dithered
 sphere = args.sphere
 agpm_centre = args.agpm_centre
+split_normal = args.split_normal
 
 header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
                'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
@@ -87,6 +95,22 @@ header_keys = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
 target_dir = "."
 
 mad_to_stdev = 1.4826
+
+def split_normal_rejection(values,nsigma,valid_frames):
+    ''' Frame rejection assuming the values (flux, position etc.) are distributed
+    with a split-normal distribution. (i.e. different scatter on either side
+    of the median)
+    '''
+    median = np.nanmedian(values)
+    sorted_values = np.sort(values)
+    nframes = np.isfinite(values).sum()
+        
+    # Now calculate the MAD on each side
+    stdev_side1 = mad_to_stdev*np.nanmedian(np.abs(sorted_values[0:nframes/2]-median))
+    stdev_side2 = mad_to_stdev*np.nanmedian(np.abs(sorted_values[nframes/2:]-median))
+        
+    valid_frames[values < (median-nsigma*stdev_side1)] = False
+    valid_frames[values > (median+nsigma*stdev_side2)] = False
 
 # Test the graphic frame rejection code:
 print(sys.argv[0] + ' started on ' + time.strftime("%c"))
@@ -236,11 +260,14 @@ n_invalid[:, 1] += [np.sum(valid_frames[these_frames] == False) for these_frames
 #################
 if fit:
 
-    # Calculate the scatter in the flux and ignore anything far away
-    flux_med = np.median(fluxes)
-    flux_sigma = mad_to_stdev*np.median(np.abs(fluxes-flux_med))
-    flux_diff = np.abs(fluxes-flux_med)
-    valid_frames[flux_diff > (flux_nsigma*flux_sigma)] = False
+    if split_normal:
+        split_normal_rejection(fluxes,flux_nsigma,valid_frames)
+    else:
+        # Calculate the scatter in the flux and ignore anything far away
+        flux_med = np.median(fluxes)
+        flux_sigma = mad_to_stdev*np.median(np.abs(fluxes-flux_med))
+        flux_diff = np.abs(fluxes-flux_med)
+        valid_frames[flux_diff > (flux_nsigma*flux_sigma)] = False
 
 # Count the invalid frames due to flux
 n_invalid[:, 2] -= np.sum(n_invalid, axis=1) # first subtract the already known ones
@@ -252,17 +279,21 @@ n_invalid[:, 2] += [np.sum(valid_frames[these_frames] == False) for these_frames
 # First, get the widths
 if fit:
 
-    # Calculate the scatter in the psf widths and ignore anything far away
-    xwidth_med = np.median(xwidths)
-    ywidth_med = np.median(ywidths)
-    xwidth_sigma = mad_to_stdev*np.median(np.abs(xwidths-xwidth_med))
-    ywidth_sigma = mad_to_stdev*np.median(np.abs(ywidths-np.median(ywidths)))
+    if split_normal:
+        split_normal_rejection(xwidths,psf_width_nsigma,valid_frames)
+        split_normal_rejection(ywidths,psf_width_nsigma,valid_frames)
+    else:
+        # Calculate the scatter in the psf widths and ignore anything far away
+        xwidth_med = np.median(xwidths)
+        ywidth_med = np.median(ywidths)
+        xwidth_sigma = mad_to_stdev*np.median(np.abs(xwidths-xwidth_med))
+        ywidth_sigma = mad_to_stdev*np.median(np.abs(ywidths-np.median(ywidths)))
 
-    xwidth_diff = np.abs(xwidths-xwidth_med)
-    ywidth_diff = np.abs(ywidths-np.median(ywidths))
+        xwidth_diff = np.abs(xwidths-xwidth_med)
+        ywidth_diff = np.abs(ywidths-np.median(ywidths))
 
-    valid_frames[xwidth_diff > (psf_width_nsigma*xwidth_sigma)] = False
-    valid_frames[ywidth_diff > (psf_width_nsigma*ywidth_sigma)] = False
+        valid_frames[xwidth_diff > (psf_width_nsigma*xwidth_sigma)] = False
+        valid_frames[ywidth_diff > (psf_width_nsigma*ywidth_sigma)] = False
 
 else:
     print("  Not using fitted values. Ignoring flux and psf width!")
