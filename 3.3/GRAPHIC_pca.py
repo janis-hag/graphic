@@ -75,8 +75,8 @@ image_file=wdir+cube_filename
 parang_file=wdir+parallactic_filename
 
 # The name of the output files
-pca_reduced_cube_file = output_dir+pca_type+'.fits'
-derotated_final_image = output_dir+pca_type+'_derot.fits'
+pca_reduced_cube_file = pca_type+'.fits'
+derotated_final_image = pca_type+'_derot.fits'
 
 # Check that the output directory exists and create it if necessary
 dir_exists=os.access(output_dir, os.F_OK)
@@ -108,26 +108,31 @@ else:
 if pca_type=='pca':
     simple_pca(image_file,n_modes,pca_reduced_cube_file)
 elif pca_type=='smart_pca':
-    smart_pca(image_file,n_modes,pca_reduced_cube_file,
-                             parang_file,protection_angle=15.)
+    smart_pca(image_file,n_modes,pca_reduced_cube_file,parang_file,protection_angle=15.,output_dir=output_dir)
 elif pca_type=='annular_pca':
-    annular_pca(image_file,n_modes,pca_reduced_cube_file,n_annuli=n_annuli,arc_length=arc_length,r_min=r_min,r_max=r_max)
+    annular_pca(image_file,n_modes,pca_reduced_cube_file,n_annuli=n_annuli,arc_length=arc_length,r_min=r_min,r_max=r_max,
+                output_dir=output_dir)
 elif pca_type=='smart_annular_pca':
     smart_annular_pca(image_file,n_modes,pca_reduced_cube_file,parang_file,n_annuli=n_annuli,
                arc_length=arc_length,r_min=r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,r_max=r_max,
-               min_reference_frames = min_reference_frames)
+               min_reference_frames = min_reference_frames,output_dir=output_dir)
 elif pca_type.lower() == 'cadi':
-    classical_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine)
+    classical_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine,output_dir=output_dir)
 elif pca_type.lower() == 'noadi':
     pca_reduced_cube_file = image_file
 elif pca_type.lower() == 'smart_adi':
-    smart_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine,protection_angle=15.)
+    smart_adi(image_file,pca_reduced_cube_file,parang_file,median=median_combine,protection_angle=15.,output_dir=output_dir)
 
 ###
 if pca_type !='':
+
+    # This needs to be here because if pca_type==noadi, then the reduced cube file is not in output_dir
+    if pca_type != 'noadi':
+        pca_reduced_cube_file = output_dir + pca_reduced_cube_file
+
     derot_cube=derotate_and_combine_multi(pca_reduced_cube_file,parang_file,
                threads=threads,save_name=derotated_final_image,
-               median_combine=median_combine,return_cube=save_derot_cube)
+               median_combine=median_combine,return_cube=save_derot_cube,output_dir=output_dir)
     if save_derot_cube:
         pf.writeto(output_dir+pca_type+'_derot_cube.fits', derot_cube, overwrite=True)
 
