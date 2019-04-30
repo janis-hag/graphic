@@ -87,12 +87,12 @@ if r_max == -1:
 fp_name = 'fake_planets.fits'
 fp_pca_name = 'fake_planets_pca.fits'
 fp_derot_name = 'fake_planets_derot.fits'
-throughput_file = 'throughput.txt'
-all_throughput_file = 'all_throughputs.txt'
-contrast_im_file = 'contrast_im.fits'
-contrast_file = 'contrast.txt'
-snr_map_file = 'snr_map.fits'
-noise_file = 'noise.txt'
+throughput_file = output_dir + 'throughput.txt'
+all_throughput_file = output_dir + 'all_throughputs.txt'
+contrast_im_file = output_dir + 'contrast_im.fits'
+contrast_file = output_dir + 'contrast.txt'
+snr_map_file = output_dir + 'snr_map.fits'
+noise_file = output_dir + 'noise.txt'
 
 
 # Load the psf image, pca subtracted image and data cubes
