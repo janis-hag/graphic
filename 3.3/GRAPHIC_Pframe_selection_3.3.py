@@ -35,7 +35,7 @@ info_dir = args.info_dir
 
 
 def frame_selec(frame_sel_filename, pattern):
-    f = open(frame_sel_filename,'r')
+    f = open(frame_sel_filename, 'r')
     lines = f.readlines()
     f.close()
 
@@ -47,34 +47,32 @@ def frame_selec(frame_sel_filename, pattern):
     for line in lines:
         print(line.strip().split()[0])
 
-        if line.strip().split()[0]!='filename' and line.strip().split()[0]!='--------':
+        if line.strip().split()[0] != 'filename'and line.strip().split()[0] != '--------':
             filename=line.strip().split()[0]
             frame_to_del=line.strip().split("\t")[1]
             print ('frame_to_del:',frame_to_del)
             frame_to_del=np.array(eval(frame_to_del))
 
-            print(frame_to_del)
-
             if "sdi" in pattern:
                 if "left" in filename:
-                    filename = filename.replace("left","sdi")
+                    filename = filename.replace("left", "sdi")
                     all_info_pattern = all_info_pattern.split('sdi')[0]
                 elif "right" in filename:
-                    filename = filename.replace("right","sdi")
+                    filename = filename.replace("right", "sdi")
                     all_info_pattern = all_info_pattern.split('sdi')[0]
             elif "left" in pattern:
                 if "sdi" in filename:
-                    filename = filename.replace("sdi","left")
+                    filename = filename.replace("sdi", "left")
                     all_info_pattern = all_info_pattern.split('left')[0]
                 elif "right" in filename:
-                    filename = filename.replace("right","left")
+                    filename = filename.replace("right", "left")
                     all_info_pattern = all_info_pattern.split('left')[0]
             elif "right" in pattern:
                 if "sdi" in filename:
-                    filename = filename.replace("sdi","right")
+                    filename = filename.replace("sdi", "right")
                     all_info_pattern = all_info_pattern.split('right')[0]
                 elif "left" in filename:
-                    filename = filename.replace("left","right")
+                    filename = filename.replace("left", "right")
                     all_info_pattern = all_info_pattern.split('right')[0]
 
             print("filename", filename)
@@ -87,18 +85,18 @@ def frame_selec(frame_sel_filename, pattern):
                                      index_col=False)
 
             f = open(path_cube_info + all_info_pattern
-                     + filename.replace(".fits",".rdb"))
+                     + filename.replace(".fits", ".rdb"))
             lines = f.readlines()
             f.close()
 
-            index_keep=np.arange(np.shape(cube)[0])
+            index_keep = np.arange(np.shape(cube)[0])
 #            counter1=0
 #            counter2=0
-            if np.size(frame_to_del)!=0:
-                index_del=index_keep[frame_to_del]
-                index_keep=np.delete(index_keep,frame_to_del)
+            if np.size(frame_to_del) != 0:
+                index_del = index_keep[frame_to_del]
+                index_keep = np.delete(index_keep, frame_to_del)
             else:
-                index_del=np.array([])
+                index_del = np.array([])
 #                counter1=99999
 #            table=[]
 #            for line in lines:
@@ -119,8 +117,9 @@ def frame_selec(frame_sel_filename, pattern):
 
             hdr['NAXIS3'] = np.shape(cube)[0]
 
-            pyfits.writeto("frame_sel_"+filename,cube, header=hdr, overwrite=True)
-            filename3 = path_cube_info + all_info_pattern + "frame_sel_" + filename.replace(".fits",".rdb")
+            pyfits.writeto("frame_sel_"+filename, cube, header=hdr,
+                           overwrite=True)
+            filename3 = path_cube_info + all_info_pattern + "frame_sel_" + filename.replace(".fits", ".rdb")
 
             graphic_nompi_lib.write_array2rdb(filename3, pd_table.values,
                                               pd_table.keys().values)
@@ -129,14 +128,15 @@ def frame_selec(frame_sel_filename, pattern):
 #                f.write(table[i])
 #            f.close()
 
-frame_sel_filename="frame_selection.txt"
-#print "ERROR: No files for frame selection detected!"
 
-t0=time.time()
-print("beginning of frame selection")
-frame_selec(frame_sel_filename,pattern)
+frame_sel_filename = "frame_selection.txt"
+# print "ERROR: No files for frame selection detected!"
+
+t0 = time.time()
+print("Beginning of frame selection")
+frame_selec(frame_sel_filename, pattern)
 
 
 print("Total time: "+graphic_nompi_lib.humanize_time((time.time()-t0)))
-print("frame selection finished")
+print("Frame selection finished")
 sys.exit(0)

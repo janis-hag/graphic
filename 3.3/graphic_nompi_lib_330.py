@@ -76,10 +76,12 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
     # dirlist=sort_nicely(dirlist) # Sort the list alphanumerically (a3 before a10)
 
     # Check values in dirlist and remove dodgy files.
+    skipped = 0
     for i in range(len(dirlist)):
         if not os.access(dirlist[i], os.F_OK | os.R_OK):  # Check if file exists
             print(': Error, cannot access: '+dirlist[i])
             dirlist[i] = None
+            skipped = skipped+1
             continue
         if target_pattern is not None:
             if os.access(os.path.join(target_dir, target_pattern
@@ -87,19 +89,22 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
                                  os.F_OK | os.R_OK):  # Check if file exists
                 print(dirlist[i] + ' already processed.')
                 dirlist[i] = None
+                skipped = skipped+1
                 continue
 
-    # Sort dirlist in order to have all the Nones at the start
-    dirlist.sort()
+    dirlist = list(filter(None, dirlist))
+    # Sort dirlist
+    if not dirlist is None:
+        dirlist.sort()
 
     # Clean dirlist of discarded values:
-    skipped = 0
-    for i in range(len(dirlist)):
-        if dirlist[0] is None:
-            dirlist.pop(0)
-            skipped = skipped+1
-        else:
-            break
+#    skipped = 0
+#    for i in range(len(dirlist)):
+#        if dirlist[0] is None:
+#            dirlist.pop(0)
+#            skipped = skipped+1
+#        else:
+#            break
     if skipped > 0:
         print(" Skipped " + str(skipped) + " files.")
 
@@ -692,7 +697,7 @@ def create_parang_list_sphere(hdr):
         # The parang start and parang end refer to the start and end of the sequence, not in the middle of the first and last frame.
         # So we need to correct for that
         expected_delta_parang = (hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']) * (n_frames-1)/n_frames
-        delta_parang = (parang_array[-1,2]-parang_array[0,2]) 
+        delta_parang = (parang_array[-1,2]-parang_array[0,2])
         if np.abs(expected_delta_parang - delta_parang) > 1.:
             print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
 
@@ -896,6 +901,7 @@ def fft_3shear_rotate(in_frame, alpha, x1, x2, y1, y2):
 
 def fft_3shear_rotate_pad(in_frame, alpha, pad=4, return_full = False):
     """
+    THE ONE TO USE!
     3 FFT shear based rotation, following Larkin et al 1997
 
     in_frame: the numpy array which has to be rotated
@@ -2849,19 +2855,19 @@ def fix_naco_bad_cols(cube):
     columns.
     Bad columns are detected by considering the top and bottom half of the detector separately.
     And columns with standard deviation = 0 will be marked as bad.
-    
+
     This also tries to fix the second bad quadrant, which has 1/8 columns with a small offset.
     '''
-    
+
     # Consider the top half and bottom half of the detectors separately
     for x_ix in range(2):
         x1 = x_ix*cube.shape[-2]/2
         x2 = (x_ix+1)*cube.shape[-2]/2
-        
+
         # Take the maximum of each column
         dims_to_collapse = tuple(ix for ix in range(cube.ndim -1))
         max_col = np.max(cube[...,x1:x2,:],axis=dims_to_collapse)
-        
+
         # The bad columns appear to always have the same value
         # Several ways to detect them...
         # The variation is zero
@@ -2876,7 +2882,7 @@ def fix_naco_bad_cols(cube):
             # Make sure the indices dont become negative
             ix1 = np.max([col-2,0])
             ix2 = np.min([col+2,cube.shape[-1]])
-            
+
             cube[...,x1:x2,col] = np.nanmean(cube[...,x1:x2,ix1:ix2],axis=(-1))
 
     return cube
@@ -2889,7 +2895,7 @@ def fix_naco_second_bad_columns(cube,offset=(0,0)):
     are being read out, their offsets are changing?
 
     Offset:
-         the coordinates of the centre of the detector. Normally we cut the array around the centre of the AGPM, so the middle 
+         the coordinates of the centre of the detector. Normally we cut the array around the centre of the AGPM, so the middle
          of the detector (where the quadrants meet) is offset from (cube.shape[1]/2,cube.shape[2]/2). This accounts for that.
     '''
     # Also fix the slightly bad columns on the top right quadrant
@@ -2914,7 +2920,7 @@ def fix_naco_second_bad_columns(cube,offset=(0,0)):
             # Just in case if you were wondering if the noise is multiplicative, this will divide it by the neighbouring columns:
             # Spoiler: it's not
             # mult_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2,col] / ((frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2)
-        
+
         # Now replace the model by the mean of the stripes
         stripe_amp = np.nanmedian(add_stripe_model[cube.shape[1]/2:,second_bad_cols])
         stripe_model[cube.shape[1]/2+offset[0]:,second_bad_cols] = stripe_amp
