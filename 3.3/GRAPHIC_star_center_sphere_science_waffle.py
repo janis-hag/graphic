@@ -104,7 +104,10 @@ if rank == 0:
                 print('Bad frame to be deleted ' + str(ignore_frame)+'\n')
                 cube_waffle = np.delete(cube_waffle, ignore_frame-1, axis=0)
                 star_centre_bad_frame_deleted_filename = 'STAR_CENTER_cube_bad_frame_del.fits'
-                pyfits.writeto(star_centre_bad_frame_deleted_filename, cube_waffle, header=hdr, clobber=True)
+#                pyfits.writeto(star_centre_bad_frame_deleted_filename, cube_waffle, header=hdr, clobber=True)
+                graphic_nompi_lib.save_fits(
+                        star_centre_bad_frame_deleted_filename , cube_waffle,
+                        hdr=hdr,backend='pyfits')
             if cube_waffle.ndim > 2:
                 # If it is a cube we take the median over frames
                 print('More than one frame found, taking the median ')

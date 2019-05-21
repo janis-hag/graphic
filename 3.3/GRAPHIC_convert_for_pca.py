@@ -63,11 +63,15 @@ t0 = time.time()
 
 print("Beginning of convert")
 
-# Get the list of files
-dirlist = glob.glob(pattern + "*")
-dirlist.sort()
-for i, allfiles in enumerate(dirlist):
-    print('  '+allfiles)
+## Get the list of files
+#dirlist = glob.glob(pattern + "*")
+#dirlist.sort()
+#for i, allfiles in enumerate(dirlist):
+#    print('  '+allfiles)
+
+dirlist = graphic_nompi_lib.create_dirlist(pattern)
+if dirlist is None:
+    sys.exit(1)
 
 # Check that the output directory exists, and make it if needed
 if not output_dir.endswith(os.sep):

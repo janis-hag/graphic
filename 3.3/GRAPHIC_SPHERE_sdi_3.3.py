@@ -77,8 +77,9 @@ for allfiles in glob.iglob(pattern+'*'):
     sys.stdout.flush()
 
     # Load the cubes
-    cube_left,hdr_l=pyfits.getdata(allfiles,header=True)
-    cube_right,hdr_r=pyfits.getdata(allfiles.replace('left','right'),header=True)
+    cube_left, hdr_l = pyfits.getdata(allfiles, header=True)
+    cube_right, hdr_r = pyfits.getdata(allfiles.replace('left','right'),
+                                       header=True)
 
     # Work out the wavelengths and which cube we want to rescale
     # For H23 and K12, the right channel has the absorption
@@ -143,11 +144,14 @@ for allfiles in glob.iglob(pattern+'*'):
     sys.stdout.flush()
 
     # Write it out
-    pyfits.writeto(allfiles.replace('left','sdi'),sdi_cube,header=hdr,clobber=True)
-
+#    pyfits.writeto(allfiles.replace('left','sdi'),sdi_cube,header=hdr,clobber=True)
+    graphic_nompi_lib.save_fits(allfiles.replace('left','sdi'), sdi_cube, hdr=hdr,
+                                backend='pyfits')
     if additional:
         scaled_cube_output_name = allfiles.replace('left',rescaled_channel_name+'_rescale')
-        pyfits.writeto(scaled_cube_output_name,rescaled_cube,header=hdr,clobber=True)
+#        pyfits.writeto(scaled_cube_output_name,rescaled_cube,header=hdr,clobber=True)
+        graphic_nompi_lib.save_fits(scaled_cube_output_name, rescaled_cube,
+                                    hdr=hdr, backend='pyfits')
 
     count+=1
 
