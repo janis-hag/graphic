@@ -254,12 +254,13 @@ def define_annuli(npix,n_radii,arc_length,r_min,r_max='Default'):
 
 ###############
 
-def simple_pca(image_file,n_modes,save_name,pc_name=None):
+def simple_pca(image_file,n_modes,save_name,pc_name=None,output_dir='./'):
     ''' Performs a simple PCA reduction on the input datacube.
     Performs PCA on the full frame, and uses all frames at once (i.e. not
     "smart-pca".
     n_modes is the number of modes to remove from the image
     pc_name is the name of the file that the principal components will be saved (as a pickle file)
+    output_dir: Directory to save image_file
     '''
 
     # Load the datacube and make it 2d
@@ -292,7 +293,7 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
 
 #        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
         print('  PCA subtracted cube saved as:',save_name)
 
     if pc_name:
@@ -309,7 +310,7 @@ def simple_pca(image_file,n_modes,save_name,pc_name=None):
 ###############
 
 def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
-                pc_name=None,threads=2,r_max='Default'):
+                pc_name=None,threads=2,r_max='Default',output_dir='./'):
     ''' Performs a simple PCA reduction on the input datacube.
     Performs PCA in annular regions, using all frames at once (i.e. not
     "smart-pca".
@@ -317,6 +318,7 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
     n_annuli is the number of radial annuli to use
     arc_length is the approximate length (in pixels) used to split the annuli azimuthally
     pc_name is the name of the file that the principal components will be saved (as a pickle file)
+    output_dir: Directory to save image_file
     '''
     print("Running annular pca")
     # Load the datacube and make it 2d
@@ -373,7 +375,7 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
 
 #        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
         print('  PCA subtracted cube saved as: '+save_name)
 
     if pc_name:
@@ -389,13 +391,14 @@ def annular_pca(image_file,n_modes,save_name,n_annuli=5,arc_length=50,r_min=5,
 ###############
 
 def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
-              pc_name=None):
+              pc_name=None,output_dir='./'):
     ''' Performs a smart PCA reduction on the input datacube.
     Performs PCA on the full frame, using only frames that have a parallactic
     angle difference that is above some threshold, to minimize self-subtraction.
     n_modes is the number of modes to remove from the image
     protection_angle is the minimum parallactic angle change used to include a frame in pca. In degrees
     pc_name is the name of the file that the principal components will be saved (as a pickle file)
+    output_dir: Directory to save image_file
     '''
 
     # Load the datacube and make it 2d
@@ -431,12 +434,15 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
         parang=parangs[ix]
         # Find which frames are ok to use
         good_frames=cube[np.abs(parang-parangs) > protection_angle]
+        if np.sum(good_frames) == 0:
+            print('No frames with enough field rotation found!')
+            cube_out[ix] = np.nan
+        else:
+            # Get the principal components
+            pcomps=principal_components(good_frames,n_modes=n_modes)
 
-        # Get the principal components
-        pcomps=principal_components(good_frames,n_modes=n_modes)
-
-        # Subtract them from the data
-        cube_out[ix]=subtract_principal_components(pcomps,cube[ix])
+            # Subtract them from the data
+            cube_out[ix]=subtract_principal_components(pcomps,cube[ix])
 
         if (ix % 10) ==9:
             time_left=(cube.shape[0]-ix-1)*(time.time()-t_start)/(ix+1)
@@ -451,7 +457,7 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
 
 #        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
         print('  PCA subtracted cube saved as:',save_name)
 
     if pc_name:
@@ -467,13 +473,14 @@ def smart_pca(image_file,n_modes,save_name,parang_file,protection_angle=20,
 
 def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5,
               pc_name=None,n_annuli=5,arc_length=50,r_min=5,threads=3,r_max='Default',
-              min_reference_frames=5,silent=False,hdr=None):
+              min_reference_frames=5,silent=False,hdr=None,output_dir='./'):
     ''' Performs a smart PCA reduction on the input datacube, with PCA performed
     locally on annuli, using only frames that have a parallactic angle
     difference that is above some threshold, to minimize self-subtraction.
     n_modes is the number of modes to remove from the image
 
     pc_name is the name of the file that the principal components will be saved (as a pickle file)
+    output_dir: Directory to save image_file
     '''
     if not silent:
         print('Running smart annular PCA')
@@ -606,7 +613,7 @@ def smart_annular_pca(image_file,n_modes,save_name,parang_file,n_fwhm=2,fwhm=4.5
 #        pyfits.writeto(save_name, cube_out, header=hdr, overwrite=True,
 #                       output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
 
         if not silent:
             print('  PCA subtracted cube saved as: '+save_name)
@@ -645,9 +652,11 @@ def make_pca_header(pca_type,n_modes,hdr=None,n_fwhm='',fwhm='',n_annuli='',
 
 ###############
 
-def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr=None):
+def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr=None,output_dir='./'):
     ''' Runs classical ADI on an image cube. Subtracts the mean or median of the cube
-    from every individual frame. No protection angle is used.'''
+    from every individual frame. No protection angle is used.
+    output_dir: Directory to save image_file
+    '''
 
     if isinstance(image_file,str):
         cube,hdr = pyfits.getdata(image_file,header=True)
@@ -683,7 +692,7 @@ def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr
                   hdr=hdr, image_file=image_file)
 #        pyfits.writeto(save_name,out_cube,header=hdr,clobber=True)
         graphic_nompi_lib.save_fits(save_name, out_cube, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
     else:
         return out_cube
 
@@ -691,11 +700,12 @@ def classical_adi(image_file,save_name,parang_file,median=False,silent=False,hdr
 
 ###############
 
-def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False):
+def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False,output_dir='./'):
     ''' Performs a smart classical ADI reduction on the input datacube.
     For each frame, it takes the mean of frames that have a parallactic
     angle difference that is above some threshold, to minimize self-subtraction.
     protection_angle is the minimum parallactic angle change used to include a frame in pca. In degrees
+    output_dir: Directory to save image_file
     '''
 
     # Load the datacube and make it 2d
@@ -750,7 +760,7 @@ def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False)
 
 #        pyfits.writeto(save_name,cube_out,header=hdr,clobber=True,output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, cube_out, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
         print('  ADI subtracted cube saved as:'+save_name)
 
     return cube_out
@@ -760,8 +770,10 @@ def smart_adi(image_file,save_name,parang_file,protection_angle=20,median=False)
 ###############
 
 def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
-                 median_combine=False,return_cube=True,silent=False):
-    '''Derotates and mean-combines a cube. Uses FFT derotation '''
+                 median_combine=False,return_cube=True,silent=False,output_dir='./'):
+    '''Derotates and mean-combines a cube. Uses FFT derotation 
+    output_dir: Directory to save image_file
+    '''
 
     #Load the image
     if isinstance(image_file,str):
@@ -823,7 +835,7 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
     if save_name:
 #        pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, out_frame, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
         if not silent:
             print('Combined image saved as:',save_name)
     if return_cube:
@@ -834,9 +846,12 @@ def derotate_and_combine(image_file,parang_file,save_name='derot.fits',
 ###############
 
 def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
-               threads=2,median_combine=False,return_cube=True,hdr=None,silent=False):
+               threads=2,median_combine=False,return_cube=True,hdr=None,silent=False,
+               output_dir='./'):
     '''Derotates and mean-combines a cube. Uses FFT derotation.
-    This module is optimized for parallel computing on a single node using multiprocessing'''
+    This module is optimized for parallel computing on a single node using multiprocessing
+    output_dir: Directory to save image_file
+    '''
 
     #Load the image
     if isinstance(image_file,str):
@@ -912,7 +927,7 @@ def derotate_and_combine_multi(image_file,parang_file,save_name='derot.fits',
     if save_name:
 #        pyfits.writeto(save_name,out_frame,header=hdr,clobber=True,output_verify='silentfix')
         graphic_nompi_lib.save_fits(save_name, out_frame, hdr=hdr,
-                                    backend='pyfits')
+                                    backend='pyfits',target_dir=output_dir)
         if not silent:
             print('Combined image saved as:',save_name)
 

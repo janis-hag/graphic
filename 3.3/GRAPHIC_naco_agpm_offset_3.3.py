@@ -71,6 +71,9 @@ iterations = 1
 ## args=6
 comments=None
 
+# Handle problems caused by one process exiting without cleaning up the others
+sys.excepthook = graphic_mpi_lib.global_except_hook
+
 # sys.setrecursionlimit(recurs)
 t_init=MPI.Wtime()
 
@@ -156,7 +159,6 @@ for ix,filename in enumerate(proc_dirlist):
     
     clean_sky[big_circle_cen_pix[0]-100:big_circle_cen_pix[0]+100,
              big_circle_cen_pix[1]-100:big_circle_cen_pix[1]+100] = im
-        
         
     # Cut out a region around the agpm using the expected offset
     cut_sz = 6 

@@ -31,7 +31,7 @@ parser.add_argument('--parang_file', action="store",  dest="parang_file",type=st
      default='parallactic_angle.txt', help='The filename of the parallactic angles (in degrees).')
 parser.add_argument('--image_file', action="store",  dest="image_file",type=str,
      default='GRAPHIC_PCA/smart_annular_pca_derot.fits', help='The filename of the final PCA reduced image.')
-parser.add_argument('--output_dir', action="store",  dest="save_dir",type=str,
+parser.add_argument('--output_dir', action="store",  dest="output_dir",type=str,
      default='GRAPHIC_PCA/', help='The folder to store the results in.')
 parser.add_argument('--threads', action="store",  dest="threads", type=int, default=3,
      help='Number of multiprocessing threads to use (not MPI).')
@@ -64,7 +64,7 @@ cube_file = args.cube_file
 psf_file = args.psf_file
 parang_file = args.parang_file
 image_file = args.image_file
-save_dir = args.save_dir
+output_dir = args.output_dir
 threads = args.threads
 cutout_radius = args.cutout_radius
 psf_pad = args.psf_pad
@@ -83,18 +83,16 @@ if r_max == -1:
 
 ########################
 
-wdir = ''
-
 # Set up the names of the output files
-fp_name = wdir+save_dir+'fake_planets.fits'
-fp_pca_name = wdir+save_dir+'fake_planets_pca.fits'
-fp_derot_name = wdir+save_dir+'fake_planets_derot.fits'
-throughput_file = wdir+save_dir+'throughput.txt'
-all_throughput_file = wdir+save_dir+'all_throughputs.txt'
-contrast_im_file = wdir+save_dir+'contrast_im.fits'
-contrast_file = wdir+save_dir+'contrast.txt'
-snr_map_file = wdir+save_dir+'snr_map.fits'
-noise_file = wdir+save_dir+'noise.txt'
+fp_name = 'fake_planets.fits'
+fp_pca_name = 'fake_planets_pca.fits'
+fp_derot_name = 'fake_planets_derot.fits'
+throughput_file = output_dir + 'throughput.txt'
+all_throughput_file = output_dir + 'all_throughputs.txt'
+contrast_im_file = output_dir + 'contrast_im.fits'
+contrast_file = output_dir + 'contrast.txt'
+snr_map_file = output_dir + 'snr_map.fits'
+noise_file = output_dir + 'noise.txt'
 
 
 # Load the psf image, pca subtracted image and data cubes
@@ -124,8 +122,8 @@ if pca_r_max =='Default':
     
 # Radii of injected companions
 # Use the centre of every second PCA annulus
-radii_edges = np.linspace(pca_r_min,pca_r_max,num=(n_annuli/2+1))
-inject_radii = np.array([np.mean(radii_edges[ix:ix+2]) for ix in range(n_annuli/2)])
+radii_edges = np.linspace(pca_r_min,pca_r_max,num=(n_annuli//2+1))
+inject_radii = np.array([np.mean(radii_edges[ix:ix+2]) for ix in range(n_annuli//2)])
 
 # Quickly estimate the contrast so we have a rough idea of the flux
 #   to use for the fake companion injection
@@ -156,22 +154,23 @@ for ix in range(n_throughput):
     # Inject the fake companions
     graphic_contrast_lib.inject_companions(cube_file,psf_frame,parangs_rad,
         inject_radii,input_fluxes,azimuth_offset=azimuth_offset,psf_pad=psf_pad,
-        save_name=fp_name)
+        save_name=output_dir+fp_name)
         
 
     # Run PCA again with the same settings as the original
-    pca.smart_annular_pca(fp_name,n_modes,fp_pca_name,
+    pca.smart_annular_pca(output_dir+fp_name,n_modes,fp_pca_name,
            parang_file,n_annuli=n_annuli,arc_length=arc_length,r_max=pca_r_max,
            r_min=pca_r_min,n_fwhm=n_fwhm,fwhm=fwhm,threads=threads,
-           min_reference_frames=min_reference_frames)
+           min_reference_frames=min_reference_frames,output_dir=output_dir)
         
     # Derotate the image 
-    pca.derotate_and_combine_multi(fp_pca_name,parang_file,
-                   threads=threads,save_name=fp_derot_name,median_combine=True)
+    pca.derotate_and_combine_multi(output_dir+fp_pca_name,parang_file,
+                   threads=threads,save_name=fp_derot_name,median_combine=True,
+                   output_dir=output_dir)
 
 
     # Now fit to the fluxes of the injected companions
-    fp_derot_image,fp_derot_hdr = pf.getdata(fp_derot_name,header=True)
+    fp_derot_image,fp_derot_hdr = pf.getdata(output_dir+fp_derot_name,header=True)
     measured_throughputs = graphic_contrast_lib.fit_injected_companions(fp_derot_image,psf_frame,
          inject_radii,input_fluxes,azimuth_offset=azimuth_offset,psf_pad=psf_pad,
          cutout_radius = cutout_radius,save_name=None)
