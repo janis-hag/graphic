@@ -767,6 +767,8 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
     # Now remove the extra pixels we just added
     cube = cube2[:,cube_extra_pad:-cube_extra_pad,cube_extra_pad:-cube_extra_pad]
     if save_name:
+        if hdr is None:
+            hdr = pf.Header()
         hdr['HIERARCH GC INJECT AZOFFSET']=azimuth_offset
         pf.writeto(save_name,cube,overwrite=True,header=hdr,output_verify='silentfix')
 
