@@ -585,6 +585,26 @@ def create_parang_scexao_chuck(times, hdr, iers_a):
         parang_array[i]=numpy.array([i,obs_time.mjd,pa ])
     return parang_array
 
+def ct2lst(lng, jd):
+    '''Convert Julian date to LST '''
+    c = [280.46061837, 360.98564736629, 0.000387933, 38710000.0 ]
+    jd2000 = 2451545.0
+    t0 = jd - jd2000
+    t = t0/36525.
+    
+    # Compute GST in seconds.
+    theta = c[0] + (c[1] * t0) + t**2*(c[2] - t/ c[3] )
+    
+    # Compute LST in hours.
+    lst = ( theta + lng)/15.0
+    neg = np.where(lst < 0.0)
+    n = neg[0].size
+    if n > 0:
+        lst[neg] = 24.0 + (lst[neg] % 24)
+    lst = lst % 24
+    return lst
+
+
 def create_parang_list_sphere(hdr):
     """
     Reads the header and creates an array giving the paralactic angle for each frame,
@@ -595,6 +615,7 @@ def create_parang_list_sphere(hdr):
     """
 
     from numpy import sin, cos, arctan2, pi
+    from astropy.time import Time
 
     r2d = 180/pi
     d2r = pi/180
@@ -644,31 +665,46 @@ def create_parang_list_sphere(hdr):
 
     # We want the exposure time per frame, derived from the total time from when the shutter
     # opens for the first frame until it closes at the end.
-    total_exptime = hdr['ESO DET SEQ1 EXPTIME']
+    # This is what ACC thought should be used
+    # total_exptime = hdr['ESO DET SEQ1 EXPTIME']
+    # This is what the SPHERE DC uses
+    total_exptime = (Time(hdr['HIERARCH ESO DET FRAM UTC'])-Time(hdr['HIERARCH ESO DET SEQ UTC'])).sec
+    # print total_exptime-total_exptime2
     delta_dit = total_exptime / hdr['NAXIS3']
+    dit = hdr['ESO DET SEQ1 REALDIT']
 
     # Set up the array to hold the parangs
     parang_array = np.zeros((n_frames,3))
 
-    # CHeck some things are in the header
-    if 'LST' in hdr.keys():
-        lst = float(hdr['LST'])
+    mjdstart=float(hdr['MJD-OBS'])
+
+    # Output for debugging
+    hour_angles = []
+    
+    if ('ESO DET SEQ UTC' in hdr.keys()) and ('ESO TEL GEOLON' in hdr.keys()):
+        # The SPHERE DC method
+        jd_start = Time(hdr['ESO DET SEQ UTC']).jd
+        lst_start = ct2lst(hdr['ESO TEL GEOLON'],jd_start)*3600
+        # Use the old method
+        lst_start = float(hdr['LST'])
     else:
-        ha_deg=0
+        lst_start = 0.
         print('WARNING: No LST keyword found in header')
 
-    mjdstart=float(hdr['MJD-OBS'])
+
+    # delta dit and dit are in seconds so we need to multiply them by this factor to add them to an LST
+    time_to_lst = (24.*3600.)/(86164.1)
 
     if 'ESO INS4 COMB ROT' in hdr.keys() and hdr['ESO INS4 COMB ROT']=='PUPIL':
 
         for i in range(n_frames):
 
-            ha_deg=((float(hdr['LST'])+i*delta_dit + delta_dit/2.)*15./3600)-ra_deg
+            ha_deg=((lst_start+i*delta_dit*time_to_lst + time_to_lst*dit/2.)*15./3600)-ra_deg
+            hour_angles.append(ha_deg)
 
             # VLT TCS formula
             f1 = float(cos(geolat_rad) * sin(d2r*ha_deg))
             f2 = float(sin(geolat_rad) * cos(d2r*dec_deg) - cos(geolat_rad) * sin(d2r*dec_deg) * cos(d2r*ha_deg))
-
             pa = -r2d*arctan2(-f1,f2)
 
             pa=pa+offset
@@ -697,14 +733,14 @@ def create_parang_list_sphere(hdr):
         # The parang start and parang end refer to the start and end of the sequence, not in the middle of the first and last frame.
         # So we need to correct for that
         expected_delta_parang = (hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']) * (n_frames-1)/n_frames
-        delta_parang = (parang_array[-1,2]-parang_array[0,2])
+        delta_parang = (parang_array[-1,2]-parang_array[0,2]) 
         if np.abs(expected_delta_parang - delta_parang) > 1.:
             print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
 
     except:
         pass
-    return parang_array
 
+    return parang_array
 
 def datetime2jd(t):
     """
@@ -2861,8 +2897,8 @@ def fix_naco_bad_cols(cube):
 
     # Consider the top half and bottom half of the detectors separately
     for x_ix in range(2):
-        x1 = x_ix*cube.shape[-2]/2
-        x2 = (x_ix+1)*cube.shape[-2]/2
+        x1 = x_ix*cube.shape[-2]//2
+        x2 = (x_ix+1)*cube.shape[-2]//2
 
         # Take the maximum of each column
         dims_to_collapse = tuple(ix for ix in range(cube.ndim -1))
@@ -2899,7 +2935,7 @@ def fix_naco_second_bad_columns(cube,offset=(0,0)):
          of the detector (where the quadrants meet) is offset from (cube.shape[1]/2,cube.shape[2]/2). This accounts for that.
     '''
     # Also fix the slightly bad columns on the top right quadrant
-    second_bad_cols = np.arange(cube.shape[2]/2+offset[1]+6,cube.shape[2],8) # The column numbers are hard-coded because it is hard to detect
+    second_bad_cols = np.arange(cube.shape[2]//2+offset[1]+6,cube.shape[2],8) # The column numbers are hard-coded because it is hard to detect
 
     stripe_model = 0*cube[0] # this will hold the offsets for each column
     # mult_stripe_model = 0*cube[0]
@@ -2915,21 +2951,21 @@ def fix_naco_second_bad_columns(cube,offset=(0,0)):
             col_left = np.abs(col-1) # == col-1 unless col = 0
             col_right = cube.shape[1]-1-np.abs(cube.shape[1]-1-(col+1)) # == col+1 unless col = cube.shape[1]
             # Subtract the neighbouring pixels (i.e. assume it is additive noise)
-            add_stripe_model[cube.shape[1]/2+offset[0]:,col] = frame[cube.shape[1]/2+offset[0]:,col] - \
-                        (frame[cube.shape[1]/2+offset[0]:,col_left]+frame[cube.shape[1]/2+offset[0]:,col_right])/2
+            add_stripe_model[cube.shape[1]//2+offset[0]:,col] = frame[cube.shape[1]//2+offset[0]:,col] - \
+                        (frame[cube.shape[1]//2+offset[0]:,col_left]+frame[cube.shape[1]//2+offset[0]:,col_right])/2
             # Just in case if you were wondering if the noise is multiplicative, this will divide it by the neighbouring columns:
             # Spoiler: it's not
             # mult_stripe_model[cube.shape[1]/2:,col] = frame[cube.shape[1]/2,col] / ((frame[cube.shape[1]/2:,col-1]+frame[cube.shape[1]/2:,col+1])/2)
 
         # Now replace the model by the mean of the stripes
-        stripe_amp = np.nanmedian(add_stripe_model[cube.shape[1]/2:,second_bad_cols])
-        stripe_model[cube.shape[1]/2+offset[0]:,second_bad_cols] = stripe_amp
+        stripe_amp = np.nanmedian(add_stripe_model[cube.shape[1]//2:,second_bad_cols])
+        stripe_model[cube.shape[1]//2+offset[0]:,second_bad_cols] = stripe_amp
 
         # Also subtract the mean of every row
-        row_mean = np.nanmedian(add_stripe_model[add_stripe_model.shape[0]/2+offset[0]:,
+        row_mean = np.nanmedian(add_stripe_model[add_stripe_model.shape[0]//2+offset[0]:,
                                second_bad_cols]-stripe_amp,axis=1)
         stripe_row_model = 0*stripe_model
-        for row_ix,row in enumerate(range(cube.shape[1]/2+offset[0],cube.shape[1])):
+        for row_ix,row in enumerate(range(cube.shape[1]//2+offset[0],cube.shape[1])):
             stripe_row_model[row,second_bad_cols] = row_mean[row_ix]
 
         cube[frame_ix] -= (stripe_model+stripe_row_model)
