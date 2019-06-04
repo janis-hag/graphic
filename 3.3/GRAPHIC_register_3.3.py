@@ -138,6 +138,9 @@ comments=None
 # sys.setrecursionlimit(recurs)
 t_init=MPI.Wtime()
 
+# Set the system exception hook to this one, so that if an MPI process fails they all exit instead of freezing
+sys.excepthook = graphic_mpi_lib.global_except_hook
+
 print(rank, nprocs)
 
 if rank==0:  # Master process
@@ -506,8 +509,19 @@ else: # Slave processes
                         # Now cut out a small region of the image to make the fitting more reliable and fast
                         cut_size=16
                         refpoint=centre_est-cut_size//2
-                        refpoint[1]+=0
                         cut_frame=image[refpoint[0]:refpoint[0]+cut_size,refpoint[1]:refpoint[1]+cut_size]
+                        # Handle the case where the estimate is near the edges of the image
+                        cut_frame = np.zeros((cut_size,cut_size))+np.nan
+                        miny_in = np.max([0,refpoint[0]])
+                        maxy_in = np.min([image.shape[0],refpoint[0]+cut_size])
+                        minx_in = np.max([0,refpoint[1]])
+                        maxx_in = np.min([image.shape[1],refpoint[1]+cut_size])
+
+                        miny_out = np.max([0,-refpoint[0]])
+                        maxy_out = np.min([cut_size,image.shape[0]-(refpoint[0])])
+                        minx_out = np.max([0,-refpoint[1]])
+                        maxx_out = np.min([cut_size,image.shape[1]-(refpoint[1])])
+                        cut_frame[miny_out:maxy_out,minx_out:maxx_out] = image[miny_in:maxy_in,minx_in:maxx_in]
 
                         #Fit a Gaussian to it
                         fit=gaussfit.psf_gaussfit(cut_frame,width=psf_width,saturated=saturated)
