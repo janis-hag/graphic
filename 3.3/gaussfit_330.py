@@ -432,7 +432,7 @@ def agpm_model(params,image_shape=(600,600)):
     
     return model
 
-def agpm_centre_min_func(params,image_shape=(600,600),npix_x=0,npix_y=0):
+def agpm_centre_min_func(params,image_shape=(600,600),npix_x=0,npix_y=0,use_distance=False):
     '''Function to minimize to calculate the centre of the big circle in the NACO AGPM
     data.
     This uses the parameters to construct a model of the AGPM "big circle". It then counts
@@ -481,9 +481,68 @@ def agpm_centre_min_func(params,image_shape=(600,600),npix_x=0,npix_y=0):
     # If neither circle is cropped, then for each point on the data, the closest 
     #  point on the model is on the line between the centre of the model and the
     #  data point. So the distance between them is (distance from datapoint to
-    #  the centre of the model circle) - (radius of model circle)
+     # the centre of the model circle) - (radius of model circle)
+    if use_distance:
+        # Distance from each x point to the axis
+        dists_x = params[2]-np.sqrt( (params[0] -x)**2 + (0.5*npix_x)**2 )
+        dists_y = params[2]-np.sqrt( (params[0] -y)**2 + (0.5*npix_y)**2 )
+        
+        chi2_x = np.nansum(dists_x[good_pix_x])
+        chi2_y = np.nansum(dists_y[good_pix_y])
     
     return chi2_x+chi2_y
+
+def agpm_centre_min_func_1d(params,image_shape=600,npix=0,plot=False):
+    '''Function to minimize to calculate the centre of the big circle in the NACO AGPM
+    data.
+    This uses the parameters to construct a model of the AGPM "big circle". It then counts
+    how many pixels are within the circle for each row and column. It returns a goodness-of-fit
+    value that represents how different this distribution is compared to the data (i.e. npix_x 
+    and npix_y)
+
+    Each pixel is weighted by 1-sin(theta)**2 where theta is the angle between the centre of 
+    the circle and the edge of the circle at that row/column. This is because most of the data 
+    points are near the centre of the circle, which has very little sensitivity to the movement
+    of the agpm. So we want to weight the edge points higher.
+
+    params = [centre, radius]
+    npix= number of pixels inside the circle for each column of the data
+
+    '''
+
+    # Weight the points in the chi2
+    # We want higher weights at the edges
+    x = np.arange(image_shape)
+    theta = np.arccos((x-params[0])/params[1])
+    weights =1-np.sin(theta)**2 # kind of arbitrary
+
+    
+    # Throw away points outside of the circle
+    # These are when the distance from the centre is greater than the AGPM radius
+    good_pix = np.abs(x-params[0]) < (2*params[1])
+      
+    # Normal chi2
+    # resids = npix - x_model
+    # chi2 = np.nansum(((resids*weights)[good_pix])**2)
+    
+    # Here we could use distance instead of chi2
+    # If neither circle is cropped, then for each point on the data, the closest 
+    #  point on the model is on the line between the centre of the model and the
+    #  data point. So the distance between them is (distance from datapoint to
+     # the centre of the model circle) - (radius of model circle)
+    # Distance from each x point to the axis
+    dists = params[1]-np.sqrt( (params[0] -x)**2 + (0.5*npix)**2 )
+    if plot:
+        import matplotlib.pyplot as plt
+        plt.figure(0)
+        plt.clf()
+        plt.plot(dists)
+        plt.plot(good_pix*dists)
+        
+    chi2 = np.nansum(np.abs(weights*dists[good_pix]))
+    if np.sum(good_pix) < (params[1]/5):
+        return np.inf
+    return chi2
 
 def pix_inside_big_circle(image):
     ''' Calculate the number of pixels inside the big circle of the NACO AGPM
@@ -498,11 +557,11 @@ def pix_inside_big_circle(image):
     central_region = image[image.shape[0]/2-100:image.shape[0]/2+100,
                            image.shape[1]/2-100:image.shape[1]/2+100]
     inside_bckgrd = np.nanmedian(central_region)
-    inside_scatter = np.median(np.abs(central_region-inside_bckgrd))
+    inside_scatter = np.nanmedian(np.abs(central_region-inside_bckgrd))
 
     corner_region = image[0:50,0:50]
     outside_bckgrd = np.nanmedian(corner_region)
-    outside_scatter = np.median(np.abs(corner_region-outside_bckgrd))
+    outside_scatter = np.nanmedian(np.abs(corner_region-outside_bckgrd))
 
     # Pick the background as the point n_sigma from both the background and
     # the agpm region
@@ -512,25 +571,44 @@ def pix_inside_big_circle(image):
 
     # above_bckgrd = image > (inside_bckgrd - n_sigma*inside_scatter)
     above_bckgrd = image > level
-    npix_x = np.sum(above_bckgrd,axis=1)
-    npix_y = np.sum(above_bckgrd,axis=0)
+    npix_x = np.nansum(above_bckgrd,axis=1).astype(np.float)
+    npix_y = np.nansum(above_bckgrd,axis=0).astype(np.float)
+
+    #Add NaNs back in
+    nans_x = np.sum(np.isnan(image),axis=1) > (image.shape[0]/2)
+    nans_y = np.sum(np.isnan(image),axis=0) > (image.shape[1]/2)
+
+    npix_x[nans_x] = np.nan
+    npix_y[nans_y] = np.nan
     
     return [npix_x,npix_y]
 
-def fit_to_big_circle(image):
+def fit_to_big_circle(image,use_distance=False,fit_1d = True):
     ''' Perform a fit to calculate the centre of the big circle in an AGPM image'''
     # Find the pixels inside the big circle
     npix_x,npix_y = pix_inside_big_circle(image)    
 
-    initial_guess = [image.shape[0]/2,image.shape[1]/2,295.6]    
-    
-    # Try fitting
-    # method = 'Powell'
     method = 'Nelder-Mead'
-    result = optimize.minimize(agpm_centre_min_func, initial_guess,
-                               args=(image.shape,npix_x,npix_y),tol=1e-4,method=method)
-    
-    [xcen,ycen,agpm_rad] = result.x
+
+    if fit_1d:
+        # 1D method
+        initial_guess_x = [image.shape[0]/2,289.9]
+        result_x = optimize.minimize(agpm_centre_min_func_1d, initial_guess_x,
+                                   args=(image.shape[0],npix_x),tol=1e-4,method=method)
+        initial_guess_y = [image.shape[1]/2,289.9]
+        result_y = optimize.minimize(agpm_centre_min_func_1d, initial_guess_y,
+                                   args=(image.shape[1],npix_y),tol=1e-4,method=method)
+        xcen = result_x.x[0]
+        ycen = result_y.x[0]
+        agpm_rad = (result_x.x[1]+result_y.x[1])/2
+    else:
+        # 2D method:
+        initial_guess = [image.shape[0]/2,image.shape[1]/2,290.5]
+        # Try fitting
+        result = optimize.minimize(agpm_centre_min_func, initial_guess,
+                                   args=(image.shape,npix_x,npix_y,use_distance),tol=1e-4,method=method)
+        [xcen,ycen,agpm_rad] = result.x
+
     
     return [[xcen,ycen],agpm_rad]
 
