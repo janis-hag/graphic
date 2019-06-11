@@ -50,7 +50,9 @@ parser.add_argument('--agpm_offset_file', action="store", dest="agpm_offset_file
 parser.add_argument('-saturated', dest='saturated', action='store_const',
                    const=True, default=False,
                    help='Use a saturated psf model and fit to the saturation level (in counts)')
-
+parser.add_argument('-fit_1d', dest='fit_1d', action='store_const',
+                   const=True, default=False,
+                   help='Fit to the 1D profile of the big circle rather than the 2D shape.')
 
 args = parser.parse_args()
 d=args.d
@@ -60,6 +62,7 @@ saturated=args.saturated
 psf_width=args.psf_width
 agpm_width=args.agpm_width
 agpm_offset_file = args.agpm_offset_file
+fit_1d = args.fit_1d
 
 # if moffat:
     # header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
@@ -129,8 +132,14 @@ if rank==0:  # Master process
         # ACC: Find the centre of the big circle using the median frame before sky subtraction
         mean_frame=np.median(pre_sky_cube,axis=0)
 
+        # Remove the rows with huge offsets from the rest
+        diffs = np.nanmean(mean_frame[:-2]-mean_frame[2:],axis=1)
+        bad_rows = np.where(np.abs(diffs) > (3*np.std(diffs)))
+        for row in bad_rows:
+            mean_frame[row] = np.nan
+
         # Calculate the centre of the big circle    
-        big_circle_cen,agpm_rad = gaussfit.fit_to_big_circle(mean_frame)
+        big_circle_cen,agpm_rad = gaussfit.fit_to_big_circle(mean_frame,fit_1d=fit_1d)
         big_circle_cen_pix = np.round(big_circle_cen).astype(int)
         
         # Calculate the AGPM position using the known offset

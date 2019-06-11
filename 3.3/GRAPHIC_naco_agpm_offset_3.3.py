@@ -47,6 +47,9 @@ parser.add_argument('--psf_width', action="store", dest="psf_width", type=float,
 parser.add_argument('-saturated', dest='saturated', action='store_const',
                    const=True, default=False,
                    help='Use a saturated psf model and fit to the saturation level (in counts)')
+parser.add_argument('-fit_1d', dest='fit_1d', action='store_const',
+                   const=True, default=False,
+                   help='Fit to the 1D profile of the big circle rather than the 2D shape.')
 
 
 args = parser.parse_args()
@@ -55,6 +58,7 @@ pattern=args.pattern
 log_file=args.log_file
 saturated=args.saturated
 psf_width=args.psf_width
+fit_1d = args.fit_1d
 
 # if moffat:
     # header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y', 'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y', 'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
@@ -139,8 +143,15 @@ for ix,filename in enumerate(proc_dirlist):
     if sky_frame.ndim == 3:
         sky_frame = np.nanmedian(sky_frame,axis=0)
 
+    # Remove the rows with huge offsets from the rest
+    diffs = np.nanmean(sky_frame[:-2]-sky_frame[2:],axis=1)
+    bad_rows = np.where(np.abs(diffs) > (3*np.std(diffs)))
+    orig_sky = 1*sky_frame
+    for row in bad_rows:
+        sky_frame[row] = np.nan
+
     # Calculate the position of the big circle in this image
-    big_circle_cen,agpm_rad = gaussfit.fit_to_big_circle(sky_frame)
+    big_circle_cen,agpm_rad = gaussfit.fit_to_big_circle(sky_frame,fit_1d=fit_1d)
     big_circle_cen_pix = np.round(big_circle_cen).astype(int)
         
     proc_circle_pos[ix] = big_circle_cen
@@ -148,7 +159,7 @@ for ix,filename in enumerate(proc_dirlist):
 
     # Calculate the position of the AGPM in this image
     # First clean the image a bit by removing the bias in each row/column
-    clean_sky = 1*sky_frame
+    clean_sky = 1*orig_sky # don't ignore the bad rows since this causes problems in the fitting
     im = clean_sky[big_circle_cen_pix[0]-100:big_circle_cen_pix[0]+100,
              big_circle_cen_pix[1]-100:big_circle_cen_pix[1]+100]
     for row in range(im.shape[0]):
