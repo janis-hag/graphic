@@ -203,7 +203,7 @@ if rank == 0:
 
         # Now rotate the square by the lenslet rotation
         mask_nan = graphic_nompi_lib.fft_rotate(mask_nan, lenslet_rotation)
-        mask_nan[np.isnan(mask_nan) is False] = 1.
+        mask_nan[~np.isnan(mask_nan)] = 1.
 
         # But the square is clipped at the top and bottom
         mask_nan[259:, :] = np.nan
