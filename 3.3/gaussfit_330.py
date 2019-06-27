@@ -391,8 +391,8 @@ def correlate_centre(image1,image2,search_size=10,smooth_width=500):
     # Smoothing is equivalent to multiplication by a Gaussian in the Fourier plane
 
     # Set up the smoothing function
-    xc=np.arange(0,image1.shape[-1],dtype=np.float)-image1.shape[-1]/2
-    yc=np.arange(0,image1.shape[-2],dtype=np.float)-image1.shape[-2]/2
+    xc=np.arange(0,image1.shape[-1],dtype=np.float)-image1.shape[-1]//2
+    yc=np.arange(0,image1.shape[-2],dtype=np.float)-image1.shape[-2]//2
     xcoords,ycoords=np.meshgrid(xc,yc)    
     smooth_func=np.exp(-( (xcoords**2 + ycoords**2)/(2*smooth_width**2) ) )
     
@@ -403,11 +403,11 @@ def correlate_centre(image1,image2,search_size=10,smooth_width=500):
     corr=np.abs(corr)
 
     # cut out the centre
-    corr=corr[corr.shape[0]/2-search_size:corr.shape[0]/2+search_size,
-              corr.shape[1]/2-search_size:corr.shape[1]/2+search_size]
+    corr=corr[corr.shape[0]//2-search_size:corr.shape[0]//2+search_size,
+              corr.shape[1]//2-search_size:corr.shape[1]//2+search_size]
     
-    xc=np.arange(0,corr.shape[-1],dtype=np.float)-corr.shape[-1]/2+1
-    yc=np.arange(0,corr.shape[-2],dtype=np.float)-corr.shape[-2]/2+1
+    xc=np.arange(0,corr.shape[-1],dtype=np.float)-corr.shape[-1]//2+1
+    yc=np.arange(0,corr.shape[-2],dtype=np.float)-corr.shape[-2]//2+1
     
     # Find the peak by interpolation
     interp_func=interpolate.interp2d(xc,yc,corr,kind='cubic')
@@ -554,8 +554,8 @@ def pix_inside_big_circle(image):
     This assumes the top-left corner is outside the circle and the central 200x200 
     pixels is inside the circle'''
 
-    central_region = image[image.shape[0]/2-100:image.shape[0]/2+100,
-                           image.shape[1]/2-100:image.shape[1]/2+100]
+    central_region = image[image.shape[0]//2-100:image.shape[0]//2+100,
+                           image.shape[1]//2-100:image.shape[1]//2+100]
     inside_bckgrd = np.nanmedian(central_region)
     inside_scatter = np.nanmedian(np.abs(central_region-inside_bckgrd))
 
@@ -592,10 +592,10 @@ def fit_to_big_circle(image,use_distance=False,fit_1d = True):
 
     if fit_1d:
         # 1D method
-        initial_guess_x = [image.shape[0]/2,289.9]
+        initial_guess_x = [image.shape[0]//2,289.9]
         result_x = optimize.minimize(agpm_centre_min_func_1d, initial_guess_x,
                                    args=(image.shape[0],npix_x),tol=1e-4,method=method)
-        initial_guess_y = [image.shape[1]/2,289.9]
+        initial_guess_y = [image.shape[1]//2,289.9]
         result_y = optimize.minimize(agpm_centre_min_func_1d, initial_guess_y,
                                    args=(image.shape[1],npix_y),tol=1e-4,method=method)
         xcen = result_x.x[0]
@@ -603,7 +603,7 @@ def fit_to_big_circle(image,use_distance=False,fit_1d = True):
         agpm_rad = (result_x.x[1]+result_y.x[1])/2
     else:
         # 2D method:
-        initial_guess = [image.shape[0]/2,image.shape[1]/2,290.5]
+        initial_guess = [image.shape[0]//2,image.shape[1]//2,290.5]
         # Try fitting
         result = optimize.minimize(agpm_centre_min_func, initial_guess,
                                    args=(image.shape,npix_x,npix_y,use_distance),tol=1e-4,method=method)
