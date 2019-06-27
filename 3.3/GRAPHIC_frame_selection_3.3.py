@@ -106,8 +106,8 @@ def split_normal_rejection(values,nsigma,valid_frames):
     nframes = np.isfinite(values).sum()
         
     # Now calculate the MAD on each side
-    stdev_side1 = mad_to_stdev*np.nanmedian(np.abs(sorted_values[0:nframes/2]-median))
-    stdev_side2 = mad_to_stdev*np.nanmedian(np.abs(sorted_values[nframes/2:]-median))
+    stdev_side1 = mad_to_stdev*np.nanmedian(np.abs(sorted_values[0:nframes//2]-median))
+    stdev_side2 = mad_to_stdev*np.nanmedian(np.abs(sorted_values[nframes//2:]-median))
         
     valid_frames[values < (median-nsigma*stdev_side1)] = False
     valid_frames[values > (median+nsigma*stdev_side2)] = False
