@@ -23,7 +23,7 @@ def measure_flux(image,radius=3,centre='Default'):
     Position is measured from the centre of the image, in pixels'''
     
     if centre =='Default':
-        centre=[image.shape[0]/2,image.shape[1]/2]
+        centre=[image.shape[0]//2,image.shape[1]//2]
     
     # Pixel distance map
     xarr=np.arange(0,image.shape[0])-centre[0]
@@ -48,7 +48,7 @@ def aperture_photometry(image,radius=3,centre='Default',mean=False):
     Position is measured from the centre of the image, in pixels'''
     
     if centre =='Default':
-        centre=[image.shape[0]/2,image.shape[1]/2]
+        centre=[image.shape[0]//2,image.shape[1]//2]
     
     # Pixel distance map
     xarr=np.arange(0,image.shape[0])-centre[0]
@@ -88,7 +88,7 @@ def median_flux(image,radius=3,centre='Default'):
     Position is measured from the centre of the image, in pixels'''
     
     if centre =='Default':
-        centre=[image.shape[0]/2,image.shape[1]/2]
+        centre=[image.shape[0]//2,image.shape[1]//2]
     
     # Pixel distance map
     xarr=np.arange(0,image.shape[0])-centre[0]
@@ -122,7 +122,8 @@ def noise_vs_radius(image,n_radii,r_min,fwhm,r_max='Default',mad=True,
     pix_dist_map=np.sqrt(xx**2+yy**2)
     
     if r_max == 'Default':
-        r_max = npix/2.-fwhm/2.
+        r_max = int(npix/2.-fwhm/2.)
+    r_min = int(r_min)
 
     # Get the arrays ready
     detec_r=np.linspace(r_min,r_max,n_radii) # the mean radii of each annulus
@@ -395,10 +396,10 @@ def prepare_detection_image(filename,save_name=None,smooth_image_length=None,
         smoothed_image=np.zeros(image.shape)
         for x in range(image.shape[0]):
             for y in range(image.shape[1]):
-                xmn=np.max([0,x-median_filter_length/2])
-                xmx=np.min([image.shape[0]-1,x+median_filter_length/2])
-                ymn=np.max([0,y-median_filter_length/2])
-                ymx=np.min([image.shape[1]-1,y+median_filter_length/2])
+                xmn=np.max([0,x-median_filter_length//2])
+                xmx=np.min([image.shape[0]-1,x+median_filter_length//2])
+                ymn=np.max([0,y-median_filter_length//2])
+                ymx=np.min([image.shape[1]-1,y+median_filter_length//2])
                 smoothed_image[x,y]=bottleneck.nanmedian(image[xmn:xmx,ymn:ymx])
                 
         final_image=image-smoothed_image
@@ -409,10 +410,10 @@ def prepare_detection_image(filename,save_name=None,smooth_image_length=None,
     if convolve_with_circular_aperture:
         # Convolve the image with a circular aperture of rad=FWHM        
         circ_ap=np.zeros((npix,npix))
-        circ_ap[pix_dist_map<(convolve_with_circular_aperture/2)]=1
+        circ_ap[pix_dist_map<(convolve_with_circular_aperture//2)]=1
         convol_sz=np.int(np.ceil(convolve_with_circular_aperture)+3)
 
-        circ_ap=circ_ap[npix/2-convol_sz/2:npix/2+convol_sz/2,npix/2-convol_sz/2:npix/2+convol_sz/2]
+        circ_ap=circ_ap[npix//2-convol_sz//2:npix//2+convol_sz//2,npix//2-convol_sz//2:npix//2+convol_sz//2]
 #        plt.imshow(circ_ap)
 
         wherenan=np.isnan(image)
@@ -719,8 +720,8 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
 
     # Set up the psf in a padded array for when it is shifted
     pad_psf=np.zeros((psf.shape[0]+2*psf_pad,psf.shape[1]+2*psf_pad))
-    pad_psf[pad_psf.shape[0]/2-psf.shape[0]/2:pad_psf.shape[0]/2+psf.shape[0]/2,
-            pad_psf.shape[1]/2-psf.shape[1]/2:pad_psf.shape[1]/2+psf.shape[1]/2]=1*psf
+    pad_psf[pad_psf.shape[0]//2-psf.shape[0]//2:pad_psf.shape[0]//2+psf.shape[0]//2,
+            pad_psf.shape[1]//2-psf.shape[1]//2:pad_psf.shape[1]//2+psf.shape[1]//2]=1*psf
             
     # And make the cube a bit bigger so that if the psf is near the edge
     # we dont have to worry about any index problems
@@ -754,8 +755,8 @@ def inject_companions(cube,psf,parangs_rad,radii,fluxes,azimuth_offset=0.,psf_pa
             shifted_psf=fft_shift(pad_psf,pos_x % 1,pos_y % 1)
             
             # Now add in the flux-scaled psf to the frame
-            x_ix_min=pos_x_int-pad_psf.shape[0]/2+frame.shape[0]/2
-            y_ix_min=pos_y_int-pad_psf.shape[1]/2+frame.shape[1]/2
+            x_ix_min=pos_x_int-pad_psf.shape[0]//2+frame.shape[0]//2
+            y_ix_min=pos_y_int-pad_psf.shape[1]//2+frame.shape[1]//2
             if (x_ix_min < 0) or (y_ix_min <0):
                 print('Injected psf frame too close to edge!')
             elif ((x_ix_min+pad_psf.shape[0]) > frame.shape[0]) or ((y_ix_min+pad_psf.shape[1]) > frame.shape[1]):
@@ -799,8 +800,8 @@ def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad
         
     # Set up the psf in a padded array for when it is shifted
     pad_psf=np.zeros((psf.shape[0]+2*psf_pad,psf.shape[1]+2*psf_pad))
-    pad_psf[pad_psf.shape[0]/2-psf.shape[0]/2:pad_psf.shape[0]/2+psf.shape[0]/2,
-            pad_psf.shape[1]/2-psf.shape[1]/2:pad_psf.shape[1]/2+psf.shape[1]/2]=1*psf
+    pad_psf[pad_psf.shape[0]//2-psf.shape[0]//2:pad_psf.shape[0]//2+psf.shape[0]//2,
+            pad_psf.shape[1]//2-psf.shape[1]//2:pad_psf.shape[1]//2+psf.shape[1]//2]=1*psf
     
     print('Fitting to the flux for each psf')
     measured_throughputs=np.zeros((len(radii)))
@@ -828,8 +829,8 @@ def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad
         # And produce the expected psf array (scaled by the flux)
         region=adi_image[pos_x_int-cutout_radius:pos_x_int+cutout_radius,
                          pos_y_int-cutout_radius:pos_y_int+cutout_radius]
-        psf_region=flux*shifted_psf[psf_shape[0]/2-cutout_radius:psf_shape[0]/2+cutout_radius,
-                               psf_shape[1]/2-cutout_radius:psf_shape[1]/2+cutout_radius]
+        psf_region=flux*shifted_psf[psf_shape[0]//2-cutout_radius:psf_shape[0]//2+cutout_radius,
+                               psf_shape[1]//2-cutout_radius:psf_shape[1]//2+cutout_radius]
 
 
         # Define a function to fit to. We are directly fitting the throughput here,
