@@ -13,7 +13,6 @@ If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
 import numpy as np
-import glob
 import os
 import sys
 import shutil
@@ -33,6 +32,16 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--pattern', action="store", dest="pattern",
                     default="cl_nomed_SPHER*STAR_CENTER",
                     help='cubes to apply the star centering.')
+parser.add_argument('--info_pattern', action="store", dest="info_pattern",
+                    default='all*', help='Info filename pattern')
+parser.add_argument('--info_dir', action="store", dest="info_dir",
+                    default='cube-info', help='Info directory')
+parser.add_argument('-sphere', dest='sphere', action='store_const',
+                    const=True, default=False,
+                    help='Switch for VLT/SPHERE data')
+parser.add_argument('-scexao', dest='scexao', action='store_const',
+                    const=True, default=False,
+                    help='Switch for Subaru/SCExAO data')
 parser.add_argument('--output_dir', action="store", dest="output_dir",
                     default="./",
                     help='output directory for the cube and parallactic angle \
@@ -52,25 +61,24 @@ parser.add_argument('-collapse_cube', action='store_const',
 
 args = parser.parse_args()
 pattern = args.pattern
+info_pattern = args.info_pattern
+info_dir = args.info_dir
 output_dir = args.output_dir
 output_file = args.output_file
 skip_parang = args.skip_parang
 collapse_cube = args.collapse_cube
 
 
-# Initialising tiemr
+# Initialising timer
 t0 = time.time()
 
 print("Beginning of convert")
 
-## Get the list of files
-#dirlist = glob.glob(pattern + "*")
-#dirlist.sort()
-#for i, allfiles in enumerate(dirlist):
-#    print('  '+allfiles)
+#print('  ' + allfiles)
 
 dirlist = graphic_nompi_lib.create_dirlist(pattern)
 if dirlist is None:
+    print('Leaving without processing.')
     sys.exit(1)
 
 # Check that the output directory exists, and make it if needed
@@ -80,8 +88,15 @@ dir_exists = os.access(output_dir, os.F_OK)
 if not dir_exists:
     os.mkdir(output_dir)
 
+infolist = graphic_nompi_lib.create_dirlist(info_dir+os.sep+info_pattern,
+                                            extension='.rdb')
+
+cube_list, dirlist, pd_cubelist = graphic_nompi_lib.create_megatable(
+        dirlist, infolist, skipped=None, keys=graphic_nompi_lib.header_keys(),
+        nici=False, sphere=args.sphere, scexao=args.scexao, fit=False,
+        nonan=True, interactive=False, return_pandas=True)
+
 # Loop through the files and combine them into a single cube
-parallactic_angle_vec = []
 for ix, allfiles in enumerate(dirlist):
     if ix == 0:
         master_cube, hdr = pyfits.getdata(allfiles, header=True)
@@ -89,15 +104,20 @@ for ix, allfiles in enumerate(dirlist):
         cube_temp = pyfits.getdata(allfiles)
         master_cube = np.append(master_cube, cube_temp, axis=0)
 
-    # Read in the cube info file to get the parallactic angles
-    with open(glob.glob("cube-info/*"+allfiles.replace(".fits", ".rdb"))[0], 'r') as f:
-        lines = f.readlines()
+# part below rewritten using infolist and pandas
+##############################################################################
+#    # Read in the cube info file to get the parallactic angles
+#    with open(glob.glob("cube-info/*"+allfiles.replace(".fits", ".rdb"))[0], 'r') as f:
+#        lines = f.readlines()
+#
+#    for line in lines:
+#        parallactic_angle = line.strip().split()[11]
+#        if ((not "paralactic_angle" in parallactic_angle) and (not "---" in parallactic_angle)):
+#            parallactic_angle_vec = np.append(parallactic_angle_vec,
+#                                              parallactic_angle)
 
-    for line in lines:
-        parallactic_angle = line.strip().split()[11]
-        if ((not "paralactic_angle" in parallactic_angle) and (not "---" in parallactic_angle)):
-            parallactic_angle_vec = np.append(parallactic_angle_vec,
-                                              parallactic_angle)
+##########################################################################
+
 
 if collapse_cube:
     master_cube = np.nanmean(master_cube, axis=0)
@@ -113,11 +133,14 @@ else:
 
 # Write an output file with the parallactic angles
 if not skip_parang:
-    with open(output_dir+"parallactic_angle.txt", 'w') as f2:
-        for i, parallactic_angle in enumerate(parallactic_angle_vec):
-            f2.write(parallactic_angle + "\n")
+    pd_cubelist.paralactic_angle.to_csv(output_dir + 'parallactic_angle.txt',
+                                        header=False, index=False)
+#    with open(output_dir+"parallactic_angle.txt", 'w') as f2:
+#        for i, parallactic_angle in enumerate(parallactic_angle_vec):
+#            f2.write(parallactic_angle + "\n")
 
-sys.stdout.write("Total time: " + graphic_nompi_lib.humanize_time((time.time()-t0)))
+sys.stdout.write("Total time: " + graphic_nompi_lib.humanize_time(
+        (time.time()-t0)))
 sys.stdout.write("\n")
 sys.stdout.write("end of convert\n")
 sys.stdout.flush()

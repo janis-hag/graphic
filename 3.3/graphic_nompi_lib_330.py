@@ -122,107 +122,117 @@ def create_dirlist(pattern, target_dir='.', extension='.fits', target_pattern=No
     else:
         return dirlist
 
-def create_megatable(dirlist,infolist,skipped=None,keys=None, nici=False, sphere=False, scexao=False, fit=True, nonan=True, interactive=False):
+
+def create_megatable(dirlist, infolist, skipped=None, keys=None, nici=False,
+                     sphere=False, scexao=False, fit=True, nonan=True,
+                     interactive=False, return_pandas=False):
     """
-    Read all the all_info tables an create a mega-table adding a column with filename
-    for filename in dirlist search coresponding all_info table
+    Read all the all_info tables an create a mega-table adding a column with
+    filename for filename in dirlist search coresponding all_info table
     add filename column
     stack the tables
     """
-    import fnmatch, os, sys #, string
-    ## import tables
+    import fnmatch
+    import os
+    import sys
+    import pandas
 
-    if skipped==None:
-        skip=0
+    if skipped is None:
+        skip = 0
     else:
-        skip=skipped
+        skip = skipped
 
-    key=['cube_filename','info']
+    key = ['cube_filename', 'info']
     cube_list = {}
-    for i in range(len(key)): cube_list[key[i]] = []
+    pd_all_info = None
+
+    for i in range(len(key)):
+        cube_list[key[i]] = []
 
     for i in range(len(dirlist)):
         if nici:
-            info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-19:-5]+'*')
+            info_filename = fnmatch.filter(
+                    infolist, '*'+dirlist[i][-19:-5]+'*')
         elif sphere:
-            info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-40:-5]+'*')
-            #print('info_filename',info_filename)
+            info_filename = fnmatch.filter(
+                    infolist, '*'+dirlist[i][-40:-5]+'*')
         elif scexao:
-            ## info_filename = fnmatch.filter(infolist,'*'+string.split(dirlist[i],'_')[-1][:-5]+'*')
-            info_filename = fnmatch.filter(infolist,'*'+dirlist[i].split('_')[-1][:-5]+'*')
+            info_filename = fnmatch.filter(
+                    infolist, '*'+dirlist[i].split('_')[-1][:-5]+'*')
         elif sphere:
-            ## info_filename = fnmatch.filter(infolist,'*'+'SPHER'+string.split(dirlist[i],'SPHER')[-1][:-5]+'*')
-            info_filename = fnmatch.filter(infolist,'*'+'SPHER'+dirlist[i].split('SPHER')[-1][:-5]+'*')
-        else: #ESO format
-            info_filename = fnmatch.filter(infolist,'*'+dirlist[i][-28:-5]+'*')
+            info_filename = fnmatch.filter(infolist, '*'+'SPHER'
+                                           + dirlist[i].split('SPHER')[-1][:-5]
+                                           + '*')
+        else:  # ESO format
+            info_filename = fnmatch.filter(
+                    infolist, '*'+dirlist[i][-28:-5]+'*')
 
-
-        if len(info_filename)==0:
+        if len(info_filename) == 0:
             if nici:
                 print("\n No centroids list found for "+dirlist[i][-19:-5])
             elif sphere:
                 print("\n No centroids list found for "+dirlist[i][-40:-11])
             elif scexao:
-                ## print("\n No centroids list found for "+string.split(dirlist[i],'_')[-1][:-5])
-                print("\n No centroids list found for "+dirlist[i].split('_')[-1][:-5])
+                print("\n No centroids list found for "
+                      + dirlist[i].split('_')[-1][:-5])
             else:
-                print("\n No centroids list found for "+dirlist[i][-28:-5])
-            skip=skip+1
-            dirlist[i]=None
+                print("\n No centroids list found for " + dirlist[i][-28:-5])
+            skip = skip + 1
+            dirlist[i] = None
             continue
-        elif not len(info_filename)==1:
-            ## print("")
-            print("\n More than one centroids list found for "+dirlist[i])
-            print("Using first occurence: "+info_filename[0])
-        if not os.access(info_filename[0], os.F_OK | os.R_OK): # Check if file exists
+        elif not len(info_filename) == 1:
+            print("\n More than one centroids list found for " + dirlist[i])
+            print("Using first occurence: " + info_filename[0])
+        if not os.access(info_filename[0], os.F_OK | os.R_OK):
+            # Check if file exists
             print('\n Error, cannot access: '+info_filename[0])
-            ## sys.stdout(str(rank)+'\n Error, cannot access: '+centroname[0])
-            ## sys.stdout.flush()
-            skip=skip+1
-            dirlist[i]=None
+            skip = skip + 1
+            dirlist[i] = None
             continue
 
-        iprint(interactive,"\r\r\r Reading info files "+str(i+1)+"/"+str(len(dirlist)))
-        ## sys.stdout.flush()
+        iprint(interactive, "\r\r\r Reading info files "
+               + str(i + 1) + "/"+str(len(dirlist)))
         # Read centroids list
-        ## if info_filename[0][-3:]=='rdb':
-        rdb_info=read_rdb(info_filename[0])
+        rdb_info = read_rdb(info_filename[0])
         if fit:
-            rdb_info['psf_barycentre_x']=rdb_info['psf_fit_centre_x']
-            rdb_info['psf_barycentre_y']=rdb_info['psf_fit_centre_y']
+            rdb_info['psf_barycentre_x'] = rdb_info['psf_fit_centre_x']
+            rdb_info['psf_barycentre_y'] = rdb_info['psf_fit_centre_y']
         else:
-            rdb_info['psf_fit_centre_x']=rdb_info['psf_barycentre_x']
-            rdb_info['psf_fit_centre_y']=rdb_info['psf_barycentre_y']
-        all_info=np.array(rdb_info['frame_number'])
+            rdb_info['psf_fit_centre_x'] = rdb_info['psf_barycentre_x']
+            rdb_info['psf_fit_centre_y'] = rdb_info['psf_barycentre_y']
+        all_info = np.array(rdb_info['frame_number'])
         for k in keys[1:]:
-            all_info=np.vstack((all_info,np.array(rdb_info[k])))
-        all_info=np.swapaxes(all_info,0,1)
+            all_info = np.vstack((all_info, np.array(rdb_info[k])))
+        all_info = np.swapaxes(all_info, 0, 1)
 
-        ## else:
-            ## f=tables.openFile(info_filename[0])
-            ## all_info=f.root.centroids.read()
-            ## f.close()
+        pd_info = pandas.DataFrame(rdb_info)
+        pd_info['cube_filename'] = dirlist[i]
 
-        ## if len(all_info)==0 and not np.all(all_info[:,1]==1) and not np.all(np.isnan(all_info[:,1])): # Check if there is any valid data
-        if len(all_info)==0 or np.all(all_info[:,1]==1) or np.all(np.isnan(all_info[:,1])): # Check if there is any valid data
-            dirlist[i]=None
+        if pd_all_info is None:
+            pd_all_info = pd_info.copy()
         else:
-            ## print(len(all_info))
+            pd_all_info = pd_all_info.append(pd_info)
+
+        if len(all_info) == 0 or np.all(all_info[:, 1] == 1) or np.all(
+                np.isnan(all_info[:, 1])):  # Check if there is any valid data
+            dirlist[i] = None
+        else:
             cube_list['cube_filename'].append(dirlist[i])
             if nonan:
-                all_info=np.where(np.isnan(all_info),-1,all_info)
+                all_info = np.where(np.isnan(all_info), -1, all_info)
             cube_list['info'].append(all_info)
 
-    dirlist_clean=[]
-    for i in range(len(dirlist)):
-        if not dirlist[i]==None:
-            dirlist_clean.append(dirlist[i])
-    ## dirlist=dirlist_clean
+    dirlist_clean = []
 
-    sys.stdout.write("\n")
-    sys.stdout.flush()
-    if skipped==None:
+    for i in range(len(dirlist)):
+        if not dirlist[i] is None:
+            dirlist_clean.append(dirlist[i])
+
+    print('Kept ' + str(len(dirlist_clean)) + ' files for processing.')
+    if skipped is None and not return_pandas:
         return cube_list, dirlist_clean
+    elif skipped is None and return_pandas:
+        return cube_list, dirlist_clean, pd_all_info
     else:
         return cube_list, dirlist_clean, skip
 
@@ -591,10 +601,10 @@ def ct2lst(lng, jd):
     jd2000 = 2451545.0
     t0 = jd - jd2000
     t = t0/36525.
-    
+
     # Compute GST in seconds.
     theta = c[0] + (c[1] * t0) + t**2*(c[2] - t/ c[3] )
-    
+
     # Compute LST in hours.
     lst = ( theta + lng)/15.0
     neg = np.where(lst < 0.0)
@@ -680,7 +690,7 @@ def create_parang_list_sphere(hdr):
 
     # Output for debugging
     hour_angles = []
-    
+
     if ('ESO DET SEQ UTC' in hdr.keys()) and ('ESO TEL GEOLON' in hdr.keys()):
         # The SPHERE DC method
         jd_start = Time(hdr['ESO DET SEQ UTC']).jd
@@ -733,7 +743,7 @@ def create_parang_list_sphere(hdr):
         # The parang start and parang end refer to the start and end of the sequence, not in the middle of the first and last frame.
         # So we need to correct for that
         expected_delta_parang = (hdr['HIERARCH ESO TEL PARANG END']-hdr['HIERARCH ESO TEL PARANG START']) * (n_frames-1)/n_frames
-        delta_parang = (parang_array[-1,2]-parang_array[0,2]) 
+        delta_parang = (parang_array[-1,2]-parang_array[0,2])
         if np.abs(expected_delta_parang - delta_parang) > 1.:
             print("WARNING! Calculated parallactic angle change is >1degree more than expected!")
 
@@ -1291,6 +1301,16 @@ def get_saturation(header):
         ## y_shift=yc/mass
 ##
     ## return x_shift, y_shift
+
+def header_keys():
+    """
+    Returns the default '.rdb' header keys
+    """
+    hk = ['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
+          'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
+          'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
+          'frame_num', 'frame_time', 'paralactic_angle']
+    return hk
 
 def dms2d(hms, sep):
     """
@@ -2757,8 +2777,10 @@ def write_array2rdb(filename,data,keys,s=''):
     head1 = '\t'.join(keys)
     head2 = ''
     for i in head1:
-        if i=='\t': head2 = head2+'\t'
-        else: head2 = head2+'-'
+        if i == '\t':
+            head2 = head2+'\t'
+        else:
+            head2 = head2+'-'
 
     f.write(head1+'\n')
     f.write(head2+'\n')
@@ -2768,7 +2790,8 @@ def write_array2rdb(filename,data,keys,s=''):
         if len(data.shape)==2:
             for i in range(data.shape[0]):
                 line = []
-                for j in range(len(keys)): line.append(data[i][j])
+                for j in range(len(keys)):
+                    line.append(data[i][j])
                 f.write(s % tuple(line))
     ## except:
         ## print("Error, expected 2d array to write rdb file.")
@@ -2794,8 +2817,10 @@ def write_rdb(filename, data, keys, s=''):
     head1 = '\t'.join(keys)
     head2 = ''
     for i in head1:
-        if i=='\t': head2 = head2+'\t'
-        else: head2 = head2+'-'
+        if i == '\t':
+            head2 = head2+'\t'
+        else:
+            head2 = head2+'-'
 
     f.write(head1+'\n')
     f.write(head2+'\n')
