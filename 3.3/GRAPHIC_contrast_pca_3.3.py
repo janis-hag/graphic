@@ -116,7 +116,7 @@ threads = args.threads
 cutout_radius = args.cutout_radius
 psf_pad = args.psf_pad
 n_sigma_inject = args.n_sigma_inject
-smooth_image_length =  args.smooth_image_length
+smooth_image_length = args.smooth_image_length
 plate_scale = args.plate_scale
 median_filter_length = args.median_filter_length
 n_radii = args.n_radii
@@ -216,7 +216,6 @@ for ix in range(n_throughput):
     pca.derotate_and_combine_multi(output_dir+fp_pca_name, parang_file,
                                    threads=threads, save_name=fp_derot_name,
                                    median_combine=True, output_dir=output_dir)
-
 
     # Now fit to the fluxes of the injected companions
     fp_derot_image, fp_derot_hdr = pf.getdata(
