@@ -373,7 +373,7 @@ if rank == 0:
 
 
                 # Take the mean along the "waffles" axis to have mean_x, mean_y
-                star_centre = centre_spot.mean(axis=0)
+                star_centre_position = centre_spot.mean(axis=0)
 
                 for s in range(4):
                     print("Spot ", str(s), " centre (x,y): (",
@@ -390,10 +390,10 @@ if rank == 0:
                 # !!!File is open for writing during the whole spot search
                 # creating and filling the asci file with the star position
                 with open('star_center.txt','a') as f:
-                    f.write(channel_name+'\t' + str(round(star_centre[0], 3))
-                    + '\t'+str(round(star_centre[1], 3)) + '\n')
+                    f.write(channel_name+'\t' + str(round(star_centre_position[0], 3))
+                    + '\t'+str(round(star_centre_position[1], 3)) + '\n')
 
-                print('Star centre: ', channel_name, star_centre)
+                print('Star centre: ', channel_name, star_centre_position)
 
     # t0 = MPI.Wtime()
     t0 = time.time()

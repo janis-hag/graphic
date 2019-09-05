@@ -11,9 +11,11 @@ import bottleneck
 import scipy
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
 
 from graphic_nompi_lib_330 import fft_shift
 from scipy import signal, stats, interpolate
+import graphic_nompi_lib_330 as graphic_nompi_lib
 
 ###############
 
@@ -710,7 +712,7 @@ def inject_companions(cube_in, psf,parangs_rad, radii, fluxes,
         # cube,hdr=pyfits.getdata(cube,header=True)
         hdul = pyfits.open(cube_in)
         hdr = hdul[0].header
-        cube = hdul[1].data
+        cube = hdul[0].data
     else:
         cube = cube_in
         if hdr is None:
@@ -771,8 +773,8 @@ def inject_companions(cube_in, psf,parangs_rad, radii, fluxes,
             # Work out the relative companion positions in pixels
             pos_x = sep*np.cos(theta + parangs_rad[frame_ix])
             pos_y = sep*np.sin(theta + parangs_rad[frame_ix])
-            pos_x_int = np.int(np.floor(pos_x)) # this will round down
-            pos_y_int = np.int(np.floor(pos_y)) # this will round down
+            pos_x_int = np.int(np.floor(pos_x)) #  this will round down
+            pos_y_int = np.int(np.floor(pos_y)) #  this will round down
 
             # We can shift the psf by an integer number of pixels by hand, so
             # shift it by (pos_x mod 1, pos_y mod 1) first
@@ -795,7 +797,8 @@ def inject_companions(cube_in, psf,parangs_rad, radii, fluxes,
     if save_name:
         hdr['HIERARCH GC INJECT AZOFFSET'] = azimuth_offset
         if isinstance(cube_in, str):
-            hdul.writeto(save_name)
+            graphic_nompi_lib.save_fits(cube_in, hdul)
+            #hdul.writeto(save_name)
         else:
             pyfits.writeto(save_name, cube, overwrite=True, header=hdr,
                            output_verify='silentfix')
