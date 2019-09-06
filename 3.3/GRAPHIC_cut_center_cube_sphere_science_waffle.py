@@ -40,7 +40,8 @@ parser.add_argument('-science_waffle', dest='science_waffle',
 parser.add_argument('-ifs', dest='ifs', action='store_const', const=True,
                     default=False,
                     help='Switch for IFS data, which only need to be centered')
-parser.add_argument('--star_center_file', action="store", dest="star_center_file",
+parser.add_argument('--star_center_file', action="store",
+                    dest="star_center_file",
                     default='star_center.txt',
                     help='Name of the star center file')
 
@@ -217,7 +218,7 @@ def clean_ifs_cube(cube, hdr, square_length=220, lenslet_rotation=-10.7,
 
     if lowpass_filter:
         # cutting above the cut off frequency
-        print(" cutting above the cut off frequency")
+        print("Cutting above the cut off frequency")
         x = np.arange(-cube.shape[-2]/2, cube.shape[-1]/2)
         X, Y = np.meshgrid(x, x)
         R = np.sqrt(X**2+Y**2)
@@ -304,7 +305,8 @@ def cut_and_center_cub(file_name, science_waffle=False, ifs=False):
             # format of the star_center.txt file for IFS waffle data and
             # this wasn't clearly defined at the time ACC added IFS support
             raise Exception(
-                    "Someone needs to fix the science_waffle mode for IFS in cut_center_cube")
+                    "Someone needs to fix the science_waffle mode for IFS in \
+                    cut_center_cube")
 
         next_cube = 0
         for i, line in enumerate(lines):
@@ -461,36 +463,24 @@ def cut_and_center_cub(file_name, science_waffle=False, ifs=False):
 
 if rank == 0:
     t0 = MPI.Wtime()
-    sys.stdout.write("beginning of cut and centering cubes:")
-    sys.stdout.write("\n")
-    sys.stdout.flush()
+    print("Beginning of cut and centering cubes:")
 
     length = 0
-    sys.stdout.write('files to cut and center:')
-    sys.stdout.write('\n')
+    print('Files to cut and center:')
     for allfiles in glob.iglob(pattern+'*'):
-        sys.stdout.write(allfiles)
-        sys.stdout.write('\n')
+        print(allfiles)
         length += 1
-    sys.stdout.flush()
 
     count = 1
     for allfiles in glob.iglob(pattern+'*'):
-        sys.stdout.write('\r Cube ' + str(count) + '/' + str(length)+"\n")
-        sys.stdout.flush()
+        print('\r Cube ' + str(count) + '/' + str(length)+"\n")
         if science_waffle:
             cut_and_center_cub(allfiles, science_waffle, ifs=ifs)
         else:
             cut_and_center_cub(allfiles, ifs=ifs)
         count += 1
 
-    sys.stdout.write("Total time: " +
-                     graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
-    sys.stdout.write("\n")
-    sys.stdout.write("Cut and center finished")
-    sys.stdout.write("\n")
-    sys.stdout.flush()
-    # os._exit(1)
-    sys.exit(0)
+    print("Total time: " + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
+    print("Cut and center finished")
 else:
     sys.exit(0)
