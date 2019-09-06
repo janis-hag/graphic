@@ -213,7 +213,7 @@ if rank == 0:
                     r_int = 45
                     r_ext = 80
                 else:
-                    print('Problem, no filter mode not detected!')
+                    print('Problem, filter mode not detected!')
 
                 # Set all pixels outside the donut to 0
                 x = np.arange(-window/2., window/2.)
@@ -389,9 +389,10 @@ if rank == 0:
 
                 # !!!File is open for writing during the whole spot search
                 # creating and filling the asci file with the star position
-                with open('star_center.txt','a') as f:
-                    f.write(channel_name+'\t' + str(round(star_centre_position[0], 3))
-                    + '\t'+str(round(star_centre_position[1], 3)) + '\n')
+                with open('star_center.txt', 'a') as f:
+                    f.write(channel_name+'\t' +
+                            str(round(star_centre_position[0], 3)) + '\t' +
+                            str(round(star_centre_position[1], 3)) + '\n')
 
                 print('Star centre: ', channel_name, star_centre_position)
 
@@ -405,14 +406,16 @@ if rank == 0:
     f.close()
 
     if science_waffle:
-        print("Science waffle frames: finding the centre for each frame in the cubes")
+        print("Science waffle frames: finding the centre for each frame in\
+              the cubes")
         allfiles = graphic_nompi_lib.create_dirlist(pattern)
         for this_file in allfiles:
             with open('star_center.txt', 'a') as f:
                 f.write(this_file+' \n')
 
             star_centre(this_file, science_waffle=True, ifs=args.ifs,
-                        lowpass_r=lowpass_r,manual_rough_centre=manual_rough_centre)
+                        lowpass_r=lowpass_r,
+                        manual_rough_centre=manual_rough_centre)
     else:
         star_centre(pattern+'*', ifs=args.ifs, lowpass_r=lowpass_r,
                     manual_rough_centre=manual_rough_centre)
