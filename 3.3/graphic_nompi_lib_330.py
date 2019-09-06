@@ -2398,11 +2398,11 @@ def rebin(a, new_shape):
 
 
 def save_fits(filename, img, **keywords):
-    ## def save_fits(filename, img, hdr=None, backup_dir='prev', target_dir='.',backend='astropy'):
     """
     Saves the cube and its header.
 
-    Saves the cube and its header. If the file already exists a backup is copied in the backup directory.
+    Saves the cube and its header. If the file already exists a backup is
+    copied in the backup directory.
     Input:
     -filename: the filename to save to
     -img: the image array
@@ -2410,28 +2410,28 @@ def save_fits(filename, img, **keywords):
     """
 
     if 'hdr' in keywords.keys():
-        hdr=keywords['hdr']
+        hdr = keywords['hdr']
     elif 'header' in keywords.keys():
-        hdr=keywords['header']
+        hdr = keywords['header']
     else:
-        hdr=None
+        hdr = None
 
     if 'backup_dir' in keywords.keys():
-        backup_dir=keywords['backup_dir']
+        backup_dir = keywords['backup_dir']
     else:
-        backup_dir='prev'
+        backup_dir = 'prev'
 
     if 'target_dir' in keywords.keys():
-        target_dir=keywords['target_dir']
+        target_dir = keywords['target_dir']
     else:
-        target_dir='.'
+        target_dir = '.'
 
-    if not 'verify' in keywords.keys():
-        verify='silentfix'
+    if 'verify' not in keywords.keys():
+        verify = 'silentfix'
     elif keywords['verify']=='fix' or  keywords['verify']=='silentfix' or  keywords['verify']=='ignore' or  keywords['verify']=='warn' or keywords['verify']=='exception':
-        verify=keywords['verify']
+        verify = keywords['verify']
     else:
-        verify='silentfix'
+        verify = 'silentfix'
 
     for k in keywords.keys():
         if k not in ['hdr','header','backup_dir','target_dir','verify', 'backend']:
