@@ -143,9 +143,7 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
         data_in = comm.recv(source=n+1)
         if data_in is None:
             continue
-        sys.stdout.write('\r\r\r Recentreed data from '+str(n+1)+' received                                        = >')
-        sys.stdout.flush()
-
+        print('Recentred data from '+str(n+1)+' received                 = >')
         if cube is None:
             cube = data_in
         else:
@@ -164,8 +162,9 @@ if rank == 0:
     infolist = glob.glob(info_dir+os.sep+'*'+info_pattern+'*.rdb')
     infolist.sort()  # Sort the list alphabetically
 
-
-    cube_list,dirlist = graphic_nompi_lib.create_megatable(dirlist,infolist,keys = header_keys,nici = nici,fit = fit,sphere=sphere)
+    cube_list, dirlist = graphic_nompi_lib.create_megatable(
+            dirlist, infolist, keys=header_keys, nici=nici, fit=fit,
+            sphere=sphere)
 
     skipped = 0
 
@@ -369,7 +368,7 @@ if rank == 0:
 
             # Mean the frames if requested
             if args.combine_frames:
-                new_cube = np.nanmean(new_cube,axis = 0)
+                new_cube = np.nanmean(new_cube, axis = 0)
             else:
                 # Remove the bad frames that contain only NaNs
                 bad_frames = (np.sum(np.isfinite(new_cube),
@@ -379,18 +378,19 @@ if rank == 0:
                 hdr['HIERARCH GC NAN_FRAMES_REMOVED'] = (np.sum(bad_frames),
                    "NaN-only frames removed during recentring")
 
-
             graphic_nompi_lib.save_fits(psf_sub_filename, new_cube,
                                         target_dir=target_dir, hdr=hdr,
                                         backend='pyfits')
-            graphic_nompi_lib.write_array2rdb(info_dir + os.sep + info_filename,
-                                              new_info, header_keys)
+            graphic_nompi_lib.write_array2rdb(
+                    info_dir + os.sep + info_filename, new_info, header_keys)
 
-        sys.stdout.write("\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n"
+        print("\n Saved: {name} .\n Processed in {human_time} at {rate:.2f} MB/s \n"
                          .format(name = psf_sub_filename, human_time = graphic_nompi_lib.humanize_time(MPI.Wtime()-t0_cube) ,
                                  rate = os.path.getsize(psf_sub_filename)/(1048576*(MPI.Wtime()-t0_cube))))
-        sys.stdout.write("Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t_init)*(len(cube_list['cube_filename'])-c)/(c-skipped+1))+"\n")
-        sys.stdout.flush()
+        print("Remaining time: "
+              + graphic_nompi_lib.humanize_time(
+                      (MPI.Wtime()-t_init)*(len(cube_list['cube_filename'])-c)
+                      /(c-skipped + 1))+"\n")
 
         del cube
 
