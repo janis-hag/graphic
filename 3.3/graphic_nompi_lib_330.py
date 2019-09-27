@@ -2330,13 +2330,12 @@ def read_rdb(file, h=0, comment=None):
     return data_list
 
 
-def read_rdb_rows(filename,refcol):
+def read_rdb_rows(filename, refcol):
 
     f = open(filename, 'r')
     data = f.readlines()
     f.close()
 
-    ## key = string.split(data[0][:-1],'\t')
     key = data[0][:-1].split('\t')
     iref = key.index(refcol)
     output = {}
@@ -2344,10 +2343,12 @@ def read_rdb_rows(filename,refcol):
     for line in data[2:]:
         qq1 = line[:-1].split('\t')
         qq2 = {}
-        for i in range(len(key)): qq2[key[i]] = qq1[i]
+        for i in range(len(key)):
+            qq2[key[i]] = qq1[i]
         output[qq1[iref]] = qq2
 
     return output
+
 
 def rebin(a, new_shape):
     """
@@ -2391,8 +2392,8 @@ def rebin(a, new_shape):
 
     M, N = a.shape
     m, n = new_shape
-    if m<M:
-        return a.reshape((m,M/m,n,N/n)).mean(3).mean(1)
+    if m < M:
+        return a.reshape((m, M/m, n, N/n)).mean(3).mean(1)
     else:
         return np.repeat(np.repeat(a, m/M, axis=0), n/N, axis=1)
 
@@ -2428,37 +2429,44 @@ def save_fits(filename, img, **keywords):
 
     if 'verify' not in keywords.keys():
         verify = 'silentfix'
-    elif keywords['verify']=='fix' or  keywords['verify']=='silentfix' or  keywords['verify']=='ignore' or  keywords['verify']=='warn' or keywords['verify']=='exception':
+    elif (keywords['verify'] == 'fix' or keywords['verify'] == 'silentfix'
+          or keywords['verify'] == 'ignore' or keywords['verify'] == 'warn'
+          or keywords['verify'] == 'exception'):
         verify = keywords['verify']
     else:
         verify = 'silentfix'
 
     for k in keywords.keys():
-        if k not in ['hdr','header','backup_dir','target_dir','verify', 'backend']:
+        if k not in ['hdr', 'header', 'backup_dir', 'target_dir', 'verify',
+                     'backend']:
             print('graphic_lib_330.save_fits(), ignoring unknown keyword: '+k)
 
-    if not os.path.isdir(target_dir): # Check if target dir exists
-            os.mkdir(target_dir)
+    if not os.path.isdir(target_dir):  # Check if target dir exists
+        os.mkdir(target_dir)
 
-    if os.access(target_dir + os.sep +filename, os.F_OK ): # Check if file already exists
-        if backup_dir==None:
-            os.remove(target_dir + os.sep +filename)
-        elif not os.path.isdir(target_dir + os.sep + backup_dir): # Check if backup dir exists
+    if os.access(target_dir + os.sep + filename, os.F_OK):
+        # Check if file already exists
+        if backup_dir is None:
+            os.remove(target_dir + os.sep + filename)
+        elif not os.path.isdir(target_dir + os.sep + backup_dir):
+            # Check if backup dir exists
             os.mkdir(target_dir + os.sep + backup_dir)
-        shutil.move(target_dir + os.sep +filename,target_dir + os.sep +backup_dir +  os.sep +filename) # move old file into backup dir
+        shutil.move(target_dir + os.sep + filename, target_dir + os.sep
+                    + backup_dir + os.sep + filename.split(os.sep)[-1])
+        # move old file into backup dir
 
     # Save new file
-    if 'backend' in keywords.keys() and keywords['backend']=='pyfits':
-        ## import pyfits
+    if 'backend' in keywords.keys() and keywords['backend'] == 'pyfits':
         from astropy.io import fits as pyfits
 
-        if not hdr is None:
-            pyfits.writeto(target_dir + os.sep +filename, img, header=hdr, output_verify=verify)
+        if hdr is not None:
+            pyfits.writeto(target_dir + os.sep + filename, img, header=hdr,
+                           output_verify=verify)
         else:
-            pyfits.writeto(target_dir + os.sep +filename, img, output_verify=verify)
+            pyfits.writeto(target_dir + os.sep + filename, img,
+                           output_verify=verify)
     else:
-        ## img.verify(option='silentfix')
-        img.writeto(target_dir + os.sep +filename, output_verify = verify)
+        img.writeto(target_dir + os.sep + filename, output_verify=verify)
 
 
 def twoD_Gaussian(x, y, amplitude, xo, yo, sigma_x, sigma_y, theta):
