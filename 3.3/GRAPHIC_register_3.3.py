@@ -189,7 +189,16 @@ if rank==0:  # Master process
             ## filename='all_info_'+str(thres_coefficient)+"_"+str(min_size)+"_"+str(max_size)+"_"+dirlist[i][:-5]+'.hdf5'
         ## else:
         # filename='all_info_'+str(thres_coefficient)+"_"+str(min_size)+"_"+str(max_size)+"_"+dirlist[i][:-5]+'.rdb'
-        filename='all_info_'+str(psf_width)+"_"+dirlist[i][:-5]+'.rdb'
+        if nofit:
+            fitname = 'nofit'
+        else:
+            fitname = 'fit'
+        if no_psf:
+            psfname = 'nopsf'
+        else:
+            psfname = 'psf'
+
+        filename='all_info_'+str(psf_width)+"_"+psfname+'_'+fitname+'_'+dirlist[i][:-5]+'.rdb'
 
         if os.access(positions_dir + os.sep +filename, os.F_OK ):
             print("["+str(i+1)+"/"+str(len(dirlist))+"]: "+filename+" already exists. SKIPPING")
@@ -271,7 +280,7 @@ if rank==0:  # Master process
             parang_list=graphic_nompi_lib.create_parang_list_naco(cube_header)
         elif nirc2:
             # Creates a 2D array [frame_number, frame_time, paralactic_angle]
-            parang_list=graphic_nompi_lib.create_parang_list_nirc2(cube_header)    
+            parang_list=graphic_nompi_lib.create_parang_list_nirc2(cube_header)
         else:
             print('Unknown instrument. Please specify using a the available command switches.')
             comm.Abort()
@@ -296,7 +305,7 @@ if rank==0:  # Master process
 
                 mean_cube=mean_cube[mean_cube.shape[0]//2-search_region//2:mean_cube.shape[0]//2+search_region//2,
                                     mean_cube.shape[1]//2-search_region//2:mean_cube.shape[1]//2+search_region//2]
-            
+
                 if remove_striping:
                     for row in mean_cube:
                         row-=np.median(row)
@@ -491,7 +500,7 @@ else: # Slave processes
                     cen_frame=cen_frame[centre_est[0]-cutsz//2:centre_est[0]+cutsz//2,centre_est[1]-cutsz//2:centre_est[1]+cutsz//2]
                     # Run the agpm fit
                     fit=gaussfit.agpm_gaussfit(cen_frame)
-                    
+
 
                     # Now save the results [frame #, rough x cen, rough y cen, psf pixel size?, cen x, cen y, amplitude, x width, y width]
                     star_params=fit.parameters[0:6] # (amplitude, x0, y0, sigmax, sigmay, theta)
@@ -528,7 +537,7 @@ else: # Slave processes
                         fit_params=fit.parameters # (amplitude, x0, y0, sigmax, sigmay, theta)
                         # Convert to pixels in original image
                         centre_fit=fit_params[2:0:-1]+refpoint
-                        
+
                         # Save the params
                         cluster_array_ref=np.array([frame+startframe,centre_est[0],centre_est[1],0.,
                                     centre_fit[0],centre_fit[1],fit_params[0],
@@ -537,7 +546,7 @@ else: # Slave processes
                         # If we dont want to fit to the image, use the estimated centre and set most params to zero,
                         cluster_array_ref=np.array([frame+startframe,centre_est[0],centre_est[1],0.,
                                     centre_est[0],centre_est[1],frame.max(),0.,0.])
-        
+
                 # This is the end of the "if agpm_centre" statement
 
 
