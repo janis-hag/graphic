@@ -797,7 +797,7 @@ def inject_companions(cube_in, psf,parangs_rad, radii, fluxes,
     if save_name:
         hdr['HIERARCH GC INJECT AZOFFSET'] = azimuth_offset
         if isinstance(cube_in, str):
-            graphic_nompi_lib.save_fits(cube_in, hdul)
+            graphic_nompi_lib.save_fits(save_name, hdul)
             #hdul.writeto(save_name)
         else:
             pyfits.writeto(save_name, cube, overwrite=True, header=hdr,
