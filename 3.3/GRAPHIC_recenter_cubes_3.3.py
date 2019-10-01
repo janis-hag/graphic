@@ -206,11 +206,10 @@ if rank == 0:
             cube, hdr = pyfits.getdata(cube_list['cube_filename'][c+n],
                                        header=True)
 
-            p0 = float(cube_list['info'][c+n][1][11])
-
             input_cube_shape = cube.shape
 
             if l_max == 0:
+                p0 = float(cube_list['info'][c+n][1][11])
                 for i in range(len(cube_list['info'])):
                     if not cube_list['info'][i][
                             len(cube_list['info'][i])//2, 4] == -1:
@@ -243,7 +242,8 @@ if rank == 0:
             cube, t0_trans = read_recentre_cube(c+n, cube, cube_list, l_max)
 
             # Cut the cube down to the requested size
-            cube = cube[:, int(cube.shape[1]//2-l_max_in//2):
+            cube = cube[:, int(cube.shape[1]//2-
+                               //2):
                 int(cube.shape[1]//2+l_max_in//2),
                 int(cube.shape[2]//2-l_max_in//2):
                 int(cube.shape[2]//2+l_max_in//2)]
