@@ -242,8 +242,7 @@ if rank == 0:
             cube, t0_trans = read_recentre_cube(c+n, cube, cube_list, l_max)
 
             # Cut the cube down to the requested size
-            cube = cube[:, int(cube.shape[1]//2-
-                               //2):
+            cube = cube[:, int(cube.shape[1]//2-l_max_in//2):
                 int(cube.shape[1]//2+l_max_in//2),
                 int(cube.shape[2]//2-l_max_in//2):
                 int(cube.shape[2]//2+l_max_in//2)]
