@@ -132,28 +132,54 @@ target_dir = "."
 backup_dir = "prev"
 positions_dir = "cube-info"
 iterations = 1
-## args=6
-comments=None
+
+comments = None
 
 # sys.setrecursionlimit(recurs)
-t_init=MPI.Wtime()
+t_init = MPI.Wtime()
 
-# Set the system exception hook to this one, so that if an MPI process fails they all exit instead of freezing
+# Set the system exception hook to this one, so that if an MPI process fails
+# they all exit instead of freezing
+
 sys.excepthook = graphic_mpi_lib.global_except_hook
 
-print(rank, nprocs)
 
-if rank==0:  # Master process
+def fit_frame(centre_est, image, psf_width, saturated):
+    cut_size = 16
+    refpoint = centre_est-cut_size//2
+    cut_frame = image[refpoint[0]:refpoint[0] + cut_size,
+                      refpoint[1]:refpoint[1] + cut_size]
+    # Handle the case where the estimate is near the edges of the image
+    cut_frame = np.zeros((cut_size, cut_size)) + np.nan
+    miny_in = np.max([0, refpoint[0]])
+    maxy_in = np.min([image.shape[0], refpoint[0] + cut_size])
+    minx_in = np.max([0, refpoint[1]])
+    maxx_in = np.min([image.shape[1], refpoint[1] + cut_size])
+
+    miny_out = np.max([0, -refpoint[0]])
+    maxy_out = np.min([cut_size, image.shape[0] - (refpoint[0])])
+    minx_out = np.max([0, -refpoint[1]])
+    maxx_out = np.min([cut_size, image.shape[1]-(refpoint[1])])
+    cut_frame[miny_out:maxy_out, minx_out:maxx_out] = image[miny_in:maxy_in,
+             minx_in:maxx_in]
+
+    # Fit a Gaussian to it
+    fit = gaussfit.psf_gaussfit(cut_frame, width=psf_width,
+                                saturated=saturated)
+    fit_params = fit.parameters  # (amplitude, x0, y0, sigmax, sigmay, theta)
+    # Convert to pixels in original image
+    centre_fit = fit_params[2:0:-1] + refpoint
+
+    return centre_fit, fit_params
+
+
+if rank == 0:  # Master process
     graphic_nompi_lib.print_init()
     # try:
-    t0=MPI.Wtime()
-    skipped=0
+    t0 = MPI.Wtime()
+    skipped = 0
 
-    ## print(rank)
-
-    ## print(thres_coefficient)
-
-    dirlist=glob.glob(pattern+'*.fits')
+    dirlist = glob.glob(pattern+'*.fits')
     dirlist.sort() # Sort the list alphabetically
 
     if spherepipe:
@@ -220,23 +246,23 @@ if rank==0:  # Master process
             else: #Creating a header for the empty chuck cam headers
                 cube_header['OBS-MOD'] = hdr['OBS-MOD']
                 cube_header.comments['OBS-MOD'] = 'Observation mode'
-                cube_header['P_TRMODE']= hdr['P_TRMODE']
-                cube_header.comments['P_TRMODE']= 'Tracking mode of Lyot stop'
-                cube_header['DATA-TYP']= hdr['DATA-TYP']
-                cube_header.comments['DATA-TYP']= 'Type / Characteristics of this data'
-                cube_header['OBJECT']  = hdr['OBJECT']
-                cube_header.comments['OBJECT']  = 'Target Description'
-                cube_header['RADECSYS']= hdr['RADECSYS']
-                cube_header.comments['RADECSYS']= 'The equitorial coordinate system'
-                cube_header['RA']    =hdr['RA']
-                cube_header.comments['RA']    = 'HH:MM:SS.SSS RA pointing'
-                cube_header['DEC']     =hdr['DEC']
-                cube_header.comments['DEC']     = '+/-DD:MM:SS.SS DEC pointing'
-                cube_header['EQUINOX'] =  hdr['EQUINOX']
-                cube_header.comments['EQUINOX'] =  'Standard FK5 (years)'
-                cube_header['RA2000']  = hdr['RA2000']
-                cube_header.comments['RA2000']  = 'HH:MM:SS.SSS RA (J2000) pointing)'
-                cube_header['DEC2000']= hdr['DEC2000']
+                cube_header['P_TRMODE'] = hdr['P_TRMODE']
+                cube_header.comments['P_TRMODE'] = 'Tracking mode of Lyot stop'
+                cube_header['DATA-TYP'] = hdr['DATA-TYP']
+                cube_header.comments['DATA-TYP'] = 'Type / Characteristics of this data'
+                cube_header['OBJECT'] = hdr['OBJECT']
+                cube_header.comments['OBJECT'] = 'Target Description'
+                cube_header['RADECSYS'] = hdr['RADECSYS']
+                cube_header.comments['RADECSYS'] = 'The equitorial coordinate system'
+                cube_header['RA'] =hdr['RA']
+                cube_header.comments['RA'] = 'HH:MM:SS.SSS RA pointing'
+                cube_header['DEC'] = hdr['DEC']
+                cube_header.comments['DEC'] = '+/-DD:MM:SS.SS DEC pointing'
+                cube_header['EQUINOX'] = hdr['EQUINOX']
+                cube_header.comments['EQUINOX'] = 'Standard FK5 (years)'
+                cube_header['RA2000'] = hdr['RA2000']
+                cube_header.comments['RA2000'] = 'HH:MM:SS.SSS RA (J2000) pointing)'
+                cube_header['DEC2000'] = hdr['DEC2000']
 
                 graphic_nompi_lib.save_fits('h_'+dirlist[i], cube, hdr=cube_header, backend='pyfits', verify='warn')
 
@@ -321,26 +347,41 @@ if rank==0:  # Master process
                     for row in frame:
                         row-=np.median(row)
 
-            # Send the rough centre to the processes
-            comm.bcast(centre_est, root=0)
+            if cube.shape[0] == 1:
+                centre_fit, fit_params = fit_frame(
+                        centre_est, cube[0], psf_width, saturated)
+                cluster_array_ref = np.array(
+                        [0, centre_est[0],
+                         centre_est[1], 0., centre_fit[0],
+                         centre_fit[1], fit_params[0],
+                         fit_params[3], fit_params[4]])
 
-            # send_frames...
-            graphic_mpi_lib.send_frames(cube)
-            del cube
-            # Prepare the centroid array:
-            # [frame_number, psf_barycentre_x, psf_barycentre_y, psf_pixel_size, psf_fit_centre_x, psf_fit_centre_y, psf_fit_height, psf_fit_width_x, psf_fit_width_y]
-            cent_list=None
+                cent_list = [cluster_array_ref]
+                comm.bcast('over', root=0)
 
-            # Receive data back from slaves
-            for n in range(nprocs-1):
-                data_in=None
-                data_in=comm.recv(source = n+1)
-                if data_in is None:
-                    continue
-                elif cent_list  is None:
-                    cent_list=data_in.copy()
-                else:
-                    cent_list=np.vstack((cent_list,data_in))
+            else:
+                # Send the rough centre to the processes
+                comm.bcast(centre_est, root=0)
+
+                # send_frames...
+                graphic_mpi_lib.send_frames(cube)
+                del cube
+                # Prepare the centroid array:
+                # [frame_number, psf_barycentre_x, psf_barycentre_y,
+                # psf_pixel_size, psf_fit_centre_x, psf_fit_centre_y,
+                # psf_fit_height, psf_fit_width_x, psf_fit_width_y]
+                cent_list = None
+
+                # Receive data back from slaves
+                for n in range(nprocs-1):
+                    data_in=None
+                    data_in=comm.recv(source = n+1)
+                    if data_in is None:
+                        continue
+                    elif cent_list  is None:
+                        cent_list=data_in.copy()
+                    else:
+                        cent_list=np.vstack((cent_list,data_in))
 
 
         if not os.path.isdir(positions_dir): # Check if positions dir exists
@@ -358,7 +399,7 @@ if rank==0:  # Master process
         #Create the final list:
         # [frame_number, psf_barycentre_x, psf_barycentre_y, psf_pixel_size, psf_fit_centre_x, psf_fit_centre_y, psf_fit_height, psf_fit_width_x, psf_fit_width_y  ,  frame_number, frame_time, paralactic_angle]
 
-        cent_list=np.hstack((cent_list,parang_list))
+        cent_list = np.hstack((cent_list, parang_list))
 
         # Set last frame to invalid if it's the cube-median
         if ('ESO DET NDIT' in cube_header.keys()) and (not no_psf) and (cube_header['NAXIS3']!=cube_header['ESO DET NDIT']):
@@ -447,10 +488,14 @@ else: # Slave processes
     ## print(rank)
 
     # Receive the rough centre position
-    centre_est=comm.bcast(None, root=0)
+    centre_est = comm.bcast(None, root=0)
 
-    startframe=comm.recv(source = 0) # get number of first frame
-    data_in=comm.recv(source = 0)
+    startframe = comm.recv(source = 0) # get number of first frame
+    data_in = comm.recv(source = 0)
+    if data_in is None:
+        print('Rank '+str(rank)+': no data received for processing.')
+    else:
+        print('Rank '+str(rank)+': processing.')
     ## print('startframe, data_in'+str(startframe)+', '+str(data_in))
     cube_count=1
     centre=None
@@ -458,7 +503,7 @@ else: # Slave processes
     y0_i=0
 
     while not type(data_in)==type("over"):
-        if not data_in is None and isinstance(data_in, np.ndarray):
+        if data_in is not None and isinstance(data_in, np.ndarray):
 
             if agpm_centre:
                 # image=np.mean(data_in,axis=0)
@@ -469,8 +514,8 @@ else: # Slave processes
                 # centre_est=np.array([300,300])
 
                 if once_per_cube:
-                    cen_frame=np.mean(data_in,axis=0)
-                    cen_frame-bottleneck.nanmedian(cen_frame)
+                    cen_frame = np.mean(data_in,axis=0)
+                    #cen_frame - bottleneck.nanmedian(cen_frame)
                     cutsz=16
                     cen_frame=cen_frame[centre_est[0]-cutsz//2:centre_est[0]+cutsz//2,centre_est[1]-cutsz//2:centre_est[1]+cutsz//2]
                     # Run the agpm fit
@@ -511,50 +556,55 @@ else: # Slave processes
                     cluster_array_ref=np.array([frame+startframe,centre_est[0],centre_est[1],0., centre_fit[0],centre_fit[1],star_params[0],star_params[3],star_params[4]])
 
                 else:
-                    # Measure a rough centre position by smoothing the image and taking the peak (now done outside the loop)
+                    # Measure a rough centre position by smoothing the image
+                    # and taking the peak (now done outside the loop)
                     # centre_est=gaussfit.rough_centre(image,smooth_width=smooth_width)
 
                     if not nofit:
-                        # Now cut out a small region of the image to make the fitting more reliable and fast
-                        cut_size=16
-                        refpoint=centre_est-cut_size//2
-                        cut_frame=image[refpoint[0]:refpoint[0]+cut_size,refpoint[1]:refpoint[1]+cut_size]
-                        # Handle the case where the estimate is near the edges of the image
-                        cut_frame = np.zeros((cut_size,cut_size))+np.nan
-                        miny_in = np.max([0,refpoint[0]])
-                        maxy_in = np.min([image.shape[0],refpoint[0]+cut_size])
-                        minx_in = np.max([0,refpoint[1]])
-                        maxx_in = np.min([image.shape[1],refpoint[1]+cut_size])
-
-                        miny_out = np.max([0,-refpoint[0]])
-                        maxy_out = np.min([cut_size,image.shape[0]-(refpoint[0])])
-                        minx_out = np.max([0,-refpoint[1]])
-                        maxx_out = np.min([cut_size,image.shape[1]-(refpoint[1])])
-                        cut_frame[miny_out:maxy_out,minx_out:maxx_out] = image[miny_in:maxy_in,minx_in:maxx_in]
-
-                        #Fit a Gaussian to it
-                        fit=gaussfit.psf_gaussfit(cut_frame,width=psf_width,saturated=saturated)
-                        fit_params=fit.parameters # (amplitude, x0, y0, sigmax, sigmay, theta)
-                        # Convert to pixels in original image
-                        centre_fit=fit_params[2:0:-1]+refpoint
-
+#                        # Now cut out a small region of the image to make the fitting more reliable and fast
+#                        cut_size=16
+#                        refpoint=centre_est-cut_size//2
+#                        cut_frame=image[refpoint[0]:refpoint[0]+cut_size,refpoint[1]:refpoint[1]+cut_size]
+#                        # Handle the case where the estimate is near the edges of the image
+#                        cut_frame = np.zeros((cut_size,cut_size))+np.nan
+#                        miny_in = np.max([0,refpoint[0]])
+#                        maxy_in = np.min([image.shape[0],refpoint[0]+cut_size])
+#                        minx_in = np.max([0,refpoint[1]])
+#                        maxx_in = np.min([image.shape[1],refpoint[1]+cut_size])
+#
+#                        miny_out = np.max([0,-refpoint[0]])
+#                        maxy_out = np.min([cut_size,image.shape[0]-(refpoint[0])])
+#                        minx_out = np.max([0,-refpoint[1]])
+#                        maxx_out = np.min([cut_size,image.shape[1]-(refpoint[1])])
+#                        cut_frame[miny_out:maxy_out,minx_out:maxx_out] = image[miny_in:maxy_in,minx_in:maxx_in]
+#
+#                        #Fit a Gaussian to it
+#                        fit=gaussfit.psf_gaussfit(cut_frame,width=psf_width,saturated=saturated)
+#                        fit_params=fit.parameters # (amplitude, x0, y0, sigmax, sigmay, theta)
+#                        # Convert to pixels in original image
+#                        centre_fit=fit_params[2:0:-1]+refpoint
+                        centre_fit, fit_params = fit_frame(
+                                centre_est, image, psf_width, saturated)
                         # Save the params
-                        cluster_array_ref=np.array([frame+startframe,centre_est[0],centre_est[1],0.,
-                                    centre_fit[0],centre_fit[1],fit_params[0],
-                                    fit_params[3],fit_params[4]])
+                        cluster_array_ref = np.array(
+                                [frame+startframe, centre_est[0],
+                                 centre_est[1], 0., centre_fit[0],
+                                 centre_fit[1], fit_params[0],
+                                 fit_params[3],fit_params[4]])
                     else:
                         # If we dont want to fit to the image, use the estimated centre and set most params to zero,
-                        cluster_array_ref=np.array([frame+startframe,centre_est[0],centre_est[1],0.,
-                                    centre_est[0],centre_est[1],frame.max(),0.,0.])
+                        cluster_array_ref = np.array(
+                                [frame+startframe, centre_est[0],
+                                 centre_est[1], 0., centre_est[0],
+                                 centre_est[1], frame.max(), 0., 0.])
 
                 # This is the end of the "if agpm_centre" statement
 
-
                 # if rank==1:
                 if centre is None:
-                    centre=cluster_array_ref
+                    centre = cluster_array_ref
                 else:
-                    centre=np.vstack((centre,cluster_array_ref))
+                    centre = np.vstack((centre,cluster_array_ref))
             if d > 3:
                 print(str(rank)+": "+str(centre))
             comm.send(centre, dest = 0)

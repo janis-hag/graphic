@@ -21,29 +21,31 @@ import graphic_nompi_lib_330 as graphic_nompi_lib
 
 ###############
 
+
 def measure_flux(image, radius=3, centre='Default'):
     ''' Measures the maximum flux of a point source in an image.
     Position is measured from the centre of the image, in pixels'''
 
-    if centre =='Default':
-        centre=[image.shape[0]//2,image.shape[1]//2]
+    if centre == 'Default':
+        centre = [image.shape[0]//2, image.shape[1]//2]
 
     # Pixel distance map
-    xarr=np.arange(0,image.shape[0])-centre[0]
-    yarr=np.arange(0,image.shape[1])-centre[1]
-    xx,yy=np.meshgrid(xarr,yarr)
-    pix_dist_map=np.sqrt(xx**2+yy**2)
+    xarr = np.arange(0, image.shape[0])-centre[0]
+    yarr = np.arange(0, image.shape[1])-centre[1]
+    xx, yy = np.meshgrid(xarr, yarr)
+    pix_dist_map = np.sqrt(xx**2 + yy**2)
 
 #    plt.imshow(pix_dist_map)
 
     # Just take the max for now
-    flux=np.nanmax(image[pix_dist_map<=radius])
+    flux = np.nanmax(image[pix_dist_map<=radius])
 
     return flux
 
 ###############
 
 ###############
+
 
 def aperture_photometry(image,radius=3,centre='Default',mean=False):
     ''' Performs aperture photometry on a point source in an image.

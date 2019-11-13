@@ -233,24 +233,28 @@ if rank == 0:
                 # image. Then we can make the output image big enough to store
                 xpos = [temp_pos for this_cube_list in cube_list['info'] for temp_pos in this_cube_list[:, 4]]
                 ypos = [temp_pos for this_cube_list in cube_list['info'] for temp_pos in this_cube_list[:, 5]]
-                xpos = xpos[xpos != -1] # Remove bad frames
-                ypos = ypos[ypos != -1] # Remove bad frames
+                if len(xpos) > 1:
+                    xpos = xpos[xpos != -1]  # Remove bad frames
+                    ypos = ypos[ypos != -1]  # Remove bad frames
                 xpos -= max_dim/2
                 ypos -= max_dim/2
-                l_max = np.int(max_dim + np.max(np.abs([xpos,ypos])))
+                l_max = np.int(max_dim + np.max(np.abs([xpos, ypos])))
 
-            cube, t0_trans = read_recentre_cube(c+n, cube, cube_list, l_max)
+            if not hdr['NAXIS3'] == 1:
+                cube, t0_trans = read_recentre_cube(
+                        c+n, cube, cube_list, l_max)
 
             # Cut the cube down to the requested size
             cube = cube[:, int(cube.shape[1]//2-l_max_in//2):
-                int(cube.shape[1]//2+l_max_in//2),
-                int(cube.shape[2]//2-l_max_in//2):
-                int(cube.shape[2]//2+l_max_in//2)]
+                int(cube.shape[1]//2 + l_max_in//2),
+                int(cube.shape[2]//2 - l_max_in//2):
+                int(cube.shape[2]//2 + l_max_in//2)]
 
             if collapse:
                 if new_cube is None:
                     new_cube = np.ones((naxis3, cube.shape[1], cube.shape[2]))
-                    new_info = np.NaN*np.ones((naxis3, len(cube_list['info'][c+n][0])))
+                    new_info = np.NaN*np.ones(
+                            (naxis3, len(cube_list['info'][c+n][0])))
                 new_cube[n] = nanmedian(cube, axis=0)
                 new_info[n] = nanmedian(np.where(cube_list['info'][c+n] == -1,
                         np.NaN, cube_list['info'][c+n]), axis=0)
@@ -407,7 +411,7 @@ if rank == 0:
         graphic_nompi_lib.write_log((MPI.Wtime()-t_init),log_file)
     sys.exit(0)
 
-#################################################################################
+###############################################################################
 #
 # SLAVES
 #
@@ -425,45 +429,44 @@ else:
         if todo == "median":
 
             # Receive number of first column
-            start_col = comm.recv(source = 0)
+            start_col = comm.recv(source=0)
             # Receive stack to median
-            stack = comm.recv(source = 0)
+            stack = comm.recv(source=0)
             if d>5:
                 print("")
                 print(str(rank)+" stack.shape: "+str(stack.shape))
             # Mask out the NaNs
-            psf = nanmedian(stack, axis = 0)
+            psf = nanmedian(stack, axis=0)
             del stack
             comm.send(psf, dest = 0)
             del psf
 
         elif todo == "recentre":
             # Receive padding dimension
-            l_max = comm.bcast(None,root = 0)
+            l_max = comm.bcast(None, root=0)
             # Receive info table used for recentreing
-            info_stack = comm.bcast(None,root = 0)
-            if d >2:
+            info_stack = comm.bcast(None, root=0)
+            if d > 2:
                 print(str(rank)+" received info_stack: "+str(info_stack))
 
             # Receive number of first frame in cube
-            s = comm.recv(source = 0)
-            if d >2:
+            s = comm.recv(source=0)
+            if d > 2:
                 print(str(rank)+" received first frame number: "+str(s))
 
             # Receive cube
-            stack = comm.recv(source = 0)
+            stack = comm.recv(source=0)
             if d >2:
                 if stack is None:
                     print(str(rank)+" received stack: "+str(stack))
                 else:
                     print(str(rank)+" received stack, shape = "+str(stack.shape))
 
-
-            if not stack is None:
-                bigstack = np.zeros((stack.shape[0],l_max,l_max)) # ACC removed 2*
+            if stack is not None:
+                bigstack = np.zeros((stack.shape[0], l_max, l_max)) # ACC removed 2*
 
                 # We need to account for odd-sized arrays which need an extra pixel here
-                if (stack.shape[1] % 2)  == 0:
+                if (stack.shape[1] % 2) == 0:
                     extra_pix = 0
                 else:
                     extra_pix = 1

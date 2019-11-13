@@ -21,6 +21,7 @@ import graphic_contrast_lib
 import pca
 from scipy import interpolate
 import argparse
+import os
 
 parser = argparse.ArgumentParser(
         description='This program calculates the contrast of a PCA reduced \
@@ -196,30 +197,42 @@ print('Iterating over throughput measurement')
 all_throughputs = []
 for ix in range(n_throughput):
     print('  Iteration '+str(ix+1)+' of '+str(n_throughput))
-    # Randomly orient the line of injected psfs
-    azimuth_offset = np.random.uniform(low=0., high=2*np.pi)  # radians
+    intermediate_fp_derot_name = str(ix+1)+'.'+str(n_throughput)+'_'+fp_derot_name
 
-    # Inject the fake companions
-    graphic_contrast_lib.inject_companions(
-            cube_file, psf_frame, parangs_rad, inject_radii, input_fluxes,
-            azimuth_offset=azimuth_offset, psf_pad=psf_pad,
-            save_name=output_dir+fp_name)
+    if os.access(output_dir + os.sep + intermediate_fp_derot_name, os.F_OK):
+        print('Reading previously processed file.')
+        interm_fp_hdr = pf.getheader(
+                output_dir + os.sep + intermediate_fp_derot_name)
+        azimuth_offset = interm_fp_hdr['HIERARCH GC INJECT AZOFFSET']
+    else:
+        # Randomly orient the line of injected psfs
+        azimuth_offset = np.random.uniform(low=0., high=2*np.pi)  # radians
 
-    # Run PCA again with the same settings as the original
-    pca.smart_annular_pca(
-            output_dir+fp_name, n_modes, fp_pca_name, parang_file,
-            n_annuli=n_annuli, arc_length=arc_length, r_max=pca_r_max,
-            r_min=pca_r_min, n_fwhm=n_fwhm, fwhm=fwhm, threads=threads,
-            min_reference_frames=min_reference_frames, output_dir=output_dir)
+        # Inject the fake companions
+        graphic_contrast_lib.inject_companions(
+                cube_file, psf_frame, parangs_rad, inject_radii, input_fluxes,
+                azimuth_offset=azimuth_offset, psf_pad=psf_pad,
+                save_name=output_dir+fp_name)
 
-    # Derotate the image
-    pca.derotate_and_combine_multi(output_dir+fp_pca_name, parang_file,
-                                   threads=threads, save_name=fp_derot_name,
-                                   median_combine=True, output_dir=output_dir)
+        # Run PCA again with the same settings as the original
+        pca.smart_annular_pca(
+                output_dir+fp_name, n_modes, fp_pca_name, parang_file,
+                n_annuli=n_annuli, arc_length=arc_length, r_max=pca_r_max,
+                r_min=pca_r_min, n_fwhm=n_fwhm, fwhm=fwhm, threads=threads,
+                min_reference_frames=min_reference_frames,
+                output_dir=output_dir)
+
+        # Derotate the image
+        pca.derotate_and_combine_multi(output_dir+fp_pca_name, parang_file,
+                                       threads=threads,
+                                       save_name=intermediate_fp_derot_name,
+                                       median_combine=True,
+                                       output_dir=output_dir)
 
     # Now fit to the fluxes of the injected companions
     fp_derot_image, fp_derot_hdr = pf.getdata(
-            output_dir+fp_derot_name, header=True)
+            output_dir+intermediate_fp_derot_name, header=True)
+
     measured_throughputs = graphic_contrast_lib.fit_injected_companions(
             fp_derot_image, psf_frame, inject_radii, input_fluxes,
             azimuth_offset=azimuth_offset, psf_pad=psf_pad,
@@ -276,3 +289,10 @@ graphic_contrast_lib.contrast_curve(
 graphic_contrast_lib.snr_map(
         contrast_im_file, noise_file, remove_planet=False,
         planet_position=None, planet_radius=10., save_name=snr_map_file)
+
+print('Cleaning up temporary files.')
+for ix in range(n_throughput):
+    intermediate_fp_derot_name = str(ix+1)+'.'+str(n_throughput)+'_'+fp_derot_name
+    if os.access(output_dir + os.sep + intermediate_fp_derot_name,
+                 os.F_OK | os.R_OK):
+        os.remove(output_dir + os.sep + intermediate_fp_derot_name)
