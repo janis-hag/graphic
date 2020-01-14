@@ -201,7 +201,7 @@ if rank == 0:
         for n in range(naxis3):
             if c+n == len(cube_list['cube_filename']):
                 break
-            print("Processing cube [" + str(c+n+1) + "/" + str(len(cube_list['cube_filename'])) + "]: " + str(cube_list['cube_filename'][c]))
+            print("Processing cube [" + str(c+n+1) + "/" + str(len(cube_list['cube_filename'])) + "]: " + str(cube_list['cube_filename'][c+n]))
 
             cube, hdr = pyfits.getdata(cube_list['cube_filename'][c+n],
                                        header=True)
