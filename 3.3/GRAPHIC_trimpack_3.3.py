@@ -176,19 +176,37 @@ else:
             ### frame_num       frame_time      paralactic_angle
 
             ## jdate=float(header['MJD'])+2400000.5
-            if inst=='scexao':
+            if inst == 'sphere':
                 if parang_list is None:
-                    parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_scexao(header))))
+                    parang_list = np.array(np.hstack((
+                            n, graphic_nompi_lib.create_parang_list_sphere(
+                                    header))))
                     ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
                 else:
-                    parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_scexao(header)))))
-            elif inst=='naco':
+                    parang_list = np.vstack((parang_list, np.hstack((
+                            n, graphic_nompi_lib.create_parang_list_sphere(
+                                    header)))))
+            elif inst == 'scexao':
+                if parang_list is None:
+                    parang_list = np.array(np.hstack((
+                            n, graphic_nompi_lib.create_parang_scexao(
+                                    header))))
+                    ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
+                else:
+                    parang_list = np.vstack((parang_list, np.hstack((
+                                    n, graphic_nompi_lib.create_parang_scexao(
+                                            header)))))
+            elif inst == 'naco':
                 header['ESO TEL ROT ALTAZTRACK']=True
                 if parang_list is None:
-                    parang_list=np.array(np.hstack((n,graphic_nompi_lib.create_parang_list_naco(header)[1:])))
+                    parang_list = np.array(np.hstack((
+                            n, graphic_nompi_lib.create_parang_list_naco(
+                                    header)[1:])))
                     ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
                 else:
-                    parang_list=np.vstack((parang_list,np.hstack((n,graphic_nompi_lib.create_parang_list_naco(header)[1:]))))
+                    parang_list = np.vstack((parang_list, np.hstack((
+                            n, graphic_nompi_lib.create_parang_list_naco(
+                                    header)[1:]))))
             else:
                 print('Unsupported instrument. Not generating parallactic angles!')
 

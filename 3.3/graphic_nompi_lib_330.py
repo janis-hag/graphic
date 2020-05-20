@@ -767,18 +767,22 @@ def datetime2jd(t):
 
     return JD
 
+
 def determine_instrument(hdr):
     if 'INSTRUME' in hdr.keys():
         if 'HICIAO' in hdr['INSTRUME']:
-            inst='scexao'
+            inst = 'scexao'
         elif 'NAOS+CONICA' in hdr['INSTRUME']:
-            inst='naco'
+            inst = 'naco'
+        elif hdr['INSTRUME'] == 'SPHERE':
+            inst = 'sphere'
         else:
-            inst='unknown'
+            inst = 'unknown'
     else:
-        inst='unknown'
+        inst = 'unknown'
     print('Insrument detected as: '+inst)
     return inst
+
 
 def dump_fits(filename, array):
     '''
