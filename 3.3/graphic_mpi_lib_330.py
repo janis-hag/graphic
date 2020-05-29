@@ -517,7 +517,7 @@ def send_dirlist(dirlist):
                 break
             comm.send(dirlist[start:end], dest = n+1 )
             comm.send(start, dest=n+1)
-            
+
     return start,dirlist
 
 def send_dirlist_slaves(dirlist):
@@ -635,6 +635,7 @@ def send_frames(cub_in):
 
     del cub_in
 
+
 def send_frames_async(cub_in):
     """
     Dispatches the cubes to parallel processes, dividing the cube in cubes with less frames.
@@ -677,6 +678,27 @@ def send_frames_async(cub_in):
     # Wait for all transfers to be finished
     MPI.Request.Waitall(request)
     del cub_in
+
+
+def send_frames_repeated_async(cub_in):
+    """
+    Dispatches the cubes to parallel processes, sending the same data to all
+    the slave. Useful when unusually sparse data is available.
+
+    -cub_in the data_cube to send
+    """
+    for n in range(nprocs-1):
+        r1 = comm.isend(0, dest=n + 1)
+        r2 = comm.isend(cub_in, dest=n + 1)
+        if n == 0:
+            request = [r1, r2]
+        else:
+            request.append(r1)
+            request.append(r2)
+    # Wait for all transfers to be finished
+    MPI.Request.Waitall(request)
+    del cub_in
+
 
 def send_masked_chunks(cub_in,d):
     """

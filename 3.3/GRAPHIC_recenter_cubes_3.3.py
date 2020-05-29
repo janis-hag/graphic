@@ -124,13 +124,16 @@ else:
 l_max_in = l_max
 
 
-def read_recentre_cube(rcn, cube, rcube_list, l_max):
+def read_recentre_cube(rcn, cube, rcube_list, l_max, n3):
     t0_trans = MPI.Wtime()
     # Send the cube to be recentreed
     comm.bcast("recentre", root=0)
     comm.bcast(l_max, root=0)
     comm.bcast(rcube_list['info'][rcn], root=0)
-    graphic_mpi_lib.send_frames_async(cube)
+    if n3 == 1:
+        graphic_mpi_lib.send_frames_repeated_async(cube)
+    else:
+        graphic_mpi_lib.send_frames_async(cube)
 
     cube = None
     if args.stat is True:
@@ -143,10 +146,11 @@ def read_recentre_cube(rcn, cube, rcube_list, l_max):
         data_in = comm.recv(source=n+1)
         if data_in is None:
             continue
-        print('Recentred data from '+str(n+1)+' received                 = >')
+        print('Recentred data '+str(data_in.shape)+' from '+str(n+1)
+              + ' received                 = >')
         if cube is None:
             cube = data_in
-        else:
+        elif not n3 == 1:
             cube = np.concatenate((cube, data_in))
     return cube, t0_trans
 
@@ -177,7 +181,7 @@ if rank == 0:
     # Loop over the output cubes
     for c in range(0, len(cube_list['cube_filename']), naxis3):
         t0_cube = MPI.Wtime()
-        if nici: # Convert JD to unix time to get rid of day change issues
+        if nici:  # Convert JD to unix time to get rid of day change issues
             cube_list['info'][c][:, 10] = (cube_list['info'][c][:, 10]-2440587.5)*86400
 
         psf_sub_filename = target_pattern+"_"+cube_list['cube_filename'][c]
@@ -189,7 +193,7 @@ if rank == 0:
             skipped = skipped+1
             continue
         # Check if already processed
-        elif os.access(target_dir +os.sep + psf_sub_filename+'.EMPTY',
+        elif os.access(target_dir + os.sep + psf_sub_filename+'.EMPTY',
                        os.F_OK | os.R_OK):
             print('Already processed, but no cube created: ' + psf_sub_filename)
             skipped = skipped+1
@@ -201,7 +205,8 @@ if rank == 0:
         for n in range(naxis3):
             if c+n == len(cube_list['cube_filename']):
                 break
-            print("Processing cube [" + str(c+n+1) + "/" + str(len(cube_list['cube_filename'])) + "]: " + str(cube_list['cube_filename'][c+n]))
+            print("Processing cube [" + str(c+n+1) + "/" + str(
+                    len(cube_list['cube_filename'])) + "]: " + str(cube_list['cube_filename'][c+n]))
 
             cube, hdr = pyfits.getdata(cube_list['cube_filename'][c+n],
                                        header=True)
@@ -214,9 +219,12 @@ if rank == 0:
                     if not cube_list['info'][i][
                             len(cube_list['info'][i])//2, 4] == -1:
                         length = 2*graphic_nompi_lib.get_max_dim(
-                                cube_list['info'][i][len(cube_list['info'][i])//2, 4],
-                                cube_list['info'][i][len(cube_list['info'][i])//2, 5],
-                                int(hdr['NAXIS1']), cube_list['info'][i][:, 11]-p0)
+                                cube_list['info'][i][len(
+                                        cube_list['info'][i])//2, 4],
+                                cube_list['info'][i][len(
+                                        cube_list['info'][i])//2, 5],
+                                int(hdr['NAXIS1']),
+                                cube_list['info'][i][:, 11]-p0)
                         if length > l_max:
                             l_max = length
 
@@ -240,9 +248,9 @@ if rank == 0:
                 ypos -= max_dim/2
                 l_max = np.int(max_dim + np.max(np.abs([xpos, ypos])))
 
-            if not hdr['NAXIS3'] == 1:
-                cube, t0_trans = read_recentre_cube(
-                        c+n, cube, cube_list, l_max)
+            cube, t0_trans = read_recentre_cube(
+                    c+n, cube, cube_list, l_max, hdr['NAXIS3'])
+            print('Reassembled cube received '+str(cube.shape))
 
             # Cut the cube down to the requested size
             cube = cube[:, int(cube.shape[1]//2-l_max_in//2):
@@ -261,6 +269,7 @@ if rank == 0:
                 new_info[n] = np.where(np.isnan(new_info[n]), -1, new_info[n])
             else:
                 psf_sub_filename = target_pattern + "_" + cube_list['cube_filename'][c+n]
+                info_filename = "all_info_" + psf_sub_filename[:-5]+".rdb"
                 hdr['HIERARCH GC RECENTER'] = (str(__version__) + '.' + (__subversion__), "")
                 hdr['HIERARCH GC LMAX'] = (l_max,"")
                 ## hdr['CRPIX1'] = ('{0:14.7G}'.format(cube.shape[1]/2.+hdr['CRPIX1']-cube_list['info'][c+n][hdr['NAXIS3']/2,4]), "")
@@ -304,13 +313,13 @@ if rank == 0:
                         psf_fit_width_ys.append(nanmedian(cube_list['info'][c+n][start_ix:end_ix,8]))
 
                     # And fix the cube_list file
-                    new_info = np.zeros((output_n_frames,len(header_keys)))
+                    new_info = np.zeros((output_n_frames, len(header_keys)))
                     new_info[:,0] = range(output_n_frames) # Frame number
                     new_info[:,9] = range(output_n_frames) #Frame Num
-                    new_info[:,1] = np.repeat(cube.shape[1]/2,output_n_frames) # PSF Barycentre X (Since it has been recentred)
-                    new_info[:,2] = np.repeat(cube.shape[1]/2,output_n_frames) # PSF Barycentre Y
-                    new_info[:,4] = np.repeat(cube.shape[1]/2,output_n_frames) # PSF Fit centre X
-                    new_info[:,5] = np.repeat(cube.shape[1]/2,output_n_frames) # PSF Fit centre Y
+                    new_info[:,1] = np.repeat(cube.shape[1]/2, output_n_frames) # PSF Barycentre X (Since it has been recentred)
+                    new_info[:,2] = np.repeat(cube.shape[1]/2, output_n_frames) # PSF Barycentre Y
+                    new_info[:,4] = np.repeat(cube.shape[1]/2, output_n_frames) # PSF Fit centre X
+                    new_info[:,5] = np.repeat(cube.shape[1]/2, output_n_frames) # PSF Fit centre Y
                     new_info[:,3] = np.repeat(0,output_n_frames) # PSF pixel size (?)
                     new_info[:,6] = fit_heights # PSF fit height
                     new_info[:,11] = paralactic_angles # parallactic angle
@@ -333,8 +342,9 @@ if rank == 0:
 
                 # Remove the bad frames that contain only NaNs
                 bad_frames = (np.sum(~np.isnan(cube),axis=(1,2)) == 0)
-                cube = cube[~bad_frames] # ~ inverts the boolean array
-                cube_list['info'][c+n] = cube_list['info'][c+n][~bad_frames]
+                print(bad_frames, cube.shape, cube[~bad_frames].shape)
+                #cube = cube[~bad_frames] # ~ inverts the boolean array
+                #cube_list['info'][c+n] = cube_list['info'][c+n][~bad_frames]
                 cube_list['info'][c+n][:, 0] = range(cube.shape[0])
                 cube_list['info'][c+n][:, 9] = range(cube.shape[0])
                 hdr['HIERARCH GC NAN_FRAMES_REMOVED'] = (np.sum(bad_frames),
