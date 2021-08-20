@@ -268,7 +268,7 @@ def companion_mcmc(image,psf_image,initial_guess,image_err=1.,n_walkers=50.,n_it
     sampler.run_mcmc(p0, n_iterations)
     tf = time.time()
 
-    print 'Time elapsed =', '{0:.2f}'.format(np.round((tf-t0)/60.,decimals=2)),'mins'
+    print('Time elapsed =', '{0:.2f}'.format(np.round((tf-t0)/60.,decimals=2)),'mins')
     
     # Get the results
     chain=sampler.chain
