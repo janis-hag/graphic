@@ -113,7 +113,7 @@ values_file = dataset+prefix+'final_values.txt'
 
 log_file = dataset+'astrometry.log'
 f_log = open(log_file,'a')
-f_log.write('command astrometry_hd4113.py run at '+time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())+'\n')
+f_log.write('command graphic_astrometry_sphere_gridsearch.py run at '+time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())+'\n')
 f_log.write('config file: '+args.config_file+'\n\n')
 
 f_log.write('calc_im_uncertainty = {}\n'.format(calc_im_uncertainty))
