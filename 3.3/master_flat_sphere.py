@@ -28,7 +28,10 @@ if rank==0:
 		hdr_masterflat['Routine used'] = "master_flat_func routine from Sebastien P"  # Add a new keyword
 		for allfiles in glob.iglob(key_word+'*'):
 			print(allfiles)
-			hdr_masterflat['flat nbr '+np.str(count+1)+' used'] = allfiles  # Add a new keyword
+			if len(allfiles) > 55:
+				hdr_masterflat['flat nbr '+np.str(count+1)+' used'] = allfiles[:34]
+			else:
+				hdr_masterflat['flat nbr '+np.str(count+1)+' used'] = allfiles  # Add a new keyword
 			if count==0:
 				temp,hdr=pyfits.getdata(allfiles, header=True)
 				#print "shape(temp)",np.shape(temp)
