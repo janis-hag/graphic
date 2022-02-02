@@ -34,9 +34,10 @@ def pa_IRDIS_seppa(pa, sep, pscale):
         pa_IRDIS([280.,0.1], [40.,0.8])
     inputs:
         pa - position angle of target (in degrees)
-        sep - separation of target (in pixels)                                                                                                                                                            
+        sep - separation of target (in pixels)                            
                 sep and pa can be passed as single numbers, or as 2 element arrays,
                 of the form [pixel offset, error]
+        pscale - platescale to use (currently 'sph_h2', 'sph_k1', 'bb_h' available).
     return arguments:
                 **all four return vectors returned as 2 element arrays,
                 with the form [value, error]. If no errors passed to function,
@@ -54,9 +55,13 @@ def pa_IRDIS_seppa(pa, sep, pscale):
 
     #### HERE are the relevant constants, from the SPHERE User Manual version p100; Maire et al 2016
     truenorth = [-1.75*np.pi/180,0.08*np.pi/180]
-    ## NOTE: no longer using different TN correction for 2015, since epsilon correction fixes that.                                                                                                    
+    ## NOTE: no longer using different TN correction for 2015, since epsilon correction fixes that.
     if pscale == 'sph_h2':
         platescale = [12.255, 0.021]  # H2
+    elif pscale == 'sph_k1':
+        platescale = [12.267, 0.021]
+    elif pscale == 'bb_h':
+        platescale = [12.251, 0.021]
     else:
         return('pscale {} not recognised'.format(pscale))
     pupiloffset = [135.99*np.pi/180, 0.11*np.pi/180]
