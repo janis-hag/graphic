@@ -18,10 +18,12 @@ __subversion__ = '0'
 import numpy as np
 import astropy.io.fits as pf
 import graphic_contrast_lib
-import pca
 from scipy import interpolate
 import argparse
 import os
+import pickle
+import time
+import sys
 
 parser = argparse.ArgumentParser(
         description='This program calculates the contrast of a PCA reduced \
@@ -124,6 +126,12 @@ n_radii = args.n_radii
 r_max = args.r_max
 n_throughput = args.n_throughput
 
+if threads > 1:
+    import pca
+else:
+    import graphic_pca_lib as pca
+
+print(sys.argv[0]+' started on ' + time.strftime("%c"))
 
 # Fix the default r_max value so the other programs know it was not set
 if r_max == -1:
@@ -148,6 +156,10 @@ noise_file = output_dir + 'noise.txt'
 psf_frame, psf_header = pf.getdata(psf_file, header=True)
 image, header = pf.getdata(image_file, header=True)
 cube, cube_header = pf.getdata(cube_file, header=True)
+
+# Remove empt naxis3 if it exists
+if psf_frame.shape[0] == 1:
+    psf_frame = np.squeeze(psf_frame)
 
 # Load the parallactic angles
 parangs_deg = np.loadtxt(parang_file)
@@ -198,12 +210,17 @@ all_throughputs = []
 for ix in range(n_throughput):
     print('  Iteration '+str(ix+1)+' of '+str(n_throughput))
     intermediate_fp_derot_name = str(ix+1)+'.'+str(n_throughput)+'_'+fp_derot_name
+    intermediate_throughputs_name = str(ix+1)+'.'+str(n_throughput)+'_throughputs.pickle'
 
-    if os.access(output_dir + os.sep + intermediate_fp_derot_name, os.F_OK):
-        print('Reading previously processed file.')
-        interm_fp_hdr = pf.getheader(
-                output_dir + os.sep + intermediate_fp_derot_name)
-        azimuth_offset = interm_fp_hdr['HIERARCH GC INJECT AZOFFSET']
+#    if os.access(output_dir + os.sep + intermediate_fp_derot_name, os.F_OK):
+#        print('Reading previously processed file.')
+#        interm_fp_hdr = pf.getheader(
+#                output_dir + os.sep + intermediate_fp_derot_name)
+#        azimuth_offset = interm_fp_hdr['HIERARCH GC INJECT AZOFFSET']
+    if os.access(output_dir + os.sep + intermediate_throughputs_name, os.F_OK):
+        print('Reading previously processed throughputs.')
+        with open(output_dir + os.sep + intermediate_throughputs_name, 'rb') as f:
+            all_throughputs = pickle.load(f)
     else:
         # Randomly orient the line of injected psfs
         azimuth_offset = np.random.uniform(low=0., high=2*np.pi)  # radians
@@ -229,20 +246,23 @@ for ix in range(n_throughput):
                                        median_combine=True,
                                        output_dir=output_dir)
 
-    # Now fit to the fluxes of the injected companions
-    fp_derot_image, fp_derot_hdr = pf.getdata(
-            output_dir+intermediate_fp_derot_name, header=True)
+        # Now fit to the fluxes of the injected companions
+        fp_derot_image, fp_derot_hdr = pf.getdata(
+                output_dir+intermediate_fp_derot_name, header=True)
 
-    measured_throughputs = graphic_contrast_lib.fit_injected_companions(
-            fp_derot_image, psf_frame, inject_radii, input_fluxes,
-            azimuth_offset=azimuth_offset, psf_pad=psf_pad,
-            cutout_radius=cutout_radius, save_name=None)
+        measured_throughputs = graphic_contrast_lib.fit_injected_companions(
+                fp_derot_image, psf_frame, inject_radii, input_fluxes,
+                azimuth_offset=azimuth_offset, psf_pad=psf_pad,
+                cutout_radius=cutout_radius, save_name=None)
 
-    all_throughputs.append(measured_throughputs)
+        all_throughputs.append(measured_throughputs)
+
+        with open(output_dir + os.sep + intermediate_throughputs_name, 'wb') as f:
+            pickle.dump(all_throughputs, f)
 
 # Now average over the repetitions and save it out
 all_throughputs = np.array(all_throughputs)
-measured_throughputs = np.mean(all_throughputs, axis=0)
+measured_throughputs = np.nanmean(all_throughputs, axis=0)
 # File with all of the individual values
 np.savetxt(all_throughput_file, all_throughputs)
 np.savetxt(throughput_file, [inject_radii, measured_throughputs])
@@ -296,3 +316,8 @@ for ix in range(n_throughput):
     if os.access(output_dir + os.sep + intermediate_fp_derot_name,
                  os.F_OK | os.R_OK):
         os.remove(output_dir + os.sep + intermediate_fp_derot_name)
+
+    intermediate_throughputs_name = str(ix+1)+'.'+str(n_throughput)+'_throughputs.pickle'
+    if os.access(output_dir + os.sep + intermediate_throughputs_name,
+                 os.F_OK | os.R_OK):
+        os.remove(output_dir + os.sep + intermediate_throughputs_name)
