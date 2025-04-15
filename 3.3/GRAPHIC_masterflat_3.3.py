@@ -33,6 +33,6 @@ for i in range(1,len(dirlist)):
 
 flat=np.median(cube, axis=2)
 
-pyfits.writeto('flat_'+dirlist[0], flat, header=hdr)
+pyfits.writeto('flat_'+dirlist[0], flat, header=hdr, output_verify="fix+warn")
 
 print('Generated flat_'+dirlist[0])
