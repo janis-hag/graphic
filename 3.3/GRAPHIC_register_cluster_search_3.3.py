@@ -93,6 +93,9 @@ parser.add_argument('-scexao', dest='scexao', action='store_const',
 parser.add_argument('-naco_pack', dest='naco_pack', action='store_const',
                    const=True, default=False,
                    help='Switch for repacked single frame NACO data')
+parser.add_argument('-sphere_pack', dest='sphere_pack', action='store_const',
+                   const=True, default=False,
+                   help='Switch for repacked single frame SPHERE data')
 parser.add_argument('-no_psf', action='store_const', dest='no_psf',
                     const=True, default=False,
                     help='Do not look for a PSF, assume it is already centred.')
@@ -117,6 +120,7 @@ ratio=args.ratio
 spherepipe=args.spherepipe
 naco=args.naco
 naco_pack=args.naco_pack
+sphere_pack=args.sphere_pack
 scexao=args.scexao
 log_file=args.log_file
 no_neg=args.no_neg
@@ -187,8 +191,11 @@ if rank==0:  # Master process
     elif naco_pack:
         fctable_list=glob.glob(positions_dir+os.sep+'naco_parang_*.rdb')
         fctable_list.sort()
+    elif sphere_pack:
+        fctable_list=glob.glob(positions_dir+os.sep+'sphere_parang_*.rdb')
+        fctable_list.sort()
 
-    if len(dirlist)==0 or ((spherepipe or chuck or scexao or naco_pack) and len(fctable_list)==0):
+    if len(dirlist)==0 or ((spherepipe or chuck or scexao or naco_pack or sphere_pack) and len(fctable_list)==0):
     ## if len(dirlist)==0 or interrupt==True: # or fctable_list is None or len(fctable_list)==0:
         print("No files found!")
         comm.Abort()
@@ -262,16 +269,16 @@ if rank==0:  # Master process
                     ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
                 else:
                     parang_list=numpy.vstack((parang_list,[i,jdate,fctable['Angle_deg'][i]]))
-        elif 'INSTRUME' in cube_header.keys() and cube_header['INSTRUME']=='SPHERE':
-            #parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
-            parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
-        elif sphere:
-            parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
-        elif naco_pack or (scexao and not chuck):
+        elif sphere_pack or naco_pack or (scexao and not chuck):
             fctable_filename= fnmatch.filter(fctable_list,'*'+dirlist[i].split('_')[-1][:-5]+'.rdb')[0]
             fctable=graphic_nompi_lib.read_rdb(fctable_filename)
             parang_list=np.array([fctable['frame_num'][:],fctable['frame_time'][:],fctable['paralactic_angle'][:]])
             parang_list=(np.rollaxis(parang_list,1))
+        elif sphere:
+            parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
+        elif 'INSTRUME' in cube_header.keys() and cube_header['INSTRUME']=='SPHERE':
+            #parang_list=graphic_nompi_lib.create_parang_list_sphere(cube_header)
+            parang_list=np.atleast_2d(graphic_nompi_lib.create_parang_list_sphere(cube_header))
         elif chuck:
             ## 'ircam'+string.split(tfile,'ircam')[1]
 #            frame_text_info=string.replace('ircam'+string.split(dirlist[i],'ircam')[1],'fits','txt')
@@ -321,7 +328,7 @@ if rank==0:  # Master process
                 data_in=comm.recv(source = n+1)
                 if data_in is None:
                     continue
-                elif cent_list  is None:
+                elif cent_list is None:
                     cent_list=data_in.copy()
                 else:
                     cent_list=np.vstack((cent_list,data_in))
@@ -399,10 +406,10 @@ if rank==0:  # Master process
     graphic_nompi_lib.write_log_hdr((MPI.Wtime()-t_init), log_file, hdr, comments, nprocs=nprocs)
     ## graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments, nprocs=nprocs)
     # Stop slave processes
-    comm.bcast("over", root=0)
+    #comm.bcast("over", root=0)
     for n in range(nprocs-1):
         comm.send("over", dest = n+1 )
-        comm.send("over", dest = n+1 )
+        #comm.send("over", dest = n+1 )
     MPI.Finalize()
     sys.exit(0)
 
@@ -436,11 +443,12 @@ else: # Slave processes
     x0_i=0
     y0_i=0
 
+    if data_in is "over":
+        print('Slave '+str(rank)+' leaving without having done anything.')
     while not data_in is "over":
         if not data_in is None and isinstance(data_in, np.ndarray):
             for frame in range(data_in.shape[0]):
-                sys.stdout.write('\r\r\r [Rank '+str(rank)+', cube '+str(cube_count)+']  Frame '+str(frame+startframe)+' of '+str(startframe+data_in.shape[0]))
-                sys.stdout.flush()
+                print('[Rank '+str(rank)+', cube '+str(cube_count)+']  Frame '+str(frame+startframe)+' of '+str(startframe+data_in.shape[0]))
 
                 if window_size>0:
                     data_in[frame]=data_in[frame]-ndimage.filters.median_filter(data_in[frame],size=(window_size,window_size),mode='reflect')
