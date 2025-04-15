@@ -72,6 +72,7 @@ collapse_cube = args.collapse_cube
 # Initialising timer
 t0 = time.time()
 
+print(sys.argv[0]+' started on ' + time.strftime("%c"))
 print("Beginning of convert")
 
 #print('  ' + allfiles)
