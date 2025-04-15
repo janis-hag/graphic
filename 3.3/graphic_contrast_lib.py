@@ -813,21 +813,26 @@ def inject_companions(cube_in, psf,parangs_rad, radii, fluxes,
 
 ##################
 
-def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad=10.,
-                         cutout_radius = 7,save_name = 'throughput.txt'):
+
+def fit_injected_companions(adi_image, psf, radii, fluxes, azimuth_offset=0.,
+                            psf_pad=10., cutout_radius=7,
+                            save_name='throughput.txt'):
     ''' Fits the throughput for injected companions in an image, assuming their
     positions are exactly where they were added.
     cube    = data cube (3D)
     psf     = psf image (2D)
     radii   = list of separations (in pix) for the injected companions
     fluxes  = list of fluxes for the injected companions
-    azimuth_offset = the angle to rotate the injected companions relative to North (radians)
-    psf_pad = the amount of pixels to pad the psf frame (on each side) before shifting
+    azimuth_offset = the angle to rotate the injected companions relative to
+    North (radians)
+    psf_pad = the amount of pixels to pad the psf frame (on each side) before
+    shifting
     cutout_radius = pix of cutout to fit the injected psf's flux
 
-    This assumes a lot about inject_companions so make sure both are updated at the same time.'''
+    This assumes a lot about inject_companions so make sure both are updated at
+    the same time!'''
 
-    if isinstance(adi_image,str):
+    if isinstance(adi_image, str):
         adi_image=pyfits.getdata(adi_image)
 
     # Set up the psf in a padded array for when it is shifted
@@ -845,7 +850,7 @@ def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad
 #        theta = azimuth_offset
         flux = fluxes[sep_ix]
 
-            # This is where we injected the companion
+        # This is where we injected the companion
         pos_x=sep*np.cos(azimuth_offset)+(adi_image.shape[0])/2
         pos_y=sep*np.sin(azimuth_offset)+(adi_image.shape[1])/2
         pos_x_int=np.int(np.floor(pos_x)) # this will round down
@@ -864,15 +869,24 @@ def fit_injected_companions(adi_image,psf,radii,fluxes,azimuth_offset=0.,psf_pad
         psf_region=flux*shifted_psf[psf_shape[0]//2-cutout_radius:psf_shape[0]//2+cutout_radius,
                                psf_shape[1]//2-cutout_radius:psf_shape[1]//2+cutout_radius]
 
-
+#        print('sep, sep*np.sin(azimuth_offset)+(adi_image.shape[1])/2: '+str(sep)+', '+str(sep*np.sin(azimuth_offset)+(adi_image.shape[1])/2))
+#        print('pos_y_int, cutout_radius'+' '+str(pos_y_int)+' '+str(cutout_radius))
+#        print("psf_shape[1]//2, cutout_radius "+ str(psf_shape[1]//2)+', '+str(cutout_radius))
+#        print("region.shape, psf_region.shape "+str(region.shape)+', '+str(psf_region.shape))
         # Define a function to fit to. We are directly fitting the throughput here,
         # since the flux was taken care of above
         def flux_func(flux,region,psf_region):
             return np.sum(np.abs(region-flux[0]*psf_region))
         # Fit to it using optimize.fmin
-        measured_throughputs[sep_ix]=scipy.optimize.fmin(flux_func,[1],
-                        xtol=1e-3,ftol=1e-3,args=(region,psf_region),disp=False)
-
+#        measured_throughputs[sep_ix]=scipy.optimize.fmin(flux_func,[1],
+#                        xtol=1e-3,ftol=1e-3,args=(region,psf_region),disp=False)
+        # Taking the absolute flux coefficient, because for low throughput
+        # optimisation sometimes converges with a sign error.
+        # TODO find a better solution than using the absolute value
+        measured_throughputs[sep_ix]=np.abs(scipy.optimize.fmin(flux_func,[1],
+                        xtol=1e-3,ftol=1e-3,args=(region,psf_region),disp=False))
+        #measured_throughputs[sep_ix]=scipy.optimize.fmin(flux_func,[1],
+        #                xtol=1e-3,ftol=1e-3,args=(region,psf_region),disp=False)
 
     if save_name:
         save_array = [radii,measured_throughputs]
