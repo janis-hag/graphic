@@ -180,12 +180,12 @@ else:
                 if parang_list is None:
                     parang_list = np.array(np.hstack((
                             n, graphic_nompi_lib.create_parang_list_sphere(
-                                    header))))
+                                    header)[0,1:])))
                     ## utcstart=datetime2jd(dateutil.parser.parse(hdr['DATE']+"T"+hdr['UT']))
                 else:
                     parang_list = np.vstack((parang_list, np.hstack((
                             n, graphic_nompi_lib.create_parang_list_sphere(
-                                    header)))))
+                                    header)[0,1:]))))
             elif inst == 'scexao':
                 if parang_list is None:
                     parang_list = np.array(np.hstack((
