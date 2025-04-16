@@ -32,22 +32,22 @@ def adi_self_subtraction_computation(path,pattern_image,pattern_psf,sep_FP,pix_s
     for i,allfiles in enumerate(glob.iglob(pattern_psf+"*")):
         if i==0:
             psf_filename=allfiles
-            print "psf filename:",psf_filename
+            print("psf filename:",psf_filename)
         else:
-            print "Error more than one file found with this pattern. Used the first one:",psf_filename
+            print("Error more than one file found with this pattern. Used the first one:",psf_filename)
     for i,allfiles in enumerate(glob.iglob(pattern_image+"*")):
         if i==0:
             image_filename=allfiles
-            print "image filename:",image_filename
+            print("image filename:",image_filename)
         else:
-            print "Error more than one file found with this pattern. Used the first one:",image_filename		
-	
+            print("Error more than one file found with this pattern. Used the first one:",image_filename)
+
     path_psf=path
     adi_self_subtraction_vec=np.zeros(np.size(sep_FP))
-    
+
     im_final,hdr=pyfits.getdata(path+image_filename,header=True)
     psf,hdr_psf=pyfits.getdata(path_psf+psf_filename,header=True)
-    
+
     band_filter=hdr['HIERARCH ESO INS COMB IFLT']
     if band_filter=="DB_H23":
     	filter_name="H23"
@@ -60,7 +60,7 @@ def adi_self_subtraction_computation(path,pattern_image,pattern_psf,sep_FP,pix_s
     else :
     	import sys
     	sys.exit("Error of filter name")
-    
+
     if np.size(np.shape(psf))>2:
         psf=np.nanmedian(psf[3:,:,:],axis=0)
 
@@ -84,7 +84,7 @@ def adi_self_subtraction_computation(path,pattern_image,pattern_psf,sep_FP,pix_s
         rho_comp=sep_FP[l]
         Prim_x=-np.sin(PA_comp)*rho_comp/pix_scale+np.shape(im_final)[1]/2.
         Prim_y=np.cos(PA_comp)*rho_comp/pix_scale+np.shape(im_final)[1]/2.
-    
+
         ########################
         adi_self_subtraction=0
         size_image_cut=32
@@ -146,14 +146,14 @@ def adi_self_subtraction_computation(path,pattern_image,pattern_psf,sep_FP,pix_s
                 adi_self_subtraction+=0.01
             else:
                 break
-        print "dmag",dmag
-        print "ADI self subtraction at ",str(rho_comp),"arcsec = ",adi_self_subtraction
+        print("dmag",dmag)
+        print("ADI self subtraction at ",str(rho_comp),"arcsec = ",adi_self_subtraction)
         adi_self_subtraction_vec[l]=adi_self_subtraction
 
     sep_FP=np.append(np.array([0]),sep_FP)
     adi_self_subtraction_vec=np.append(np.array([0.9]),adi_self_subtraction_vec)
-    
-    
+
+
     f=open("adi_self_sub.txt",'w')
     f.write("Separation:\t")
     for i in range(np.size(sep_FP)):
@@ -168,4 +168,3 @@ def adi_self_subtraction_computation(path,pattern_image,pattern_psf,sep_FP,pix_s
         if i!=np.size(adi_self_subtraction_vec)-1:
             f.write(" ")
     f.close()
-

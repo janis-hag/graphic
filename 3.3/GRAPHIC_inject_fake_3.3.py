@@ -10,8 +10,8 @@ detection limits.
 If you find any bugs or have any suggestions email: janis.hagelberg@unige.ch
 """
 
-__version__='3.3'
-__subversion__='0'
+__version__ = '3.3'
+__subversion__ = '0'
 
 import numpy, scipy, glob, shutil, os, sys, time, fnmatch, argparse, string
 import graphic_nompi_lib_330 as graphic_nompi_lib
@@ -22,195 +22,239 @@ import numpy as np
 from astropy.io import fits
 
 nprocs = MPI.COMM_WORLD.Get_size()
-rank   = MPI.COMM_WORLD.Get_rank()
+rank = MPI.COMM_WORLD.Get_rank()
 procnm = MPI.Get_processor_name()
 comm = MPI.COMM_WORLD
 
-
-parser = argparse.ArgumentParser(description='GRAPHIC:\n The Geneva Reduction and Analysis Pipeline forHigh-contrast Imaging of planetary Companions.\n\n\
-This program injects fake companions in each frame following the field rotation.')
-parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
-parser.add_argument('--pattern', action="store", dest="pattern",  default='*', help='Filename pattern')
+parser = argparse.ArgumentParser(
+        description=
+        'GRAPHIC:\n The Geneva Reduction and Analysis Pipeline forHigh-contrast Imaging of planetary Companions.\n\n\
+This program injects fake companions in each frame following the field rotation.'
+)
+parser.add_argument('--debug', action="store", dest="d", type=int, default=0)
+parser.add_argument('--pattern', action="store", dest="pattern", default='*',
+                    help='Filename pattern')
 #parser.add_argument('--prim_adu', action="store", dest="prim_adu", type=int, required=True, help='Flux of the primary star')
-parser.add_argument('--no_info', dest='info', action='store_const',
-				   const=False, default=True, help='Ignore info files')
-parser.add_argument('--info_dir', action="store", dest="info_dir",  default='cube-info', help='Info directory')
-parser.add_argument('--info_pattern', action="store", dest="info_pattern", default='all_info', help='Info filename pattern')
-parser.add_argument('--deltamag', dest='dm', type=float, nargs='+',required=True,
-                    help='Fake companion magnitude differences')
-parser.add_argument('--sepvect', dest='sep_vect', type=float, nargs='+',required=True,
-                    help='Fake companion separations')
-parser.add_argument('--wavelen', dest='wavelen', type=float, default=0,required=False,
-                    help='central wavelength in microns for sphere data (not in keyword)')
-parser.add_argument('--noise', dest='noise', action='store_const',
-				   const=False, default=True,
-				   help='Switch to introduce additional photon noise')
-parser.add_argument('-s', dest='stat', action='store_const',
-				   const=True, default=False,
-				   help='Print benchmarking statistics')
-parser.add_argument('--log_file', action="store", dest="log_file",  default='GRAPHIC', help='Log filename')
-parser.add_argument('-nici', dest='nici', action='store_const',
-				   const=True, default=False,
-				   help='Switch for GEMINI/NICI data')
-parser.add_argument('-nofit', dest='fit', action='store_const',
-				   const=False, default=True,
-				   help='Do not use PSF fitting values.')
-parser.add_argument('-sphere', dest='sphere', action='store_const',
-				   const=True, default=False,
-				   help='Switch for VLT/SPHERE data')
-				
+parser.add_argument('--no_info', dest='info', action='store_const', const=False,
+                    default=True, help='Ignore info files')
+parser.add_argument('--info_dir', action="store", dest="info_dir",
+                    default='cube-info', help='Info directory')
+parser.add_argument('--info_pattern', action="store", dest="info_pattern",
+                    default='all_info', help='Info filename pattern')
+parser.add_argument('--deltamag', dest='dm', type=float, nargs='+',
+                    required=True, help='Fake companion magnitude differences')
+parser.add_argument('--sepvect', dest='sep_vect', type=float, nargs='+',
+                    required=True, help='Fake companion separations')
+parser.add_argument(
+        '--wavelen', dest='wavelen', type=float, default=0, required=False,
+        help='central wavelength in microns for sphere data (not in keyword)')
+parser.add_argument('--noise', dest='noise', action='store_const', const=False,
+                    default=True,
+                    help='Switch to introduce additional photon noise')
+parser.add_argument('-s', dest='stat', action='store_const', const=True,
+                    default=False, help='Print benchmarking statistics')
+parser.add_argument('--log_file', action="store", dest="log_file",
+                    default='GRAPHIC', help='Log filename')
+parser.add_argument('-nici', dest='nici', action='store_const', const=True,
+                    default=False, help='Switch for GEMINI/NICI data')
+parser.add_argument('-nofit', dest='fit', action='store_const', const=False,
+                    default=True, help='Do not use PSF fitting values.')
+parser.add_argument('-sphere', dest='sphere', action='store_const', const=True,
+                    default=False, help='Switch for VLT/SPHERE data')
 
 args = parser.parse_args()
-d=args.d
-pattern=args.pattern
+d = args.d
+pattern = args.pattern
 ## filter_size=args.size
-info_dir=args.info_dir
-info_pattern=args.info_pattern
-stat=args.stat
-log_file=args.log_file
-nici=args.nici
+info_dir = args.info_dir
+info_pattern = args.info_pattern
+stat = args.stat
+log_file = args.log_file
+nici = args.nici
 #prim_adu=args.prim_adu
-dm=args.dm
-sep_vect=args.sep_vect
-wavelen=args.wavelen
-fit=args.fit
-sphere=args.sphere
+dm = args.dm
+sep_vect = args.sep_vect
+wavelen = args.wavelen
+fit = args.fit
+sphere = args.sphere
 
+skipped = 0
 
-skipped=0
-
-t_init=MPI.Wtime()
+t_init = MPI.Wtime()
 ## target_pattern="FP_"
 ## target_pattern="FP_dm"+re.sub('[\[\] ]','_',str(dm))+"_sv_"+re.sub('[\[\] ]','_',str(sep_vect))
-target_pattern='FP_'+str(__version__)+'.'+str(__subversion__)+'_s_{smin:.3G}_{smax:.3G}_dm_{mmin:.3G}_{mmax:.3G}'.format(smin=np.min(sep_vect), smax=np.max(sep_vect),mmin=np.min(dm), mmax=np.max(dm))
+target_pattern = 'FP_' + str(__version__) + '.' + str(
+        __subversion__
+) + '_s_{smin:.3G}_{smax:.3G}_dm_{mmin:.3G}_{mmax:.3G}'.format(
+        smin=np.min(sep_vect), smax=np.max(sep_vect), mmin=np.min(dm),
+        mmax=np.max(dm))
 
-header_keys=['frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
-	'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
-	'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y',
-	'frame_num', 'frame_time', 'paralactic_angle']
+header_keys = [
+        'frame_number', 'psf_barycentre_x', 'psf_barycentre_y',
+        'psf_pixel_size', 'psf_fit_centre_x', 'psf_fit_centre_y',
+        'psf_fit_height', 'psf_fit_width_x', 'psf_fit_width_y', 'frame_num',
+        'frame_time', 'paralactic_angle'
+]
 
-if rank==0:
-	graphic_nompi_lib.print_init()
+if rank == 0:
+    graphic_nompi_lib.print_init()
 
-	dirlist=graphic_nompi_lib.create_dirlist(pattern,target_pattern=target_pattern+"_")
-	complete_dirlist=dirlist
-	if dirlist==None:
-		print("No files found. Check --pattern option!")
-		for n in range(nprocs-1):
-			comm.send(None,dest =n+1)
-		sys.exit(1)
-	else:
-		start,dirlist=graphic_mpi_lib.send_dirlist(dirlist)
+    dirlist = graphic_nompi_lib.create_dirlist(
+            pattern, target_pattern=target_pattern + "_")
+    complete_dirlist = dirlist
+    if dirlist == None:
+        print("No files found. Check --pattern option!")
+        for n in range(nprocs - 1):
+            comm.send(None, dest=n + 1)
+        sys.exit(1)
+    else:
+        start, dirlist = graphic_mpi_lib.send_dirlist(dirlist)
 
+    if args.info:
+        ## infolist=glob.glob(info_dir+os.sep+info_pattern+'*.'+info_type)
+        ## infolist.sort() # Sort the list alphabetically
+        infolist = graphic_nompi_lib.create_dirlist(
+                info_dir + os.sep + info_pattern, extension='.rdb')
+        if infolist == None:
+            print("No info files found, check your --info_pattern and --info_dir options, or use -noinfo"
+                  )
+            comm.bcast(None, root=0)
+            sys.exit(1)
+        cube_list, complete_dirlist = graphic_nompi_lib.create_megatable(
+                complete_dirlist, infolist, keys=header_keys, nici=nici,
+                sphere=sphere, fit=fit)
+        #cube_list, dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici, sphere=sphere, fit=fit)
 
-	if args.info:
-		## infolist=glob.glob(info_dir+os.sep+info_pattern+'*.'+info_type)
-		## infolist.sort() # Sort the list alphabetically
-		infolist=graphic_nompi_lib.create_dirlist(info_dir+os.sep+info_pattern,extension='.rdb')
-		if infolist==None:
-			print("No info files found, check your --info_pattern and --info_dir options, or use -noinfo")
-			comm.bcast(None, root=0)
-			sys.exit(1)
-		cube_list, complete_dirlist=graphic_nompi_lib.create_megatable(complete_dirlist,infolist,keys=header_keys,nici=nici,sphere=sphere,fit=fit)
-		#cube_list, dirlist=graphic_nompi_lib.create_megatable(dirlist,infolist,keys=header_keys,nici=nici, sphere=sphere, fit=fit)
+        comm.bcast(cube_list, root=0)
 
-		comm.bcast(cube_list, root=0)
+    ## # Create directory to store reduced data
+    ## if not os.path.isdir(target_dir):
+    ## os.mkdir(target_dir)
 
-	## # Create directory to store reduced data
-	## if not os.path.isdir(target_dir):
-		## os.mkdir(target_dir)
+if not rank == 0:
 
-if not rank==0:
+    ## start=comm.bcast(None, root=0)
+    dirlist = comm.recv(source=0)
+    if dirlist == None:
+        sys.exit(1)
+    start = comm.recv(source=0)
 
-	## start=comm.bcast(None, root=0)
-	dirlist=comm.recv(source=0)
-	if dirlist==None:
-		sys.exit(1)
-	start=comm.recv(source = 0)
+    if args.info:
+        cube_list = comm.bcast(None, root=0)
+        if cube_list == None:
+            sys.exit(1)
 
-	if args.info:
-		cube_list=comm.bcast(None, root=0)
-		if cube_list==None:
-			sys.exit(1)
-
-
-t0=MPI.Wtime()
+t0 = MPI.Wtime()
 
 if sphere:
-	f=open("primary_flux.txt")
-	lines=f.readlines()
-	f.close()
-	prim_adu=0
-	for line in lines:
-		if "left" in pattern:
-			if "left" in line.strip().split()[0]:
-				prim_adu=float(line.strip().split()[1])
-				print "primary_adu used: ",prim_adu
-		elif "right" in pattern:
-			if "right" in line.strip().split()[0]:
-				prim_adu=float(line.strip().split()[1])
-				print "primary_adu used: ",prim_adu
-		else:
-			print "Error, pattern must have left or right in it"
-	
-if prim_adu==0:
-	print "Error, primary_adu for pattern ",pattern," could not be found in primary_flux.txt. Verify is the file exist and is filled for the good image (left or right)"
+    f = open("primary_flux.txt")
+    lines = f.readlines()
+    f.close()
+    prim_adu = 0
+    for line in lines:
+        if "left" in pattern:
+            if "left" in line.strip().split()[0]:
+                prim_adu = float(line.strip().split()[1])
+                print("primary_adu used: ", prim_adu)
+        elif "right" in pattern:
+            if "right" in line.strip().split()[0]:
+                prim_adu = float(line.strip().split()[1])
+                print("primary_adu used: ", prim_adu)
+        else:
+            print("Error, pattern must have left or right in it")
 
+if prim_adu == 0:
+    print(
+            "Error, primary_adu for pattern ", pattern,
+            " could not be found in primary_flux.txt. Verify is the file exist and is filled for the good image (left or right)"
+    )
 
 for i in range(len(dirlist)):
-	targetfile=target_pattern+"_"+dirlist[i]
+    targetfile = target_pattern + "_" + dirlist[i]
 
-	##################################################################
-	#
-	# Read cube header and data
-	#
-	##################################################################
+    ##################################################################
+    #
+    # Read cube header and data
+    #
+    ##################################################################
 
-	print(str(rank)+': ['+str(start+i)+'/'+str(len(dirlist)+start)+"] "+dirlist[i]+" Remaining time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1-skipped)))
-	## cube,header=pyfits.getdata(dirlist[i], header=True)
-	hdulist = fits.open(dirlist[i])
-	hdulist.verify(option='fix')
-	header=hdulist[0].header
-	## header.set('ESO DET CHIP PXSPACE', '{0:4G}'.format(header['ESO DET CHIP PXSPACE']))
-	cube=hdulist[0].data
+    print(
+            str(rank) + ': [' + str(start + i) + '/' +
+            str(len(dirlist) + start) + "] " + dirlist[i] +
+            " Remaining time: " +
+            graphic_nompi_lib.humanize_time((MPI.Wtime() - t0) *
+                                            (len(dirlist) - i) /
+                                            (i + 1 - skipped)))
+    ## cube,header=pyfits.getdata(dirlist[i], header=True)
+    hdulist = fits.open(dirlist[i])
+    hdulist.verify(option='fix')
+    header = hdulist[0].header
+    ## header.set('ESO DET CHIP PXSPACE', '{0:4G}'.format(header['ESO DET CHIP PXSPACE']))
+    cube = hdulist[0].data
 
-	if args.info:
-		all_info=cube_list['info'][cube_list['cube_filename'].index(dirlist[i])]
+    if args.info:
+        all_info = cube_list['info'][cube_list['cube_filename'].index(
+                dirlist[i])]
 
-	for frame in range(cube.shape[0]):
-		if not args.info:
-			print("Debug: no info")
-			if nici:
-				cube[frame]=graphic_nompi_lib.inject_FP_nici(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=0, x0=0,y0=0, r_tel_prim=8.2, r_tel_sec=1.2, noise=args.noise, pad=2)
-			elif sphere: #problem with pad number different than 1
-				cube[frame]=graphic_nompi_lib.inject_FP(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=0, x0=0,y0=0, r_tel_prim=8.2, r_tel_sec=1.2, noise=args.noise, pad=1)
-			else:
-				cube[frame]=graphic_nompi_lib.inject_FP(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=0, x0=0,y0=0, r_tel_prim=8.2, r_tel_sec=1.2, noise=args.noise, pad=2)
-		elif all_info[frame,5]==-1:
-			continue
-		if nici:
-			cube[frame]=graphic_nompi_lib.inject_FP_nici(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=all_info[frame,11], x0=all_info[frame,4],y0=all_info[frame,5], r_tel_prim=8.2, r_tel_sec=1.0, noise=args.noise)
-		elif sphere: #problem with pad number different than 1
-			#cube[frame]=graphic_nompi_lib.inject_FP_sphere(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=all_info[frame,11], x0=all_info[frame,4],y0=all_info[frame,5], r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise, pad=1)
-			cube[frame]=graphic_nompi_lib.inject_FP_sphere(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=all_info[frame,11], x0=0,y0=0, r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise, pad=1)
-		else:
-			## cube[frame]=graphic_nompi_lib.inject_FP(cube[frame], sep_vect, prim_adu, dm, header, alpha=all_info[frame,11], x0=all_info[frame,4]-cube.shape[1]/2,y0=all_info[frame,5]-cube.shape[2]/2, r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise)
-			cube[frame]=graphic_nompi_lib.inject_FP(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=all_info[frame,11], x0=all_info[frame,4],y0=all_info[frame,5], r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise, pad=2)
+    for frame in range(cube.shape[0]):
+        if not args.info:
+            print("Debug: no info")
+            if nici:
+                cube[frame] = graphic_nompi_lib.inject_FP_nici(
+                        cube[frame], sep_vect, prim_adu, dm, header, wavelen,
+                        alpha=0, x0=0, y0=0, r_tel_prim=8.2, r_tel_sec=1.2,
+                        noise=args.noise, pad=2)
+            elif sphere:  #problem with pad number different than 1
+                cube[frame] = graphic_nompi_lib.inject_FP(
+                        cube[frame], sep_vect, prim_adu, dm, header, wavelen,
+                        alpha=0, x0=0, y0=0, r_tel_prim=8.2, r_tel_sec=1.2,
+                        noise=args.noise, pad=1)
+            else:
+                cube[frame] = graphic_nompi_lib.inject_FP(
+                        cube[frame], sep_vect, prim_adu, dm, header, wavelen,
+                        alpha=0, x0=0, y0=0, r_tel_prim=8.2, r_tel_sec=1.2,
+                        noise=args.noise, pad=2)
+        elif all_info[frame, 5] == -1:
+            continue
+        if nici:
+            cube[frame] = graphic_nompi_lib.inject_FP_nici(
+                    cube[frame], sep_vect, prim_adu, dm, header, wavelen,
+                    alpha=all_info[frame,
+                                   11], x0=all_info[frame,
+                                                    4], y0=all_info[frame, 5],
+                    r_tel_prim=8.2, r_tel_sec=1.0, noise=args.noise)
+        elif sphere:  #problem with pad number different than 1
+            #cube[frame]=graphic_nompi_lib.inject_FP_sphere(cube[frame], sep_vect, prim_adu, dm, header, wavelen, alpha=all_info[frame,11], x0=all_info[frame,4],y0=all_info[frame,5], r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise, pad=1)
+            cube[frame] = graphic_nompi_lib.inject_FP_sphere(
+                    cube[frame], sep_vect, prim_adu, dm, header, wavelen,
+                    alpha=all_info[frame, 11], x0=0, y0=0, r_tel_prim=8.2,
+                    r_tel_sec=1.16, noise=args.noise, pad=1)
+        else:
+            ## cube[frame]=graphic_nompi_lib.inject_FP(cube[frame], sep_vect, prim_adu, dm, header, alpha=all_info[frame,11], x0=all_info[frame,4]-cube.shape[1]/2,y0=all_info[frame,5]-cube.shape[2]/2, r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise)
+            cube[frame] = graphic_nompi_lib.inject_FP(
+                    cube[frame], sep_vect, prim_adu, dm, header, wavelen,
+                    alpha=all_info[frame,
+                                   11], x0=all_info[frame,
+                                                    4], y0=all_info[frame, 5],
+                    r_tel_prim=8.2, r_tel_sec=1.16, noise=args.noise, pad=2)
 
-	## hdr["HIERARCH GC FP FIT"]=(fit.astype(int), "")
-	header["HIERARCH GC FP FIT"]=(fit.numerator,'')
-	header["HIERARCH GC PRIM ADU"]=(prim_adu, "Primary star ADU")
-	header["HIERARCH GC MAG"]=(' '.join('%3G' %v for v in dm), "FP mag")
-	header["HIERARCH GC SEPs"]=(' '.join('%3G' %v for v in sep_vect), "FP sep")
-	header["HIERARCH GC FP VERS"]=(__version__+'.'+__subversion__, "")
+    ## hdr["HIERARCH GC FP FIT"]=(fit.astype(int), "")
+    header["HIERARCH GC FP FIT"] = (fit.numerator, '')
+    header["HIERARCH GC PRIM ADU"] = (prim_adu, "Primary star ADU")
+    header["HIERARCH GC MAG"] = (' '.join('%3G' % v for v in dm), "FP mag")
+    header["HIERARCH GC SEPs"] = (' '.join('%3G' % v
+                                           for v in sep_vect), "FP sep")
+    header["HIERARCH GC FP VERS"] = (__version__ + '.' + __subversion__, "")
 
-	#Vector can be retrieved using following command
-	#a=[float(s) for s in string.split(hdr['DM'][2:-1],' ')]
+    #Vector can be retrieved using following command
+    #a=[float(s) for s in string.split(hdr['DM'][2:-1],' ')]
 
-	## header.add_history(fnmatch.filter(sky_header.get_history(),"sky.median*" )[0])
-	graphic_nompi_lib.save_fits( targetfile, hdulist )
+    ## header.add_history(fnmatch.filter(sky_header.get_history(),"sky.median*" )[0])
+    graphic_nompi_lib.save_fits(targetfile, hdulist)
 
-print(str(rank)+": Total time: "+graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
+print(
+        str(rank) + ": Total time: " +
+        graphic_nompi_lib.humanize_time((MPI.Wtime() - t0)))
 
 #if rank==0:
 #	if 'ESO OBS TARG NAME' in header.keys():

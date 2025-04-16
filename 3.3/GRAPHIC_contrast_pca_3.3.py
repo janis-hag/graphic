@@ -30,47 +30,45 @@ parser = argparse.ArgumentParser(
         dataset.')
 
 parser.add_argument(
-        '--cube_file', action="store",  dest="cube_file", type=str,
+        '--cube_file', action="store", dest="cube_file", type=str,
         default='master_cube_PCA.fits',
         help='The filename of the cleaned cube that PCA was performed on.')
 
 parser.add_argument(
-        '--psf_file', action="store",  dest="psf_file", type=str,
+        '--psf_file', action="store", dest="psf_file", type=str,
         default='flux.fits',
         help='The filename of the cleaned psf file, NOT corrected for \
         exposure time etc.')
 
-parser.add_argument(
-        '--parang_file', action="store", dest="parang_file", type=str,
-        default='parallactic_angle.txt',
-        help='The filename of the parallactic angles (in degrees).')
+parser.add_argument('--parang_file', action="store", dest="parang_file",
+                    type=str, default='parallactic_angle.txt',
+                    help='The filename of the parallactic angles (in degrees).')
+
+parser.add_argument('--image_file', action="store", dest="image_file", type=str,
+                    default='GRAPHIC_PCA/smart_annular_pca_derot.fits',
+                    help='The filename of the final PCA reduced image.')
+
+parser.add_argument('--output_dir', action="store", dest="output_dir", type=str,
+                    default='GRAPHIC_PCA/',
+                    help='The folder to store the results in.')
+
+parser.add_argument('--threads', action="store", dest="threads", type=int,
+                    default=3,
+                    help='Number of multiprocessing threads to use (not MPI).')
 
 parser.add_argument(
-        '--image_file', action="store", dest="image_file", type=str,
-        default='GRAPHIC_PCA/smart_annular_pca_derot.fits',
-        help='The filename of the final PCA reduced image.')
-
-parser.add_argument(
-        '--output_dir', action="store", dest="output_dir", type=str,
-        default='GRAPHIC_PCA/', help='The folder to store the results in.')
-
-parser.add_argument(
-        '--threads', action="store",  dest="threads", type=int, default=3,
-        help='Number of multiprocessing threads to use (not MPI).')
-
-parser.add_argument(
-        '--cutout_radius', action="store",  dest="cutout_radius", type=int,
+        '--cutout_radius', action="store", dest="cutout_radius", type=int,
         default=7,
         help='Number of pixels radius around the psf to use when fitting to \
         the flux of injected psfs.')
 
 parser.add_argument(
-        '--psf_pad', action="store",  dest="psf_pad", type=int, default=10,
+        '--psf_pad', action="store", dest="psf_pad", type=int, default=10,
         help='Number of pixels radius around the psf to pad when injecting \
         fake companions.')
 
 parser.add_argument(
-        '--n_sigma_inject', action="store",  dest="n_sigma_inject", type=int,
+        '--n_sigma_inject', action="store", dest="n_sigma_inject", type=int,
         default=7,
         help='Number of sigma for the injected PSFs (compared to initial \
         noise estimate).')
@@ -82,7 +80,7 @@ parser.add_argument(
         calculating the contrast.')
 
 parser.add_argument(
-        '--plate_scale', action="store",  dest="plate_scale", type=np.float,
+        '--plate_scale', action="store", dest="plate_scale", type=np.float,
         default=1.,
         help='Plate scale in arcsec/pix. Default is 1, so the separations \
         will be in pixels.')
@@ -97,16 +95,15 @@ parser.add_argument(
         '--n_radii', action="store", dest="n_radii", type=int, default=200,
         help='Number of radial points to use to calculate the contrast and \
         signal to noise map.')
-parser.add_argument(
-        '--r_max', action="store", dest="r_max", default=-1, type=np.float,
-        help='Maximum radius (pix) for the contrast and SNR map.')
+parser.add_argument('--r_max', action="store", dest="r_max", default=-1,
+                    type=np.float,
+                    help='Maximum radius (pix) for the contrast and SNR map.')
 
 parser.add_argument(
-        '--n_throughput', action="store",  dest="n_throughput", default=1,
+        '--n_throughput', action="store", dest="n_throughput", default=1,
         type=np.int,
         help='Number of times to repeat the throughput calculation, to get \
         an average value. Each one will use a different position angle')
-
 
 args = parser.parse_args()
 
@@ -131,7 +128,7 @@ if threads > 1:
 else:
     import graphic_pca_lib as pca
 
-print(sys.argv[0]+' started on ' + time.strftime("%c"))
+print(sys.argv[0] + ' started on ' + time.strftime("%c"))
 
 # Fix the default r_max value so the other programs know it was not set
 if r_max == -1:
@@ -150,7 +147,6 @@ contrast_file = output_dir + 'contrast.txt'
 snr_map_file = output_dir + 'snr_map.fits'
 noise_file = output_dir + 'noise.txt'
 
-
 # Load the psf image, pca subtracted image and data cubes
 # (and their headers)
 psf_frame, psf_header = pf.getdata(psf_file, header=True)
@@ -163,7 +159,7 @@ if psf_frame.shape[0] == 1:
 
 # Load the parallactic angles
 parangs_deg = np.loadtxt(parang_file)
-parangs_rad = parangs_deg*np.pi/180.
+parangs_rad = parangs_deg * np.pi / 180.
 
 # Get the PCA params from the header
 pca_type = header['HIERARCH GC PCA TYPE']
@@ -178,18 +174,19 @@ pca_input_file = header['HIERARCH GC PCA INPUTFILE']
 min_reference_frames = np.int(header['HIERARCH GC PCA MINREFFRAMES'])
 
 if pca_r_max == 'Default':
-    pca_r_max = np.sqrt(2)*cube.shape[-1]/2
+    pca_r_max = np.sqrt(2) * cube.shape[-1] / 2
 
 # Radii of injected companions
 # Use the centre of every second PCA annulus
-radii_edges = np.linspace(pca_r_min, pca_r_max, num=(n_annuli//2+1))
-inject_radii = np.array([np.mean(
-        radii_edges[ix:ix + 2]) for ix in range(n_annuli//2)])
+radii_edges = np.linspace(pca_r_min, pca_r_max, num=(n_annuli // 2 + 1))
+inject_radii = np.array([
+        np.mean(radii_edges[ix:ix + 2]) for ix in range(n_annuli // 2)
+])
 
 # Quickly estimate the contrast so we have a rough idea of the flux
 #   to use for the fake companion injection
-noise, noise_radii = graphic_contrast_lib.noise_vs_radius(image, 2*n_annuli,
-                                                          pca_r_min, fwhm)
+noise, noise_radii = graphic_contrast_lib.noise_vs_radius(
+        image, 2 * n_annuli, pca_r_min, fwhm)
 
 # And estimate the flux of the star so we know what factor to multiply it by
 # At the moment we treat pixels individually for the noise, so use radius=1
@@ -200,7 +197,7 @@ stellar_flux = graphic_contrast_lib.measure_flux(psf_frame, radius=1)
 # This is actually the multiplication factor for the psf
 noise_interp = interpolate.interp1d(noise_radii, noise, kind='linear')
 noise_at_inject_radii = noise_interp(inject_radii)
-input_fluxes = n_sigma_inject*(noise_at_inject_radii/stellar_flux)
+input_fluxes = n_sigma_inject * (noise_at_inject_radii / stellar_flux)
 
 # Now we will inject the companions and measure their throughput
 # Loop over this process so we can average out changes caused by throughput
@@ -208,39 +205,45 @@ input_fluxes = n_sigma_inject*(noise_at_inject_radii/stellar_flux)
 print('Iterating over throughput measurement')
 all_throughputs = []
 for ix in range(n_throughput):
-    print('  Iteration '+str(ix+1)+' of '+str(n_throughput))
-    intermediate_fp_derot_name = str(ix+1)+'.'+str(n_throughput)+'_'+fp_derot_name
-    intermediate_throughputs_name = str(ix+1)+'.'+str(n_throughput)+'_throughputs.pickle'
+    print('  Iteration ' + str(ix + 1) + ' of ' + str(n_throughput))
+    intermediate_fp_derot_name = str(ix + 1) + '.' + str(
+            n_throughput) + '_' + fp_derot_name
+    intermediate_throughputs_name = str(ix + 1) + '.' + str(
+            n_throughput) + '_throughputs.pickle'
 
-#    if os.access(output_dir + os.sep + intermediate_fp_derot_name, os.F_OK):
-#        print('Reading previously processed file.')
-#        interm_fp_hdr = pf.getheader(
-#                output_dir + os.sep + intermediate_fp_derot_name)
-#        azimuth_offset = interm_fp_hdr['HIERARCH GC INJECT AZOFFSET']
+    #    if os.access(output_dir + os.sep + intermediate_fp_derot_name, os.F_OK):
+    #        print('Reading previously processed file.')
+    #        interm_fp_hdr = pf.getheader(
+    #                output_dir + os.sep + intermediate_fp_derot_name)
+    #        azimuth_offset = interm_fp_hdr['HIERARCH GC INJECT AZOFFSET']
     if os.access(output_dir + os.sep + intermediate_throughputs_name, os.F_OK):
         print('Reading previously processed throughputs.')
-        with open(output_dir + os.sep + intermediate_throughputs_name, 'rb') as f:
+        with open(output_dir + os.sep + intermediate_throughputs_name,
+                  'rb') as f:
             all_throughputs = pickle.load(f)
     else:
         # Randomly orient the line of injected psfs
-        azimuth_offset = np.random.uniform(low=0., high=2*np.pi)  # radians
+        azimuth_offset = np.random.uniform(low=0., high=2 * np.pi)  # radians
 
         # Inject the fake companions
-        graphic_contrast_lib.inject_companions(
-                cube_file, psf_frame, parangs_rad, inject_radii, input_fluxes,
-                azimuth_offset=azimuth_offset, psf_pad=psf_pad,
-                save_name=output_dir+fp_name)
+        graphic_contrast_lib.inject_companions(cube_file, psf_frame,
+                                               parangs_rad, inject_radii,
+                                               input_fluxes,
+                                               azimuth_offset=azimuth_offset,
+                                               psf_pad=psf_pad,
+                                               save_name=output_dir + fp_name)
 
         # Run PCA again with the same settings as the original
-        pca.smart_annular_pca(
-                output_dir+fp_name, n_modes, fp_pca_name, parang_file,
-                n_annuli=n_annuli, arc_length=arc_length, r_max=pca_r_max,
-                r_min=pca_r_min, n_fwhm=n_fwhm, fwhm=fwhm, threads=threads,
-                min_reference_frames=min_reference_frames,
-                output_dir=output_dir)
+        pca.smart_annular_pca(output_dir + fp_name, n_modes, fp_pca_name,
+                              parang_file, n_annuli=n_annuli,
+                              arc_length=arc_length, r_max=pca_r_max,
+                              r_min=pca_r_min, n_fwhm=n_fwhm, fwhm=fwhm,
+                              threads=threads,
+                              min_reference_frames=min_reference_frames,
+                              output_dir=output_dir)
 
         # Derotate the image
-        pca.derotate_and_combine_multi(output_dir+fp_pca_name, parang_file,
+        pca.derotate_and_combine_multi(output_dir + fp_pca_name, parang_file,
                                        threads=threads,
                                        save_name=intermediate_fp_derot_name,
                                        median_combine=True,
@@ -248,7 +251,7 @@ for ix in range(n_throughput):
 
         # Now fit to the fluxes of the injected companions
         fp_derot_image, fp_derot_hdr = pf.getdata(
-                output_dir+intermediate_fp_derot_name, header=True)
+                output_dir + intermediate_fp_derot_name, header=True)
 
         measured_throughputs = graphic_contrast_lib.fit_injected_companions(
                 fp_derot_image, psf_frame, inject_radii, input_fluxes,
@@ -257,7 +260,8 @@ for ix in range(n_throughput):
 
         all_throughputs.append(measured_throughputs)
 
-        with open(output_dir + os.sep + intermediate_throughputs_name, 'wb') as f:
+        with open(output_dir + os.sep + intermediate_throughputs_name,
+                  'wb') as f:
             pickle.dump(all_throughputs, f)
 
 # Now average over the repetitions and save it out
@@ -281,10 +285,10 @@ elif instrument == 'SPHERE':
     flux_factor = graphic_contrast_lib.correct_flux_frame_sphere(
             cube_header, psf_header)
 else:
-    raise Exception('Unknown instrument in GRAPHIC_contrast_pca: '+instrument)
+    raise Exception('Unknown instrument in GRAPHIC_contrast_pca: ' + instrument)
 
 psf_frame *= flux_factor
-print('Multiplying the flux frame by:'+str(flux_factor))
+print('Multiplying the flux frame by:' + str(flux_factor))
 
 # Apply cosmetics to the image and flux frame before measuring the contrast
 graphic_contrast_lib.prepare_detection_image(
@@ -299,25 +303,29 @@ psf_frame = graphic_contrast_lib.prepare_detection_image(
         psf_frame, smooth_image_length=smooth_image_length)
 
 # Calculate the contrast
-graphic_contrast_lib.contrast_curve(
-        contrast_im_file, psf_frame, r_min=pca_r_min, r_max=r_max, fwhm=fwhm,
-        plate_scale=plate_scale, self_subtraction_file=throughput_file,
-        save_contrast=contrast_file, n_radii=n_radii, save_noise=noise_file,
-        mad=True, robust_sigma=False)
+graphic_contrast_lib.contrast_curve(contrast_im_file, psf_frame,
+                                    r_min=pca_r_min, r_max=r_max, fwhm=fwhm,
+                                    plate_scale=plate_scale,
+                                    self_subtraction_file=throughput_file,
+                                    save_contrast=contrast_file,
+                                    n_radii=n_radii, save_noise=noise_file,
+                                    mad=True, robust_sigma=False)
 
 # Make a signal-to-noise map
-graphic_contrast_lib.snr_map(
-        contrast_im_file, noise_file, remove_planet=False,
-        planet_position=None, planet_radius=10., save_name=snr_map_file)
+graphic_contrast_lib.snr_map(contrast_im_file, noise_file, remove_planet=False,
+                             planet_position=None, planet_radius=10.,
+                             save_name=snr_map_file)
 
 print('Cleaning up temporary files.')
 for ix in range(n_throughput):
-    intermediate_fp_derot_name = str(ix+1)+'.'+str(n_throughput)+'_'+fp_derot_name
+    intermediate_fp_derot_name = str(ix + 1) + '.' + str(
+            n_throughput) + '_' + fp_derot_name
     if os.access(output_dir + os.sep + intermediate_fp_derot_name,
                  os.F_OK | os.R_OK):
         os.remove(output_dir + os.sep + intermediate_fp_derot_name)
 
-    intermediate_throughputs_name = str(ix+1)+'.'+str(n_throughput)+'_throughputs.pickle'
+    intermediate_throughputs_name = str(ix + 1) + '.' + str(
+            n_throughput) + '_throughputs.pickle'
     if os.access(output_dir + os.sep + intermediate_throughputs_name,
                  os.F_OK | os.R_OK):
         os.remove(output_dir + os.sep + intermediate_throughputs_name)

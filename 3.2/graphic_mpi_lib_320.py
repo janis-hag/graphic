@@ -718,8 +718,3 @@ def send_masked_chunks(cub_in,d):
 				print("Chunk "+str(n)+" sent, shape: "+str(cub_in[:,start:end,:].shape))
 
 	del cub_in
-
-
-
-
-

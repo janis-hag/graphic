@@ -34,7 +34,7 @@ def band_filter(band_filter,filename):
     elif "sdi" in filename:
         return lambda2
     else:
-        print "Error wavelength not detected because information mission in filename (left, right, or sdi)"
+        print("Error wavelength not detected because information mission in filename (left, right, or sdi)")
         return 0
 
 
@@ -59,7 +59,7 @@ def Neutral_density(hdr,wavelength,ND_path_filename=ND_path_filename):
             elif Neutral_density=='ND_3.5':
                 ND_transmission_vec[i-8]=float(line.strip().split()[4])
             else:
-                print "Error Neutral density not understood"
+                print("Error Neutral density not understood")
                 ND_transmission_vec[i-8]=float(line.strip().split()[4])
 
     ND_tranmission=ND_transmission_vec[np.where(wavelength_vec==wavelength)][0]

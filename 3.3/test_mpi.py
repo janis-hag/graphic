@@ -4,7 +4,7 @@
 from mpi4py import MPI
 
 nprocs = MPI.COMM_WORLD.Get_size()
-rank   = MPI.COMM_WORLD.Get_rank()
+rank = MPI.COMM_WORLD.Get_rank()
 procnm = MPI.Get_processor_name()
 comm = MPI.COMM_WORLD
 

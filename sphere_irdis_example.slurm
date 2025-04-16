@@ -163,10 +163,10 @@ cd ..
 # # SPHERE Characterization
 # ####################
 # mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Companion_detection_and_characterization.py" --pattern_image nomask*sdi --pattern_psf psf_left --pattern_image_FP nomask*FP*left --pixel_scale 0.01227 --sep_FP 0.3 0.5 0.7 1. 1.5 2. 3.0 --dmag_given 10 --fwhm 4
-# mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Contrast_curves.py" --pattern_image nomask*sdi --pattern_psf psf_left --age 5.000 --pixel_scale 0.01227 
+# mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Contrast_curves.py" --pattern_image nomask*sdi --pattern_psf psf_left --age 5.000 --pixel_scale 0.01227
 
 # mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Companion_detection_and_characterization.py" --pattern_image nomask*left --pattern_psf psf_left --pattern_image_FP nomask*FP*left --pixel_scale 0.01227 --sep_FP 0.3 0.5 0.7 1. 1.5 2. 3.0 --dmag_given 10 --fwhm 4 -no_comp_detection
-# mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Contrast_curves.py" --pattern_image nomask*left --pattern_psf psf_left --age 5.000 --pixel_scale 0.01227 
+# mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Contrast_curves.py" --pattern_image nomask*left --pattern_psf psf_left --age 5.000 --pixel_scale 0.01227
 
 # mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Companion_detection_and_characterization.py" --pattern_image nomask*right --pattern_psf psf_right --pattern_image_FP nomask*FP*left --pixel_scale 0.01227 --sep_FP 0.3 0.5 0.7 1. 1.5 2. 3.0 --dmag_given 10 --fwhm 4 -no_comp_detection
 # mpirun $GRAPHIC_N_CORES python $GRAPHIC_DIR"SPHERE_characterization/contrast_curve_SPHERE/Contrast_curves.py" --pattern_image nomask*right --pattern_psf psf_right --age 5.000 --pixel_scale 0.01227

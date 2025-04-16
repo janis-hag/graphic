@@ -13,7 +13,7 @@ def read_model(age,M,parallax):
     f=open(path+filename)
     data=f.readlines()
     f.close()
-    
+
     if 'D' not in M:
         M='D_'+M
 
@@ -24,7 +24,7 @@ def read_model(age,M,parallax):
     index=0
     for line in data:
         if repr(data[i])==repr(time):
-            print line.replace("\n","")
+            print(line.replace("\n",""))
             index=i
         if index!=0 and data[i][0]=="\n" and i>index+3:
             index2=i
@@ -39,19 +39,19 @@ def read_model(age,M,parallax):
         #if repr(header[i])==repr(M):
         if M in header[i]:
             filter1=col
-            print "filter: ",filter1,"\n"
+            print("filter: ",filter1,"\n")
             index_col=i
         i+=1
     nbr_lines=index2-index
     nbr_col=i
-    
+
     table2=np.zeros((nbr_lines-3,nbr_col))
     i=0
     for line in table:
         if i>2:
             table2[i-3]=line.split()
         i+=1
-    
+
     masses=table2[:,0]
     abs_mag=table2[:,index_col]
     Teff=table2[:,1]
@@ -59,8 +59,7 @@ def read_model(age,M,parallax):
     masses=masses
     Teff=Teff
     abs_mag=abs_mag
-    print "Masses in model used for sdi self subtraction [Msol]",masses
-    print "Mag corresponding:",abs_mag
-    
-    return masses,Teff,abs_mag
+    print("Masses in model used for sdi self subtraction [Msol]",masses)
+    print("Mag corresponding:",abs_mag)
 
+    return masses,Teff,abs_mag

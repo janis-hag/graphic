@@ -21,17 +21,17 @@ def low_pass_fft(image,r,d):
     """py.figure(10)
     py.imshow(mask)
     py.show()"""
-    
+
     fft_filter=fft*mask
     #fft_filter=np.where(R<r-d/2,0,fft)
-    
+
     im_filter=nan_mask*np.real(np.fft.ifft2(fftpack.ifftshift(fft_filter)))
     return im_filter
 
 def mad(arr):
     """ Median Absolute Deviation: a "Robust" version of standard deviation.
         Indices variabililty of the sample.
-        https://en.wikipedia.org/wiki/Median_absolute_deviation 
+        https://en.wikipedia.org/wiki/Median_absolute_deviation
     """
     #arr = np.ma.array(arr).compressed() # should be faster to not use masked arrays.
     med = np.nanmedian(arr)
@@ -39,7 +39,7 @@ def mad(arr):
 
 def twoD_Gaussian((x,y), amplitude, xo, yo, sigma_x, sigma_y,theta):
     xo = float(xo)
-    yo = float(yo)    
+    yo = float(yo)
     a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
     b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
     c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
@@ -68,7 +68,7 @@ def model((x,y),amplitude,x0,y0,width_x,width_y,theta):#,width_donut,depth_donut
     #py.imshow(mask2)
     #py.show()
     psf=psf*mask2+amplitude/2.*np.sin(np.pi*R_rot*0.7)*mask1*(1-mask2)
-    
+
     return psf
 
 def error(par,data):
@@ -110,7 +110,7 @@ def comp_detection(path,pattern):
         if "FP" not in allfiles:
             image_filename=allfiles
             print "image filename:",image_filename
-    
+
     im,hdr=pyfits.getdata(path+image_filename,header=True)
 
     im_low_filter=low_pass_fft(im,150,200)
@@ -196,7 +196,7 @@ def comp_detection(path,pattern):
                         else:
                             im_temp_center=im_cut[max_index_vec[-1][0]-l2/2.:max_index_vec[-1][0]+l2/2.,max_index_vec[-1][1]-l2/2.:max_index_vec[-1][1]+l2/2.]
                             center=[max_index_vec[-1][0],max_index_vec[-1][1]]
-                        
+
                         paramsinitial1=[np.nanmax(im_temp_center),np.where(im_temp_center==np.nanmax(im_temp_center))[1][0]-l2/2.,np.where(im_temp_center==np.nanmax(im_temp_center))[0][0]-l2/2.,2.5,2,10]
                         fitobj1 = kmpfit.Fitter(residuals=error, data=(im_temp_center,X2,Y2,np.nanmedian(im_temp_center)))
                         fitobj1.fit(params0=paramsinitial1)
@@ -218,8 +218,8 @@ def comp_detection(path,pattern):
                         max_index=np.array(np.where(test==np.nanmax(test))) #new companion
                         if np.size(np.where(np.isnan(test)==False))<1:
                             break
-                
-            
+
+
 
     #pyfits.writeto(path+"compsub_"+image_filename,im_cut,header=hdr,output_verify="fix+warn",clobber=True)
     if comp!=0:

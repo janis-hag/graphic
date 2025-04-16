@@ -8,14 +8,14 @@ def primary_flux(wdir,pattern):
 		if i==0:
 			image_filename=allfiles
 		else:
-			print "Warning more than one file found with this pattern name. Used the first one:",image_filename
-	
+			print("Warning more than one file found with this pattern name. Used the first one:",image_filename)
+
 	if ("left" in image_filename) or ("sdi" in image_filename):
 		flux_filename='psf_left.fits'
 	elif ("right" in image_filename):
 		flux_filename='psf_right.fits'
 	else:
-		print "Error could not find if left or right or sdi file for psf filename"
+		print("Error could not find if left or right or sdi file for psf filename")
 	image_file=wdir+image_filename
 	flux_file=wdir+flux_filename
 	# Load the image and the flux image

@@ -10,9 +10,9 @@ def signal_to_noise(path,path_results,pattern,plate_scale,fwhm_pl):
 	for i,allfiles in enumerate(glob.iglob(pattern+"*")):
 		if i==0:
 			image_filename=allfiles
-			print "image filename:",image_filename
+			print("image filename:",image_filename)
 		else:
-			print "Error more than one file found with this pattern. Used the first one:",image_filename
+			print("Error more than one file found with this pattern. Used the first one:",image_filename)
 	im,hdr=pyfits.getdata(path+image_filename,header=True)
 
 	target_name=hdr["OBJECT"]
@@ -34,7 +34,7 @@ def signal_to_noise(path,path_results,pattern,plate_scale,fwhm_pl):
 				PA_comp=float(line.strip().split()[3])*np.pi/180.
 				xpl=-np.sin(PA_comp)*rho_comp+np.shape(im)[1]/2.
 				ypl=np.cos(PA_comp)*rho_comp+np.shape(im)[0]/2.
-		
+
 		xpl=int(xpl-np.shape(im)[1]/2)
 		ypl=int(ypl-np.shape(im)[0]/2)
 
@@ -118,14 +118,14 @@ def signal_to_noise(path,path_results,pattern,plate_scale,fwhm_pl):
 
 		Signal=np.nanmax(im*mask)-np.nanmedian(im*mask_pl*mask_adi_subtraction*mask)
 		Noise=np.nanstd(im*mask_pl*mask_adi_subtraction*mask)
-		print "Signal: ", Signal
-		print "Noise: ", Noise
-		print "S/N= ",Signal/Noise
-		
+		print("Signal: ", Signal)
+		print("Noise: ", Noise)
+		print("S/N= ",Signal/Noise)
+
 		f=open(path_results+"companion_extraction.txt","r")
 		lines=f.readlines()
 		f.close()
-		
+
 		f=open(path_results+"companion_extraction.txt","w")
 		for i,line in enumerate(lines):
 			if line!="\n":
@@ -141,9 +141,4 @@ def signal_to_noise(path,path_results,pattern,plate_scale,fwhm_pl):
 			f.write(line)
 		f.close()
 	else:
-		print "No companion detected!"
-
-
-
-
-
+		print("No companion detected!")

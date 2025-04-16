@@ -15,7 +15,7 @@ from comp_detection import *
 import companion_extraction
 reload(companion_extraction)
 from companion_extraction import *
-import adi_self_subtraction_computation 
+import adi_self_subtraction_computation
 reload(adi_self_subtraction_computation)
 from adi_self_subtraction_computation import *
 

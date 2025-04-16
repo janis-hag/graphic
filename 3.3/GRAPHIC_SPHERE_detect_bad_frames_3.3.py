@@ -16,24 +16,27 @@ import glob
 import argparse
 import astropy.io.fits as pyfits
 
-
 __version__ = '3.3'
 __subversion__ = '0'
 
 target_dir = "."
 parser = argparse.ArgumentParser(description='Supress the frame in the cubes \
                                  and rdb files from the selection_frame file')
-parser.add_argument('--pattern', action="store", dest="pattern", default="sdi",
-                    help='Filename pattern of the cubes to apply the frame \
+parser.add_argument(
+        '--pattern', action="store", dest="pattern", default="sdi",
+        help='Filename pattern of the cubes to apply the frame \
                     selections')
-parser.add_argument('--r_int', action="store", dest="r_int", default=30,
-                    type=float, help='The inner radius used to consider the \
+parser.add_argument(
+        '--r_int', action="store", dest="r_int", default=30, type=float,
+        help='The inner radius used to consider the \
                     speckle statistics')
-parser.add_argument('--r_ext', action="store", dest="r_ext", default=80,
-                    type=float, help='The outer radius used to consider the \
+parser.add_argument(
+        '--r_ext', action="store", dest="r_ext", default=80, type=float,
+        help='The outer radius used to consider the \
                     speckle statistics')
-parser.add_argument('--sigma', action="store", dest="sigma", default=5,
-                    type=float, help='The number of sigma used for the cut \
+parser.add_argument(
+        '--sigma', action="store", dest="sigma", default=5, type=float,
+        help='The number of sigma used for the cut \
                     based on the median flux in each frame')
 args = parser.parse_args()
 pattern = args.pattern
@@ -63,28 +66,29 @@ def frame_selection(filename, r_int=30, r_ext=80, sigma=5):
     cube, hdr = pyfits.getdata(filename, header=True)
 
     # Cut out a region around the centre
-    cut = np.min([r_ext, cube.shape[1]//2, cube.shape[2]//2])
-    cube = cube[:, np.shape(cube)[1]//2-cut:np.shape(cube)[1]//2+cut,
-                np.shape(cube)[1]//2-cut:np.shape(cube)[1]//2+cut]
+    cut = np.min([r_ext, cube.shape[1] // 2, cube.shape[2] // 2])
+    cube = cube[:,
+                np.shape(cube)[1] // 2 - cut:np.shape(cube)[1] // 2 + cut,
+                np.shape(cube)[1] // 2 - cut:np.shape(cube)[1] // 2 + cut]
 
     med = np.nanmedian(cube, axis=0)
-    cube = cube-med + np.median(med)
+    cube = cube - med + np.median(med)
 
     # Make a donut to cut out a region around the centre
-    x = np.arange(-np.shape(cube)[1]//2, np.shape(cube)[1]//2)
-    y = np.arange(-np.shape(cube)[1]//2, np.shape(cube)[1]//2)
+    x = np.arange(-np.shape(cube)[1] // 2, np.shape(cube)[1] // 2)
+    y = np.arange(-np.shape(cube)[1] // 2, np.shape(cube)[1] // 2)
     X, Y = np.meshgrid(x, y)
     R = np.sqrt(X**2 + Y**2)
     donut = np.where(R < r_int, np.nan, 1)
     donut = np.where(R > r_ext, np.nan, donut)
 
-    cube = cube*donut
+    cube = cube * donut
 
     # Separate the 4 quadrants
-    quad1 = cube[:, :np.shape(cube)[1]//2, :np.shape(cube)[2]//2]
-    quad2 = cube[:, np.shape(cube)[1]//2:, :np.shape(cube)[2]//2]
-    quad3 = cube[:, :np.shape(cube)[1]//2, np.shape(cube)[2]//2:]
-    quad4 = cube[:, np.shape(cube)[1]//2:, np.shape(cube)[2]//2:]
+    quad1 = cube[:, :np.shape(cube)[1] // 2, :np.shape(cube)[2] // 2]
+    quad2 = cube[:, np.shape(cube)[1] // 2:, :np.shape(cube)[2] // 2]
+    quad3 = cube[:, :np.shape(cube)[1] // 2, np.shape(cube)[2] // 2:]
+    quad4 = cube[:, np.shape(cube)[1] // 2:, np.shape(cube)[2] // 2:]
 
     med_cube = np.nanmedian(cube, axis=(1, 2))
 
@@ -98,9 +102,9 @@ def frame_selection(filename, r_int=30, r_ext=80, sigma=5):
     bad_frames = []
     for i in range(np.shape(cube)[0]):
         # Find which quadrant has the minimum total flux to use as a comparison
-        index_quad_min = np.where(np.array(
-                [sum1[i], sum2[i], sum3[i], sum4[i]])
-            == np.min([sum1[i], sum2[i], sum3[i], sum4[i]]))[0][0]
+        index_quad_min = np.where(
+                np.array([sum1[i], sum2[i], sum3[i], sum4[i]]) == np.min(
+                        [sum1[i], sum2[i], sum3[i], sum4[i]]))[0][0]
         if index_quad_min == 0:
             quad_min = quad1[i]
         elif index_quad_min == 1:
@@ -115,7 +119,7 @@ def frame_selection(filename, r_int=30, r_ext=80, sigma=5):
 
         #  A frame is also bad if the median flux is sigma above the median
         #  absolute deviation
-        if med_cube[i] > (np.median(med_cube) + sigma*mad(med_cube)):
+        if med_cube[i] > (np.median(med_cube) + sigma * mad(med_cube)):
             bad_frames.append(i)
             continue  # if it's bad, don't bother checking the quadrants
 
@@ -123,12 +127,12 @@ def frame_selection(filename, r_int=30, r_ext=80, sigma=5):
         for quad in [quad1, quad2, quad3, quad4]:
 
             highflux_amount = np.nansum(
-                    np.where(quad[i] > mean_quad_min + 3*std_quad_min,
+                    np.where(quad[i] > mean_quad_min + 3 * std_quad_min,
                              quad[i], np.nan))
 
             # A frame is bad if > 10% of the flux is located in pixels that are
             # 3 sigma above the mean
-            if highflux_amount > 0.1*sum_quad_mean:
+            if highflux_amount > 0.1 * sum_quad_mean:
                 bad_frames.append(i)
                 # if one is bad, we don't need to check the rest
                 break
@@ -162,16 +166,16 @@ def frame_selection(filename, r_int=30, r_ext=80, sigma=5):
 
 bad_frames_cube = []
 
-for allfiles in glob.iglob(pattern+'*'):
+for allfiles in glob.iglob(pattern + '*'):
     print(allfiles)
-    bad_frames_cube.append(frame_selection(
-            allfiles, r_int=r_int, r_ext=r_ext, sigma=sigma))
+    bad_frames_cube.append(
+            frame_selection(allfiles, r_int=r_int, r_ext=r_ext, sigma=sigma))
 
 f = open('frame_selection.txt', 'w')
 f.write("filename\tframe_to_delete\n")
 f.write("--------\t---------------\n")
 for i, allfiles in enumerate(glob.iglob(pattern + '*')):
-    f.write(allfiles+'\t' + str(bad_frames_cube[i]) + '\n')
+    f.write(allfiles + '\t' + str(bad_frames_cube[i]) + '\n')
 f.close()
 
 sys.exit(0)

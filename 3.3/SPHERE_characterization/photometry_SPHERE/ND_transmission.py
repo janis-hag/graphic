@@ -24,9 +24,9 @@ def ND_filter_transmission(Neutral_density,filter_given):
     f=open("/home/spectro/peretti/GRAPHIC/version_seb/SPHERE_characterization/photometry_SPHERE/SPHERE_ND_filter_table.dat",'r')
     lines=f.readlines()
     f.close()
-    
+
     wavelength=filter_wavelength(filter_given)
-    
+
     iter1=0
     data=np.zeros((np.size(lines)-8,5))
     for line in lines:

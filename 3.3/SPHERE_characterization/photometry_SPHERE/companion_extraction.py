@@ -48,7 +48,7 @@ def companion_extraction(path,path_results,pattern_image,pattern_psf,pix_scale):
 			print "image filename:",image_filename
 		else:
 			print "Error more than one file found with this pattern. Used the first one:",image_filename
-		
+
 	path_psf=path
 	im_final,hdr=pyfits.getdata(path+image_filename,header=True)
 	psf,hdr_psf=pyfits.getdata(path_psf+psf_filename,header=True)
@@ -101,7 +101,7 @@ def companion_extraction(path,path_results,pattern_image,pattern_psf,pix_scale):
 	else :
 		import sys
 		sys.exit("Error of filter name")
-    
+
 	target_name=hdr["OBJECT"]
 
 	if np.size(np.shape(psf))>2:
@@ -122,12 +122,12 @@ def companion_extraction(path,path_results,pattern_image,pattern_psf,pix_scale):
 	exrotation=0.09
 	eyrotation=0.09
 	find_adi_subtraction=False
-	
+
 	if os.path.isfile(path+"ds9_regions.reg"):
 		comp=True
 	else:
 		comp=False
-	
+
 	if comp:
 		f=open(path+"ds9_regions.reg",'r')
 		lines=f.readlines()
@@ -228,7 +228,7 @@ def companion_extraction(path,path_results,pattern_image,pattern_psf,pix_scale):
 		if "sdi" in pattern_image:
 			print "Warning: SDI image -> separation corrected of factor "+str(lambda1/lambda2)+" from rezising"
 			rho=rho*lambda1/lambda2
-			
+
 		print "Neutral_density_flux=",Neutral_density_flux
 		print "Neutral_density_image=",Neutral_density_image
 		print "adi_self_subtraction",adi_self_subtraction

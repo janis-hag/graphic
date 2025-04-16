@@ -18,12 +18,12 @@ files = np.sort(files)
 cube = []
 nmodes = []
 nminmodes = []
-for x,filename in enumerate(files):
-    image, header = fits.getdata(filename, header = True)
+for x, filename in enumerate(files):
+    image, header = fits.getdata(filename, header=True)
     cube.append(image)
-    if x==0:
-        outputhdr=header
-        
+    if x == 0:
+        outputhdr = header
+
     nmodes.append(float(header['HIERARCH GC PCA NMODES']))
     nminmodes.append(header['HIERARCH GC PCA MINREFFRAMES'])
 
@@ -40,7 +40,9 @@ nminmodes = nminmodes[sort_ix]
 
 for ix in range(len(nmodes)):
 
-    outputhdr['HIERARCH GC PCA FRAME' + str(ix)+' NMODES'] = nmodes[ix]
-    outputhdr['HIERARCH GC PCA FRAME' + str(ix)+' MINREFFRAMES'] = nminmodes[ix]
-    
-fits.writeto(basedirectory + 'pca_multimodes.fits',cube,outputhdr,overwrite=True)
+    outputhdr['HIERARCH GC PCA FRAME' + str(ix) + ' NMODES'] = nmodes[ix]
+    outputhdr['HIERARCH GC PCA FRAME' + str(ix) +
+              ' MINREFFRAMES'] = nminmodes[ix]
+
+fits.writeto(basedirectory + 'pca_multimodes.fits', cube, outputhdr,
+             overwrite=True)

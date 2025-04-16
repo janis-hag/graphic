@@ -42,7 +42,7 @@ def contrast_curve_sdi_func(band_filter,psf_l,psf_r,binning_factor,mag_l,mag_r):
     psf_r_lin=np.real(fftpack.ifft(fftpack.ifftshift(fft_r_lin)))*binning_factor
     max_r=np.nanmax(psf_r_lin)
     psf_r_lin=psf_r_lin/max_r
-    
+
     psf_l_lin=psf_l_lin*mag_l
     psf_r_lin=psf_r_lin*mag_r
 
@@ -56,7 +56,7 @@ def contrast_curve_sdi_func(band_filter,psf_l,psf_r,binning_factor,mag_l,mag_r):
     index=0
     for i in range(np.size(x)/(2*int(binning_factor))):
         if np.mod(i,50)==0 and i!=0:
-            print (i*1.)/(np.size(x)/(2*int(binning_factor)))*100,"%"    
+            print (i*1.)/(np.size(x)/(2*int(binning_factor)))*100,"%"
         psf_l_lin_temp=np.roll(psf_l_lin,i*binning_factor)
         psf_r_lin_temp=np.roll(psf_r_lin,int((i*binning_factor-i*binning_factor*(lambda2/lambda1-1))))
         psf_l_vec[index]=psf_l_lin_temp

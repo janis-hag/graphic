@@ -16,9 +16,9 @@ def contrast_curve_sdi(wdir,pattern_image,age,plate_scale):
     for i,allfiles in enumerate(glob.iglob(pattern_image+"*")):
         if i==0:
             image_filename=allfiles
-            print "image filename:",image_filename
+            print("image filename:",image_filename)
         else:
-            print "Error more than one file found with this pattern. Used the first one:",image_filename
+            print("Error more than one file found with this pattern. Used the first one:",image_filename)
     im,hdr=pyfits.getdata(image_filename,header=True)
     target=hdr['OBJECT']
     # directory of the images
@@ -44,7 +44,7 @@ def contrast_curve_sdi(wdir,pattern_image,age,plate_scale):
     	filter2="K2"
     else:
 		sys.exit("Error could not find the wright filter in image header \"HIERARCH ESO INS COMB IFLT\"")
-    
+
     binning_factor=100
 
     if os.path.isfile(path_results+"companion_extraction.txt"):
@@ -86,7 +86,7 @@ def contrast_curve_sdi(wdir,pattern_image,age,plate_scale):
     flux_right=np.power(10,-apparent_mag_right/2.5)
 
     for i in range(np.size(masses)):
-        print "\n masse",i+1,"/",np.size(masses),"\n"
+        print("\n masse",i+1,"/",np.size(masses),"\n")
         contrast_curve_vec[i]=contrast_curve_sdi_func(band_filter,psf_l,psf_r,binning_factor,flux_left[i],flux_right[i])
     contrast_curve_vec_mag=-2.5*np.log10(contrast_curve_vec)-Mag_star
 
@@ -217,8 +217,8 @@ def contrast_curve_sdi(wdir,pattern_image,age,plate_scale):
         plt.errorbar(rho,comp_in_Massj,ecomp_in_Massj,erho,'r')
     plt.savefig(wdir+path_results+target+"_"+filter1+filter2+"_adi_sdi_zoom_masses.png",dpi=300)
     #plt.show()
-    
-    
+
+
     f=open(wdir+path_results+"mass_mag.txt","w")
     f.write("age = "+age+" [Gyr]\n")
     f.write("Masse\tTeff\t"+filter1+"\t"+filter2+"\n")

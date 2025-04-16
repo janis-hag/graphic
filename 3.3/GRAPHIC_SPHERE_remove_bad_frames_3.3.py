@@ -41,17 +41,18 @@ def frame_selec(frame_sel_filename, pattern):
 
     #path_cube_info="cube-info/"
     #all_info_pattern="all_info_20_5_300_"
-    path_cube_info = info_dir+"/"
+    path_cube_info = info_dir + "/"
     all_info_pattern = info_pattern
 
     for line in lines:
         print(line.strip().split()[0])
 
-        if line.strip().split()[0] != 'filename'and line.strip().split()[0] != '--------':
-            filename=line.strip().split()[0]
-            frame_to_del=line.strip().split("\t")[1]
-            print ('frame_to_del:',frame_to_del)
-            frame_to_del=np.array(eval(frame_to_del))
+        if line.strip().split()[0] != 'filename' and line.strip().split(
+        )[0] != '--------':
+            filename = line.strip().split()[0]
+            frame_to_del = line.strip().split("\t")[1]
+            print('frame_to_del:', frame_to_del)
+            frame_to_del = np.array(eval(frame_to_del))
 
             if "sdi" in pattern:
                 if "left" in filename:
@@ -79,19 +80,19 @@ def frame_selec(frame_sel_filename, pattern):
             cube, hdr = pyfits.getdata(filename, header=True)
 
             # Read all_info into a pandas DataFrame
-            pd_table = pd.read_table(path_cube_info + all_info_pattern
-                                     + filename.replace(".fits", ".rdb"),
-                                     sep='\t', header=0, skiprows=[1],
-                                     index_col=False)
+            pd_table = pd.read_table(
+                    path_cube_info + all_info_pattern +
+                    filename.replace(".fits", ".rdb"), sep='\t', header=0,
+                    skiprows=[1], index_col=False)
 
-            f = open(path_cube_info + all_info_pattern
-                     + filename.replace(".fits", ".rdb"))
+            f = open(path_cube_info + all_info_pattern +
+                     filename.replace(".fits", ".rdb"))
             lines = f.readlines()
             f.close()
 
             index_keep = np.arange(np.shape(cube)[0])
-#            counter1=0
-#            counter2=0
+            #            counter1=0
+            #            counter2=0
             if np.size(frame_to_del) != 0:
                 index_del = index_keep[frame_to_del]
                 index_keep = np.delete(index_keep, frame_to_del)
@@ -109,7 +110,7 @@ def frame_selec(frame_sel_filename, pattern):
 #                else:
 #                    counter1=99999
 #                    counter1+=1
-            # print 'Keeping:',index_keep
+# print 'Keeping:',index_keep
 
             cube = cube[index_keep, :, :]
 
@@ -117,17 +118,19 @@ def frame_selec(frame_sel_filename, pattern):
 
             hdr['NAXIS3'] = np.shape(cube)[0]
 
-            pyfits.writeto("frame_sel_"+filename, cube, header=hdr,
+            pyfits.writeto("frame_sel_" + filename, cube, header=hdr,
                            overwrite=True)
-            filename3 = path_cube_info + all_info_pattern + "frame_sel_" + filename.replace(".fits", ".rdb")
+            filename3 = path_cube_info + all_info_pattern + "frame_sel_" + filename.replace(
+                    ".fits", ".rdb")
 
             graphic_nompi_lib.write_array2rdb(filename3, pd_table.values,
                                               pd_table.keys().values)
+
+
 #            f = open(filename3,'w')
 #            for i in range(np.size(table)):
 #                f.write(table[i])
 #            f.close()
-
 
 frame_sel_filename = "frame_selection.txt"
 # print "ERROR: No files for frame selection detected!"
@@ -136,7 +139,6 @@ t0 = time.time()
 print("Beginning of frame selection")
 frame_selec(frame_sel_filename, pattern)
 
-
-print("Total time: "+graphic_nompi_lib.humanize_time((time.time()-t0)))
+print("Total time: " + graphic_nompi_lib.humanize_time((time.time() - t0)))
 print("Frame selection finished")
 sys.exit(0)

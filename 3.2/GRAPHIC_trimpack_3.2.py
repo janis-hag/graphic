@@ -197,4 +197,3 @@ if not hdr==None:
 		log_file=log_file+"_"+string.replace(hdr['OBJECT'],' ','')+"_"+str(__version__)+".log"
 	graphic_nompi_lib_320.write_log((time.time()-t_init),log_file,  comments=None, mpi=False)
 sys.exit(0)
-

@@ -21,10 +21,8 @@ import graphic_nompi_lib_330 as graphic_nompi_lib
 import argparse
 import time
 
-
 __version__ = '3.3'
 __subversion__ = '0'
-
 
 target_dir = "."
 parser = argparse.ArgumentParser(
@@ -36,28 +34,27 @@ parser.add_argument('--info_pattern', action="store", dest="info_pattern",
                     default='all*', help='Info filename pattern')
 parser.add_argument('--info_dir', action="store", dest="info_dir",
                     default='cube-info', help='Info directory')
-parser.add_argument('-sphere', dest='sphere', action='store_const',
-                    const=True, default=False,
-                    help='Switch for VLT/SPHERE data')
-parser.add_argument('-scexao', dest='scexao', action='store_const',
-                    const=True, default=False,
-                    help='Switch for Subaru/SCExAO data')
-parser.add_argument('--output_dir', action="store", dest="output_dir",
-                    default="./",
-                    help='output directory for the cube and parallactic angle \
+parser.add_argument('-sphere', dest='sphere', action='store_const', const=True,
+                    default=False, help='Switch for VLT/SPHERE data')
+parser.add_argument('-scexao', dest='scexao', action='store_const', const=True,
+                    default=False, help='Switch for Subaru/SCExAO data')
+parser.add_argument(
+        '--output_dir', action="store", dest="output_dir", default="./",
+        help='output directory for the cube and parallactic angle \
                     file.')
-parser.add_argument('--output_file', action="store", dest='output_file',
-                    default="master_cube_PCA.fits",
-                    help='Filename of the output fits file containing the \
+parser.add_argument(
+        '--output_file', action="store", dest='output_file',
+        default="master_cube_PCA.fits",
+        help='Filename of the output fits file containing the \
                     stacked cube.')
 parser.add_argument('-skip_parang', action='store_const', dest='skip_parang',
                     const=True, default=False,
                     help='Skip the generation of the parallactic angle file.')
-parser.add_argument('-collapse_cube', action='store_const',
-                    dest='collapse_cube', const=True, default=False,
-                    help='Collapse the image cube into a single frame \
+parser.add_argument(
+        '-collapse_cube', action='store_const', dest='collapse_cube',
+        const=True, default=False,
+        help='Collapse the image cube into a single frame \
                     (used to make the PSF frame).')
-
 
 args = parser.parse_args()
 pattern = args.pattern
@@ -68,11 +65,10 @@ output_file = args.output_file
 skip_parang = args.skip_parang
 collapse_cube = args.collapse_cube
 
-
 # Initialising timer
 t0 = time.time()
 
-print(sys.argv[0]+' started on ' + time.strftime("%c"))
+print(sys.argv[0] + ' started on ' + time.strftime("%c"))
 print("Beginning of convert")
 
 #print('  ' + allfiles)
@@ -89,7 +85,7 @@ dir_exists = os.access(output_dir, os.F_OK)
 if not dir_exists:
     os.mkdir(output_dir)
 
-infolist = graphic_nompi_lib.create_dirlist(info_dir+os.sep+info_pattern,
+infolist = graphic_nompi_lib.create_dirlist(info_dir + os.sep + info_pattern,
                                             extension='.rdb')
 
 cube_list, dirlist, pd_cubelist = graphic_nompi_lib.create_megatable(
@@ -119,7 +115,6 @@ for ix, allfiles in enumerate(dirlist):
 
 ##########################################################################
 
-
 if collapse_cube:
     master_cube = np.nanmean(master_cube, axis=0)
 
@@ -140,11 +135,10 @@ if not skip_parang:
 #        for i, parallactic_angle in enumerate(parallactic_angle_vec):
 #            f2.write(parallactic_angle + "\n")
 
-sys.stdout.write("Total time: " + graphic_nompi_lib.humanize_time(
-        (time.time()-t0)))
+sys.stdout.write("Total time: " +
+                 graphic_nompi_lib.humanize_time((time.time() - t0)))
 sys.stdout.write("\n")
 sys.stdout.write("end of convert\n")
 sys.stdout.flush()
-
 
 sys.exit(0)

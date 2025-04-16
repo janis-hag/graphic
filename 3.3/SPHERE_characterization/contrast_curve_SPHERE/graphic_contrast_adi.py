@@ -22,7 +22,7 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
     for i,allfiles in enumerate(glob.iglob(pattern_psf+"*")):
         if i==0:
             flux_filename=allfiles
-            print "psf filename:",flux_filename
+            print("psf filename:", flux_filename)
         else:
             print "Error more than one file found with this pattern. Used the first one:",psf_filename
     for i,allfiles in enumerate(glob.iglob(pattern_image+"*")):
@@ -32,10 +32,10 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
         else:
             print "Error more than one file found with this pattern. Used the first one:",image_filename
     # reading image and psf (flux) files
-    
+
     image_file=wdir+image_filename
     flux_file=wdir+flux_filename
-    
+
     f=open("adi_self_sub.txt","r")
     lines=f.readlines()
     f.close()
@@ -44,18 +44,18 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
     for i in range(np.size(correction_seps)):
         correction_seps[i]=float(correction_seps[i])
         correction_factor[i]=float(correction_factor[i])
-    
+
     # Load the image and the flux image
     image,hdr=pf.getdata(image_file,header=True)
     flux_image,hdr_flux=pf.getdata(flux_file,header=True)
     target_name=hdr['OBJECT']
     DIT_image=hdr['HIERARCH ESO DET SEQ1 DIT']
     DIT_flux=hdr_flux['HIERARCH ESO DET SEQ1 DIT']
-    
-    
+
+
     band_filter_image=hdr['HIERARCH ESO INS COMB IFLT']
     band_filter_flux=hdr_flux['HIERARCH ESO INS COMB IFLT']
-    
+
     if "left" in image_filename:
         filter1=band_filter_image[3:5] #ex: 'DB_H23' -> H2
     elif "right" in image_filename:
@@ -64,19 +64,19 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
         filter1=band_filter_image[3:] #ex: 'DB_H23' -> H23
     else:
         print "Error: Couldn't find the filter for name. Please verify the target filename (left, right or sdi)"
-    
+
     name=target_name+"_"+filter1+"_"+"adi" #name for the files produced at the end
     print name
-    
+
     correction_factor=1./(1-np.array(correction_factor))
     r_max=np.shape(image)[0] # pixels
-    
+
     # Numbers that are needed (and shouldnt change)
     n_sigma=5 # Number of sigma for the limits
 
     # SWITCHES
     #copy_absil=False
-    
+
     import os.path
     if os.path.isfile(path_results+"companion_extraction.txt"):
         comp=True
@@ -161,12 +161,12 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
 
     # Loop through annuli
     for r in np.arange(n_r):
-    
+
         # What is this radius in pixels?
         r_in_pix=detec_r[r]-fwhm/2.
         r_out_pix=detec_r[r]+fwhm/2.
         #print 'Radius:',r_in_pix,r_out_pix
-    
+
         # What pixels does that correspond to?
         pix=(pix_dist_map>r_in_pix) & (pix_dist_map < r_out_pix)
         vals=image[pix]
@@ -179,15 +179,15 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
 
         # What is the minimum detectable counts?
         detec_counts=n_sigma*std
-    
+
         # Turn into contrast
         if contrast_in_mags:
             detec_contrast_mag=-2.5*np.log10(detec_counts/primary_flux)
         detec_contrast=detec_counts/primary_flux
-    
+
         detec_limits_mag[r]=detec_contrast_mag
         detec_limits[r]=detec_contrast
-    
+
 
     print 'Using an ADI self subtraction correction factor of:',np.round(correction_factor,3)
     print 'for separations of [arcsec]:',correction_seps
@@ -214,7 +214,7 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
     try:
         os.stat(path_results)
     except:
-        os.mkdir(path_results) 
+        os.mkdir(path_results)
 
 
     ###############################
@@ -225,7 +225,7 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
 
     matplotlib.rc('font', **font)
     plt.close('all')
-    
+
     ylims=[1e-8,1e-2] #plot y axis limits
     ylims=[np.nanmin(detec_limits)*0.1,np.nanmax(detec_limits)*10]
     ylims_mags=[np.nanmin(detec_limits_mag)-1,np.nanmax(detec_limits_mag)+1] #plot y axis in mag limits
@@ -241,7 +241,7 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
         if comp:
             ax.errorbar(rho,abs(dmag),erho,edmag,'.r')
         fancy_plot(detec_r_arcsec,detec_limits_mag,"Contrast curve",'Angular separation [arcsec]',r''+str(n_sigma)+'$\sigma$ contrast [mag]',leg=False, xlim=xlims, ylim=ylims_mags, xscale='std', yscale='std', width=1, line_color='b', style="standard",grid=True,filename_to_save=path_results+name+"_mag.png",text=False,fig=False)
-    
+
 
     #contrast in flux
     fancy_plot(detec_r_arcsec,detec_limits,"Contrast curve",'Angular separation [arcsec]',r''+str(n_sigma)+'$\sigma$ contrast',leg=False, xlim=xlims, ylim=ylims, xscale='std', yscale='log', width=1, line_color='b', style="standard",grid=True,filename_to_save=path_results+name+"_flux.png")
@@ -257,7 +257,7 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
     #plt.show()
 
     ###############################
-    #ecriture des fichiers 
+    #ecriture des fichiers
     ###############################
 
     pf.writeto(path_results+'image_mask_planet.fits',image,clobber=True)
@@ -278,4 +278,3 @@ def graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,r_
             f.write(hdr["HIERARCH ESO INS COMB IFLT "])
         f.write("\n")
     f.close()
-

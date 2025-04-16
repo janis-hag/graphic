@@ -3,11 +3,11 @@ function read_BHAC15,file, CUBE=CUBE, AGES=AGES
 ;FUNCTION READ_BHAC15
 ;Purpose : read the evolutionary table of Barraffe t et al. 2015 named BHAC15_iso.2mass and place the values in a datacube
 ;
-;INPUT : 
+;INPUT :
 ;file : the table filename
 ;
 ;OUTPUTS
-;return a table with the first column corresponds to the age in Gyr and the remaining ones correspond to those stored into the original ascii table. 
+;return a table with the first column corresponds to the age in Gyr and the remaining ones correspond to those stored into the original ascii table.
 ;
 ;KEYWORDS
 ;CUBE: if true, then the return results is a 3 dimention table with X=the parameters (mass, log g, Teff...), the Y= the different masses, and Z are the ages.
@@ -49,12 +49,12 @@ if keyword_set(CUBE) then begin
 		if nline ne 0 then tb[*,m,z]=table(1:dim(1),mt)
 		endfor
 	endfor
-	
+
 	table=tb
 	if keyword_set(AGES) ne 0 then begin
 		message,'Ages reported into the 3rd plane of the cube (Gyr): ',/info
 		print,t
-	endif	
+	endif
 endif
 
 

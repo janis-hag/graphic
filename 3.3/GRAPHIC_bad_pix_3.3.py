@@ -35,8 +35,8 @@ target_pattern = "cl_"
 
 parser = argparse.ArgumentParser(
         description='Puts bad pixels to median value, based on darks.')
-parser.add_argument('--debug', action="store",  dest="d", type=int, default=0)
-parser.add_argument('--pattern', action="store", dest="pattern",  default='*',
+parser.add_argument('--debug', action="store", dest="d", type=int, default=0)
+parser.add_argument('--pattern', action="store", dest="pattern", default='*',
                     help='Filename pattern')
 parser.add_argument('--dark_pattern', action="store", dest="dark_pattern",
                     required=True, help='Darks filename pattern')
@@ -50,30 +50,40 @@ parser.add_argument('--cut', action="store", dest="cut", type=float,
                     help='cut above which a pixel will be considered hot pix')
 parser.add_argument('--log_file', action="store", dest="log_file",
                     default='GRAPHIC', help='Log filename')
-parser.add_argument('-s', dest='stat', action='store_const',
-                    const=True, default=False,
-                    help='Print benchmarking statistics')
+parser.add_argument('-s', dest='stat', action='store_const', const=True,
+                    default=False, help='Print benchmarking statistics')
 parser.add_argument('-interactive', dest='interactive', action='store_const',
                     const=True, default=False,
                     help='Switch to set execution to interactive mode')
-parser.add_argument('-bottleneck', dest='use_bottleneck', action='store_const',
-                    const=True, default=False, help='Use bottleneck module'
-                    + ' instead of numpy for nanmedian.')
-parser.add_argument('--flat_filename', dest='flat_filename', action='store',
-                    default=None, help='Name of flat field to be used.'
-                    + ' If this argument is not set, the data will use'
-                    + 'flat fiel for the badpixel map')
-parser.add_argument('-sphere', dest='sphere', action='store_const',
-                    const=True, default=False,
-                    help='Switch to set sphere to sphere mode')
-parser.add_argument('--bad_pixel_file', action="store", dest="bad_pixel_file",
-                    default=None, help='Fits file containing an image with some bad pixels marked')
-parser.add_argument('-clean_cosmic_rays', dest='clean_cosmic_rays', action='store_const',
-                    const=True, default=False,help='Apply a simple check for cosmic rays after the normal bad pixel cleaning (Very slow!)')
-parser.add_argument('--cosmic_ray_radius', action="store", dest="cosmic_ray_radius",type=int,
-                    default=2, help='Radius of the box used to determine if a pixel is an outlier in the cosmic ray detection.')
-parser.add_argument('--cosmic_ray_nsigma', action="store", dest="cosmic_ray_nsigma",type=float,
-                    default=9, help='Number of standard deviations from the median before a pixel is called a cosmic ray.')
+parser.add_argument(
+        '-bottleneck', dest='use_bottleneck', action='store_const', const=True,
+        default=False,
+        help='Use bottleneck module' + ' instead of numpy for nanmedian.')
+parser.add_argument(
+        '--flat_filename', dest='flat_filename', action='store', default=None,
+        help='Name of flat field to be used.' +
+        ' If this argument is not set, the data will use' +
+        'flat fiel for the badpixel map')
+parser.add_argument('-sphere', dest='sphere', action='store_const', const=True,
+                    default=False, help='Switch to set sphere to sphere mode')
+parser.add_argument(
+        '--bad_pixel_file', action="store", dest="bad_pixel_file", default=None,
+        help='Fits file containing an image with some bad pixels marked')
+parser.add_argument(
+        '-clean_cosmic_rays', dest='clean_cosmic_rays', action='store_const',
+        const=True, default=False, help=
+        'Apply a simple check for cosmic rays after the normal bad pixel cleaning (Very slow!)'
+)
+parser.add_argument(
+        '--cosmic_ray_radius', action="store", dest="cosmic_ray_radius",
+        type=int, default=2, help=
+        'Radius of the box used to determine if a pixel is an outlier in the cosmic ray detection.'
+)
+parser.add_argument(
+        '--cosmic_ray_nsigma', action="store", dest="cosmic_ray_nsigma",
+        type=float, default=9, help=
+        'Number of standard deviations from the median before a pixel is called a cosmic ray.'
+)
 
 args = parser.parse_args()
 d = args.d
@@ -98,7 +108,6 @@ else:
     from numpy import nanmedian
     from numpy import median as median
 
-
 comments = []
 
 
@@ -112,22 +121,23 @@ def gen_badpix(sky, coef, comments, cut):
     global median
 
     med = nanmedian(sky)
-    sigma = 1.4826*nanmedian(np.abs(sky-med))
+    sigma = 1.4826 * nanmedian(np.abs(sky - med))
     # the 1.4826 converts the Median Absolute Deviation
     # to the standard deviation for a Normal distribution
 
-    print("Sigma: "+str(sigma)+", median: "+str(med))
+    print("Sigma: " + str(sigma) + ", median: " + str(med))
 
     # Creates a tuple with the x-y positions of the dead pixels
-    deadpix = np.where(sky < med-sigma*coef)
+    deadpix = np.where(sky < med - sigma * coef)
 
     # Creates a tuple with the x-y positions of the dead pixels
-    hotpix = np.where(sky > med+sigma*coef)
+    hotpix = np.where(sky > med + sigma * coef)
 
     # negativepix=np.where(sky < 0 )
 
     # Warning! x and y inverted with respect to ds9
-    dprint(d > 2, "sky.shape: " + str(sky.shape) + ", sky.size: " + str(sky.size))
+    dprint(d > 2,
+           "sky.shape: " + str(sky.shape) + ", sky.size: " + str(sky.size))
     # if np.shape(deadpix)[1]+np.shape(negativepix)[1]+np.shape(hotpix)[1]==0:
     if np.shape(deadpix)[1] + np.shape(hotpix)[1] == 0:
         # This used to abort and leave all procs running in infinite loops.
@@ -145,7 +155,10 @@ def gen_badpix(sky, coef, comments, cut):
         comments.append(c)
         print("WARNING: No bad pixels were found!")
     else:
-        c = "Found "+str(np.shape(deadpix)[1]) + " = " + str(100.*np.shape(deadpix)[1]/sky.size)+"% dead, " + "and "+str(np.shape(hotpix)[1]) + " = " + str(100.*np.shape(hotpix)[1]/sky.size) + "% hot pixels."
+        c = "Found " + str(np.shape(deadpix)[1]) + " = " + str(
+                100. * np.shape(deadpix)[1] / sky.size
+        ) + "% dead, " + "and " + str(np.shape(hotpix)[1]) + " = " + str(
+                100. * np.shape(hotpix)[1] / sky.size) + "% hot pixels."
         comments.append(c)
 
     badpix = tuple(np.append(np.array(deadpix), np.array(hotpix), axis=1))
@@ -159,110 +172,119 @@ def clean_bp(badpix, cub_in):
     cub_in[:, badpix[0], badpix[1]] = np.NaN
     for f in range(cub_in.shape[0]):
         if args.interactive:
-            sys.stdout.write('\r Frame '+str(f+1)+' of '+str(cub_in.shape[0]))
+            sys.stdout.write('\r Frame ' + str(f + 1) + ' of ' +
+                             str(cub_in.shape[0]))
             sys.stdout.flush()
 
         for j in range(len(badpix[0])):
             y = badpix[0][j]
             x = badpix[1][j]
 
-            if y == cube.shape[1]-1:  # At the image edge !!!
-                if x == cube.shape[2]-1:  # In a corner
-                    cub_in[f, y, x] = nanmedian([cub_in[f, y-1, x-1],
-                                                cub_in[f, y-1, x],
-                                                cub_in[f, y, x-1]])
+            if y == cube.shape[1] - 1:  # At the image edge !!!
+                if x == cube.shape[2] - 1:  # In a corner
+                    cub_in[f, y, x] = nanmedian([
+                            cub_in[f, y - 1, x - 1], cub_in[f, y - 1, x],
+                            cub_in[f, y, x - 1]
+                    ])
                 elif x == 0:
-                    cub_in[f, y, x] = nanmedian([cub_in[f, y-1, x],
-                                                cub_in[f, y-1, x+1],
-                                                cub_in[f, y, x+1]])
+                    cub_in[f, y, x] = nanmedian([
+                            cub_in[f, y - 1, x], cub_in[f, y - 1, x + 1],
+                            cub_in[f, y, x + 1]
+                    ])
                 else:  # Along the edge
-                    cub_in[f, y, x] = nanmedian([cub_in[f, y-1, x-1],
-                                                cub_in[f, y-1, x],
-                                                cub_in[f, y-1, x+1],
-                                                cub_in[f, y, x-1],
-                                                cub_in[f, y, x+1]])
+                    cub_in[f, y, x] = nanmedian([
+                            cub_in[f, y - 1, x - 1], cub_in[f, y - 1, x],
+                            cub_in[f, y - 1, x + 1], cub_in[f, y, x - 1],
+                            cub_in[f, y, x + 1]
+                    ])
             elif y == 0:  # At the image edge !!!
-                if x == cube.shape[2]-1:  # In a corner
-                    cub_in[f, y, x] = nanmedian([cub_in[f, y, x-1],
-                                                cub_in[f, y+1, x-1],
-                                                cub_in[f, y+1, x]])
+                if x == cube.shape[2] - 1:  # In a corner
+                    cub_in[f, y, x] = nanmedian([
+                            cub_in[f, y, x - 1], cub_in[f, y + 1, x - 1],
+                            cub_in[f, y + 1, x]
+                    ])
                 elif x == 0:  # In a corner
-                    cub_in[f, y, x] = nanmedian([cub_in[f, y, x+1],
-                                                cub_in[f, y+1, x],
-                                                cub_in[f, y+1, x+1]])
+                    cub_in[f, y, x] = nanmedian([
+                            cub_in[f, y, x + 1], cub_in[f, y + 1, x],
+                            cub_in[f, y + 1, x + 1]
+                    ])
                 else:  # Along the edge
-                    cub_in[f, y, x] = nanmedian([cub_in[f, y, x-1],
-                                                cub_in[f, y, x+1],
-                                                cub_in[f, y+1, x-1],
-                                                cub_in[f, y+1, x],
-                                                cub_in[f, y+1, x+1]])
+                    cub_in[f, y, x] = nanmedian([
+                            cub_in[f, y, x - 1], cub_in[f, y, x + 1],
+                            cub_in[f, y + 1, x - 1], cub_in[f, y + 1, x],
+                            cub_in[f, y + 1, x + 1]
+                    ])
             elif x == 0:  # Along the edge
-                cub_in[f, y, x] = nanmedian([cub_in[f, y-1, x],
-                                            cub_in[f, y-1, x+1],
-                                            cub_in[f, y, x+1],
-                                            cub_in[f, y+1, x],
-                                            cub_in[f, y+1, x+1]])
-            elif x == cub_in.shape[2]-1:  # Along the edge
-                cub_in[f, y, x] = nanmedian([cub_in[f, y-1, x-1],
-                                            cub_in[f, y-1, x],
-                                            cub_in[f, y, x-1],
-                                            cub_in[f, y+1, x-1],
-                                            cub_in[f, y+1, x]])
+                cub_in[f, y, x] = nanmedian([
+                        cub_in[f, y - 1, x], cub_in[f, y - 1, x + 1],
+                        cub_in[f, y, x + 1], cub_in[f, y + 1,
+                                                    x], cub_in[f, y + 1, x + 1]
+                ])
+            elif x == cub_in.shape[2] - 1:  # Along the edge
+                cub_in[f, y, x] = nanmedian([
+                        cub_in[f, y - 1, x - 1], cub_in[f, y - 1, x],
+                        cub_in[f, y, x - 1], cub_in[f, y + 1,
+                                                    x - 1], cub_in[f, y + 1, x]
+                ])
             else:  # Usual case, not on an edge
-                cub_in[f, y, x] = nanmedian([cub_in[f, y-1, x-1],
-                                            cub_in[f, y-1, x],
-                                            cub_in[f, y-1, x+1],
-                                            cub_in[f, y, x-1],
-                                            cub_in[f, y, x+1],
-                                            cub_in[f, y+1, x-1],
-                                            cub_in[f, y+1, x],
-                                            cub_in[f, y+1, x+1]])
+                cub_in[f, y, x] = nanmedian([
+                        cub_in[f, y - 1, x - 1], cub_in[f, y - 1, x],
+                        cub_in[f, y - 1, x + 1], cub_in[f, y, x - 1],
+                        cub_in[f, y, x + 1], cub_in[f, y + 1, x - 1],
+                        cub_in[f, y + 1, x], cub_in[f, y + 1, x + 1]
+                ])
     return cub_in
 
-def cosmic_ray_detect(image,box_radius=3,n_sigma=7):
+
+def cosmic_ray_detect(image, box_radius=3, n_sigma=7):
     """ Cosmic ray detection function.
     Works by comparing each pixel to the local median absolute deviation.
     If the pixel value is more than n_sigma * MAD from the local median, it is called bad
     """
 
     box_radius = np.int(box_radius)
-    box_size = np.int(2*box_radius + 1)  #make sure width is odd so the target pixel is centred
+    box_size = np.int(2 * box_radius +
+                      1)  #make sure width is odd so the target pixel is centred
 
     # Get the median value in a box around each pixel (to use to calculate the MAD)
-    median_vals = ndimage.median_filter(image,size=box_size)
+    median_vals = ndimage.median_filter(image, size=box_size)
 
-    # Rather than loop through pixels, loop through the shifts and calculate 
+    # Rather than loop through pixels, loop through the shifts and calculate
     #  the deviation for all pixels in the image at the same time
-    n_stdev_vals = box_size**2 -1 # We will ignore the centre pixel
-    stdev_array = np.zeros((image.shape[0],image.shape[1],n_stdev_vals))
+    n_stdev_vals = box_size**2 - 1  # We will ignore the centre pixel
+    stdev_array = np.zeros((image.shape[0], image.shape[1], n_stdev_vals))
     shift_index = 0
-    for yshift in np.arange(-box_radius,box_radius+1):
-        for xshift in np.arange(-box_radius,box_radius+1):
+    for yshift in np.arange(-box_radius, box_radius + 1):
+        for xshift in np.arange(-box_radius, box_radius + 1):
 
             # Don't include the pixel in the MAD calculation
-            if xshift ==0 and yshift == 0:
+            if xshift == 0 and yshift == 0:
                 continue
 
-            shifted_image = np.roll(image,(yshift,xshift),axis=(0,1))
-            stdev_array[:,:,shift_index] = (shifted_image - median_vals)
+            shifted_image = np.roll(image, (yshift, xshift), axis=(0, 1))
+            stdev_array[:, :, shift_index] = (shifted_image - median_vals)
 
             shift_index += 1
 
-    med_abs_dev = np.nanmedian(np.abs(stdev_array),axis=2)
-    n_sig_array = (image-median_vals) / (med_abs_dev*1.4826) # this number is to convert MAD to std. deviation
+    med_abs_dev = np.nanmedian(np.abs(stdev_array), axis=2)
+    n_sig_array = (image - median_vals) / (
+            med_abs_dev * 1.4826
+    )  # this number is to convert MAD to std. deviation
 
-    bad_array = np.abs(n_sig_array) > n_sigma    
+    bad_array = np.abs(n_sig_array) > n_sigma
 
     # In case we want to check the bad pixels that we detected:
     # pyfits.writeto('cosmic_ray_array.fits',np.abs(n_sig_array),overwrite=True)
 
     cosmic_rays = np.where(bad_array)
     n_bad = np.sum(bad_array)
-    print('  '+str(n_bad)+' cosmic rays detected using n_sigma='+str(n_sigma))
+    print('  ' + str(n_bad) + ' cosmic rays detected using n_sigma=' +
+          str(n_sigma))
 
     return cosmic_rays
 
-t_init=MPI.Wtime()
+
+t_init = MPI.Wtime()
 
 if sphere:
     # for SPHERE a large part of the image are badpix because outside of the
@@ -276,13 +298,13 @@ if sphere:
     X, Y = np.meshgrid(x, y)
     z = np.arange(-512, 512)
     centre_filtre_left = [471, 529]
-    centre_filtre_right = [1558-1024, 516]
+    centre_filtre_right = [1558 - 1024, 516]
     w = np.copy(z)
     Z, W = np.meshgrid(z, w)
-    R_left = np.sqrt((Z + (512-centre_filtre_left[0]))**2
-                     + (W + (512-centre_filtre_left[1]))**2)
-    R_right = np.sqrt((Z + (512-centre_filtre_right[0]))**2
-                      + (W + (512-centre_filtre_right[1]))**2)
+    R_left = np.sqrt((Z + (512 - centre_filtre_left[0]))**2 +
+                     (W + (512 - centre_filtre_left[1]))**2)
+    R_right = np.sqrt((Z + (512 - centre_filtre_right[0]))**2 +
+                      (W + (512 - centre_filtre_right[1]))**2)
     R = np.sqrt(Z**2 + W**2)
     #left part of the image
     mask_nan_l = np.where(X < 50, np.nan, 1.)
@@ -303,11 +325,11 @@ if rank == 0:
     t_init = MPI.Wtime()
 
     print("Searching cubes...")
-    dirlist = graphic_nompi_lib.create_dirlist(
-            pattern, target_pattern=target_pattern)
+    dirlist = graphic_nompi_lib.create_dirlist(pattern,
+                                               target_pattern=target_pattern)
     print("Searching reference cubes...")
-    darklist = graphic_nompi_lib.create_dirlist(
-            dark_dir + os.sep + dark_pattern)
+    darklist = graphic_nompi_lib.create_dirlist(dark_dir + os.sep +
+                                                dark_pattern)
 
     if dirlist is None or darklist is None:
         print('Missing files, leaving...')
@@ -323,25 +345,25 @@ if rank == 0:
         # data=dark_hdulist[0].data
         data = pyfits.getdata(file_name, header=False)
         if dark_cube is None:
-            dark_cube = data   #[ np.newaxis,...]
+            dark_cube = data  #[ np.newaxis,...]
             # print(dark_cube.shape)
-        elif len(data.shape)==3:  # CUBE
+        elif len(data.shape) == 3:  # CUBE
             # print(data.shape)
             # dark_cube=np.concatenate((dark_cube,data[np.newaxis,...]),axis=0)
             dark_cube = np.concatenate((dark_cube, data), axis=0)
             # print(dark_cube.shape)
-        elif len(data.shape) == 2: # FRAME
+        elif len(data.shape) == 2:  # FRAME
             if len(dark_cube.shape) == 3:
                 dark_cube = np.rollaxis(dark_cube, 0, 3)
             ## print(data.shape, dark_cube.shape)
             dark_cube = np.rollaxis(np.dstack((dark_cube, data)), 2)
 
     if len(np.where(np.isnan(dark_cube))[0]):
-        print("Found NaNs: "+str(np.where(np.isnan(dark_cube))))
+        print("Found NaNs: " + str(np.where(np.isnan(dark_cube))))
         dark_cube = np.where(np.isnan(dark_cube), 0, dark_cube)
 
     dprint(d > 2, "dark_cube.shape " + str(dark_cube.shape))
-    dark_cube = dark_cube*1.
+    dark_cube = dark_cube * 1.
     if len(dark_cube.shape) == 3:
         dark = median(dark_cube, axis=0)
     elif len(dark_cube.shape) == 2:
@@ -349,7 +371,7 @@ if rank == 0:
     del dark_cube
 
     if sphere:
-        dark = dark*mask_nan
+        dark = dark * mask_nan
 
     bad_pix, comments = gen_badpix(dark, coef, comments, cut)
 
@@ -361,10 +383,10 @@ if rank == 0:
 
     if flat_filename and sphere:
         flatfield = pyfits.getdata(flat_filename, header=False)
-        flatfield = flatfield*mask_nan
+        flatfield = flatfield * mask_nan
         badpix_flat, comments = gen_badpix(flatfield, coef, comments, cut)
-        badpix_map_flat = np.zeros((
-                np.shape(flatfield)[0], np.shape(flatfield)[1]))
+        badpix_map_flat = np.zeros(
+                (np.shape(flatfield)[0], np.shape(flatfield)[1]))
         badpix_map_flat[badpix_flat] = 1
         badpix_map = badpix_map + badpix_map_flat
         badpix_map = np.where(badpix_map > 1, 1, badpix_map)
@@ -376,11 +398,11 @@ if rank == 0:
     if bad_pixel_file:
         badpix_map_input = pyfits.getdata(bad_pixel_file)
         badpix_map += badpix_map_input
-        badpix_map = (badpix_map > 0)+0 # +0 turns it back to float
+        badpix_map = (badpix_map > 0) + 0  # +0 turns it back to float
         bad_pix = tuple(np.where(badpix_map))
 
     pyfits.writeto("badpixel_map.fits", badpix_map, header=hdr_badpix,
-                overwrite=True)
+                   overwrite=True)
     comm.bcast(bad_pix, root=0)
 
 if not rank == 0:
@@ -394,38 +416,43 @@ if not rank == 0:
     bad_pix = comm.bcast(None, root=0)
     dprint(d > 2, 'Received dirlist, start, and bad_pix')
 
-
 t0 = MPI.Wtime()
 
 for i in range(len(dirlist)):
-    print(str(rank) + ': ['+str(start+i) + '/'+str(len(dirlist)+start-1) + "] "
-          + dirlist[i] + " Remaining time: " + graphic_nompi_lib.humanize_time(
-                  (MPI.Wtime()-t0)*(len(dirlist)-i)/(i+1)))
+    print(
+            str(rank) + ': [' + str(start + i) + '/' +
+            str(len(dirlist) + start - 1) + "] " + dirlist[i] +
+            " Remaining time: " +
+            graphic_nompi_lib.humanize_time((MPI.Wtime() - t0) *
+                                            (len(dirlist) - i) / (i + 1)))
 
     cube, header = pyfits.getdata(dirlist[i], header=True)
 
     if sphere:
-        cube = cube*mask_nan
+        cube = cube * mask_nan
 
     cube = clean_bp(bad_pix, cube)
 
     # Use a median filter to detect cosmic rays
     if clean_cosmic_rays:
-        for ix,frame in enumerate(cube):
-            cosmic_rays = cosmic_ray_detect(frame,box_radius=cosmic_ray_radius,n_sigma=cosmic_ray_nsigma)
-            cube[ix] = clean_bp(cosmic_rays,np.array([frame]))
+        for ix, frame in enumerate(cube):
+            cosmic_rays = cosmic_ray_detect(frame, box_radius=cosmic_ray_radius,
+                                            n_sigma=cosmic_ray_nsigma)
+            cube[ix] = clean_bp(cosmic_rays, np.array([frame]))
 
-
-    header["HIERARCH GC BAD_PIX"] = (__version__+'.'+__subversion__, "")
-    graphic_nompi_lib.save_fits(target_pattern+dirlist[i],
-                                cube, header=header, backend='pyfits')
+    header["HIERARCH GC BAD_PIX"] = (__version__ + '.' + __subversion__, "")
+    graphic_nompi_lib.save_fits(target_pattern + dirlist[i], cube,
+                                header=header, backend='pyfits')
 
 if 'ESO OBS TARG NAME' in header.keys():
-    log_file = log_file+"_"+header['ESO OBS TARG NAME'].replace(' ', '') + "_"+__version__+".log"
+    log_file = log_file + "_" + header['ESO OBS TARG NAME'].replace(
+            ' ', '') + "_" + __version__ + ".log"
 else:
-    log_file = log_file+"_"+header['OBJECT'].replace(' ', '') + "_"+str__version__+".log"
+    log_file = log_file + "_" + header['OBJECT'].replace(
+            ' ', '') + "_" + str__version__ + ".log"
 
-print(str(rank)+": Total time: "
-      + graphic_nompi_lib.humanize_time((MPI.Wtime()-t0)))
-graphic_nompi_lib.write_log((MPI.Wtime()-t_init), log_file, comments)
+print(
+        str(rank) + ": Total time: " +
+        graphic_nompi_lib.humanize_time((MPI.Wtime() - t0)))
+graphic_nompi_lib.write_log((MPI.Wtime() - t_init), log_file, comments)
 sys.exit(0)

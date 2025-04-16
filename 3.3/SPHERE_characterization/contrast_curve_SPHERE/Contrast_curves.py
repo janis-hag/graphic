@@ -45,24 +45,24 @@ smooth_image=args.smooth_image
 
 
 if rank==0:
-	
+
 	import os
 	try:
 		os.stat(path_results)
 	except:
 		os.mkdir(path_results)
-	
+
 	smoothing_length=smoothing_length*fwhm # pixels
 	##########################
 	#routines
 	##########################
-	print "\nStart of ADI contrast curve computation\n"
+	print("\nStart of ADI contrast curve computation\n")
 	graphic_contrast_adi(wdir,path_results,pattern_image,pattern_psf,fwhm,n_r,rmin,pixel_scale,smoothing_length,contrast_in_mags,convol_with_circ_ap,smooth_image)
-	print "\nEnd of ADI contrast curve computation. Resulting files are in directory: Contrast_curve_resulting_files\n"
+	print("\nEnd of ADI contrast curve computation. Resulting files are in directory: Contrast_curve_resulting_files\n")
 	if "sdi" in pattern_image:
-		print "\nStart of SDI contrast curve computation\n"
+		print("\nStart of SDI contrast curve computation\n")
 		contrast_curve_sdi(wdir,pattern_image,age,pixel_scale)
-		print "\nEnd of SDI contrast curve computation. Resulting files are in directory: Contrast_curve_resulting_files\n"
+		print("\nEnd of SDI contrast curve computation. Resulting files are in directory: Contrast_curve_resulting_files\n")
 	os._exit(1)
 else:
 	sys.exit(1)

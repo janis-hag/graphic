@@ -2,3 +2,5 @@
 .nfs*
 */*.pyc
 .spyproject
+.idea/
+3.3/ifs_sdi_test.py
