@@ -1,3 +1,7 @@
+# GRAPHIC
+## The Geneva Reduction and Analysis Pipeline for High-contrast Imaging of planetary Companions
 
+This is the official repository of the GRAPHIC pipeline.
 
-Legacy version of GRAPHIC which has been used for most publications. Consider it as as WIP, and RIP... branch. Only the "main" branch is still maintained.
+If you use this pipeline or its functions, please cite accordingly.
+You can use the provided bibtex file: [2016MNRAS.455.2178H-bibtex.bib](2016MNRAS.455.2178H-bibtex.bib).
