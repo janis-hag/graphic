@@ -1,0 +1,24 @@
+exclude: '^(3\.3/SPHERE_characterization/|3\.2/|3\.1/|\.github/)'
+repos:
+-   repo: https://github.com/google/yapf.git
+    rev: v0.43.0
+    hooks:
+    -   id: yapf
+        additional_dependencies: [toml]
+-   repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v5.0.0
+    hooks:
+    -   id: trailing-whitespace
+        exclude: \.fits
+    -   id: end-of-file-fixer
+        exclude: \.fits
+    -   id: check-yaml
+    -   id: debug-statements
+    -   id: requirements-txt-fixer
+    -   id: check-added-large-files
+    -   id: check-ast
+        exclude: '^(?:3\.3/SPHERE_characterization/|3\.2/|3\.1/|\.github/).*'
+    -   id: check-merge-conflict
+
+
+#-   repo: https://github.com/pre-commit/mirrors-yapf.git
